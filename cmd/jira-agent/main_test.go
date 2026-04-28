@@ -47,6 +47,33 @@ func TestBuildAppWithDeps_SkipsAuthForSchema(t *testing.T) {
 	}
 }
 
+func TestBuildAppWithDeps_HelpIncludesRepositorySupport(t *testing.T) {
+	t.Parallel()
+
+	deps := appDeps{
+		newClient: client.NewClient,
+		loadConfig: func(string) (*auth.Config, error) {
+			return nil, errors.New("auth should not load for help")
+		},
+	}
+	var buf bytes.Buffer
+	app := buildAppWithDeps(&buf, deps)
+
+	if err := app.Run(context.Background(), []string{"jira-agent", "--help"}); err != nil {
+		t.Fatalf("help Run() error = %v, want nil", err)
+	}
+
+	got := buf.String()
+	for _, want := range []string{
+		"https://github.com/major/jira-agent",
+		"File new bugs and RFEs there.",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("help output = %q, want %q", got, want)
+		}
+	}
+}
+
 func TestBuildAppWithDeps_SkipsAuthForVersionFlag(t *testing.T) {
 	t.Parallel()
 

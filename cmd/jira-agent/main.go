@@ -70,8 +70,9 @@ func buildAppWithDeps(w io.Writer, deps appDeps) *cli.Command {
 	allowWrites := new(bool)
 
 	app := &cli.Command{
-		Name:  "jira-agent",
-		Usage: "CLI tool for LLMs to interact with Jira Cloud REST API",
+		Name:        "jira-agent",
+		Usage:       "CLI tool for LLMs to interact with Jira Cloud REST API",
+		Description: "Project repository: https://github.com/major/jira-agent\nFile new bugs and RFEs there.",
 		UsageText: `jira-agent issue get PROJ-123
 jira-agent issue search --jql "project = PROJ"
 jira-agent schema --compact
