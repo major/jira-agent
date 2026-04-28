@@ -32,6 +32,7 @@ jira-agent issue create --project PROJ --type Story --summary "New feature"
 jira-agent issue transition PROJ-123 --to "In Progress"`,
 		Commands: []*cli.Command{
 			issueGetCommand(apiClient, w, format),
+			issuePickerCommand(apiClient, w, format),
 			issueSearchCommand(apiClient, w, format),
 			issueCreateCommand(apiClient, w, format, allowWrites),
 			issueBulkCommand(apiClient, w, format, allowWrites),
@@ -180,6 +181,23 @@ jira-agent issue get PROJ-123 --expand changelog`,
 				Name:  "expand",
 				Usage: "Comma-separated expansions (names, schema, changelog, operations)",
 			},
+			&cli.StringFlag{
+				Name:  "properties",
+				Usage: "Comma-separated issue properties to include",
+			},
+			&cli.BoolFlag{
+				Name:  "fields-by-keys",
+				Usage: "Treat field identifiers as field keys instead of field IDs",
+			},
+			&cli.BoolFlag{
+				Name:  "update-history",
+				Usage: "Add the issue to the user's recently viewed history",
+			},
+			&cli.BoolFlag{
+				Name:  "fail-fast",
+				Usage: "Fail immediately if a requested field cannot be resolved",
+				Value: true,
+			},
 		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			key, err := requireArg(cmd, "issue key")
@@ -188,10 +206,55 @@ jira-agent issue get PROJ-123 --expand changelog`,
 			}
 
 			params := map[string]string{}
-			addOptionalParams(cmd, params, map[string]string{"fields": "fields", "expand": "expand"})
+			addOptionalParams(cmd, params, map[string]string{
+				"fields":     "fields",
+				"expand":     "expand",
+				"properties": "properties",
+			})
+			addBoolParam(cmd, params, "fields-by-keys", "fieldsByKeys")
+			addBoolParam(cmd, params, "update-history", "updateHistory")
+			if cmd.IsSet("fail-fast") {
+				params["failFast"] = fmt.Sprintf("%t", cmd.Bool("fail-fast"))
+			}
 
 			return writeAPIResult(w, *format, func(result any) error {
 				return apiClient.Get(ctx, "/issue/"+key, params, result)
+			})
+		},
+	}
+}
+
+func issuePickerCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
+	return &cli.Command{
+		Name:  "picker",
+		Usage: "Find issues for picker UI",
+		UsageText: `jira-agent issue picker --query PROJ-123
+jira-agent issue picker --query login --current-jql "project = PROJ" --show-subtasks=false`,
+		Flags: []cli.Flag{
+			&cli.StringFlag{Name: "query", Usage: "Issue key, summary text, or search text"},
+			&cli.StringFlag{Name: "current-jql", Usage: "JQL context for current search results"},
+			&cli.StringFlag{Name: "current-issue-key", Usage: "Current issue key for context"},
+			&cli.StringFlag{Name: "current-project-id", Usage: "Current project ID for context"},
+			&cli.BoolFlag{Name: "show-subtasks", Usage: "Include subtasks in picker results", Value: true},
+			&cli.BoolFlag{Name: "show-subtask-parent", Usage: "Show parent summaries for subtasks", Value: true},
+		},
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			params := map[string]string{}
+			addOptionalParams(cmd, params, map[string]string{
+				"query":              "query",
+				"current-jql":        "currentJQL",
+				"current-issue-key":  "currentIssueKey",
+				"current-project-id": "currentProjectId",
+			})
+			if cmd.IsSet("show-subtasks") {
+				params["showSubTasks"] = fmt.Sprintf("%t", cmd.Bool("show-subtasks"))
+			}
+			if cmd.IsSet("show-subtask-parent") {
+				params["showSubTaskParent"] = fmt.Sprintf("%t", cmd.Bool("show-subtask-parent"))
+			}
+
+			return writeAPIResult(w, *format, func(result any) error {
+				return apiClient.Get(ctx, "/issue/picker", params, result)
 			})
 		},
 	}
@@ -227,6 +290,23 @@ jira-agent issue search --jql "project = PROJ" --max-results 10 --order-by creat
 			&cli.StringFlag{
 				Name:  "expand",
 				Usage: "Comma-separated expansions (names, schema, changelog, operations)",
+			},
+			&cli.StringFlag{
+				Name:  "properties",
+				Usage: "Comma-separated issue properties to include",
+			},
+			&cli.BoolFlag{
+				Name:  "fields-by-keys",
+				Usage: "Treat field identifiers as field keys instead of field IDs",
+			},
+			&cli.BoolFlag{
+				Name:  "fail-fast",
+				Usage: "Fail immediately if a requested field cannot be resolved",
+				Value: true,
+			},
+			&cli.StringFlag{
+				Name:  "reconcile-issues",
+				Usage: "Comma-separated issue IDs to reconcile for approximate-count drift",
 			},
 			&cli.StringFlag{
 				Name:  "order-by",
@@ -265,6 +345,18 @@ jira-agent issue search --jql "project = PROJ" --max-results 10 --order-by creat
 			}
 			if e := cmd.String("expand"); e != "" {
 				body["expand"] = e
+			}
+			if properties := splitTrimmed(cmd.String("properties")); len(properties) > 0 {
+				body["properties"] = properties
+			}
+			if cmd.Bool("fields-by-keys") {
+				body["fieldsByKeys"] = true
+			}
+			if cmd.IsSet("fail-fast") {
+				body["failFast"] = cmd.Bool("fail-fast")
+			}
+			if reconcile := splitTrimmed(cmd.String("reconcile-issues")); len(reconcile) > 0 {
+				body["reconcileIssues"] = reconcile
 			}
 
 			return writePaginatedAPIResult(w, *format, func(result any) error {
@@ -328,6 +420,10 @@ jira-agent issue create --project PROJ --type Task --summary "Subtask" --parent 
 				Name:  "fields-json",
 				Usage: "JSON object of fields (alternative to individual flags)",
 			},
+			&cli.StringFlag{
+				Name:  "payload-json",
+				Usage: "Full JSON issue create payload, merged after field flags",
+			},
 		},
 		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
 			project, err := requireProject(cmd)
@@ -358,6 +454,9 @@ jira-agent issue create --project PROJ --type Task --summary "Subtask" --parent 
 			}
 
 			body := map[string]any{"fields": fields}
+			if err := mergePayloadJSON(body, cmd.String("payload-json")); err != nil {
+				return err
+			}
 
 			return writeAPIResult(w, *format, func(result any) error {
 				return apiClient.Post(ctx, "/issue", body, result)
@@ -385,6 +484,7 @@ jira-agent issue edit PROJ-123 --fields-json '{"customfield_10001":"value"}'`,
 			&cli.StringFlag{Name: "parent", Usage: "Parent issue key"},
 			&cli.StringMapFlag{Name: "field", Usage: "Custom field value (key=value, repeatable)"},
 			&cli.StringFlag{Name: "fields-json", Usage: "JSON object of fields"},
+			&cli.StringFlag{Name: "payload-json", Usage: "Full JSON issue edit payload, merged after field flags"},
 			&cli.BoolFlag{Name: "notify", Value: true, Usage: "Send notification to watchers"},
 		},
 		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
@@ -405,16 +505,18 @@ jira-agent issue edit PROJ-123 --fields-json '{"customfield_10001":"value"}'`,
 				return err
 			}
 
-			if len(fields) == 0 {
-				return apperr.NewValidationError("at least one field to update is required", nil)
+			body := map[string]any{"fields": fields}
+			if err := mergePayloadJSON(body, cmd.String("payload-json")); err != nil {
+				return err
+			}
+			if len(fields) == 0 && cmd.String("payload-json") == "" {
+				return apperr.NewValidationError("at least one field or --payload-json update is required", nil)
 			}
 
 			path := "/issue/" + key
 			if !cmd.Bool("notify") {
 				path += "?notifyUsers=false"
 			}
-
-			body := map[string]any{"fields": fields}
 			if err := apiClient.Put(ctx, path, body, nil); err != nil {
 				return err
 			}
@@ -437,8 +539,15 @@ jira-agent issue transition PROJ-123 --to Done --comment "Completed"`,
 		ArgsUsage: "<issue-key>",
 		Flags: []cli.Flag{
 			&cli.StringFlag{Name: "to", Usage: "Target status or transition name"},
+			&cli.StringFlag{Name: "transition-id", Usage: "Transition ID to apply directly"},
 			&cli.StringMapFlag{Name: "field", Usage: "Transition screen field (key=value, repeatable)"},
 			&cli.StringFlag{Name: "comment", Usage: "Comment to add during transition"},
+			&cli.StringFlag{Name: "payload-json", Usage: "Full JSON transition payload, merged after flags"},
+			&cli.StringFlag{Name: "expand", Usage: "Comma-separated transition expansions (transitions.fields)"},
+			&cli.StringFlag{Name: "list-transition-id", Usage: "Only return this transition ID when listing transitions"},
+			&cli.BoolFlag{Name: "include-unavailable-transitions", Usage: "Include transitions unavailable to the current user"},
+			&cli.BoolFlag{Name: "skip-remote-only-condition", Usage: "Skip remote-only workflow conditions"},
+			&cli.BoolFlag{Name: "sort-by-ops-bar-and-status", Usage: "Sort listed transitions by ops bar sequence and status"},
 			&cli.BoolFlag{Name: "list", Usage: "List available transitions instead of performing one"},
 		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
@@ -447,10 +556,20 @@ jira-agent issue transition PROJ-123 --to Done --comment "Completed"`,
 				return err
 			}
 
-			// Always fetch available transitions (needed for both --list and --to).
+			params := map[string]string{}
+			addOptionalParams(cmd, params, map[string]string{
+				"expand":             "expand",
+				"list-transition-id": "transitionId",
+			})
+			addBoolParam(cmd, params, "include-unavailable-transitions", "includeUnavailableTransitions")
+			addBoolParam(cmd, params, "skip-remote-only-condition", "skipRemoteOnlyCondition")
+			addBoolParam(cmd, params, "sort-by-ops-bar-and-status", "sortByOpsBarAndStatus")
+
 			var transitions any
-			if err := apiClient.Get(ctx, "/issue/"+key+"/transitions", nil, &transitions); err != nil {
-				return err
+			if cmd.Bool("list") || cmd.String("transition-id") == "" {
+				if err := apiClient.Get(ctx, "/issue/"+key+"/transitions", params, &transitions); err != nil {
+					return err
+				}
 			}
 
 			if cmd.Bool("list") {
@@ -461,17 +580,20 @@ jira-agent issue transition PROJ-123 --to Done --comment "Completed"`,
 				return err
 			}
 
-			targetStatus, err := requireFlag(cmd, "to")
-			if err != nil {
-				return apperr.NewValidationError(
-					"--to is required (or use --list to see available transitions)",
-					nil,
-				)
-			}
-
-			transitionID, err := findTransitionID(transitions, targetStatus)
-			if err != nil {
-				return err
+			targetStatus := cmd.String("to")
+			transitionID := cmd.String("transition-id")
+			if transitionID == "" {
+				if targetStatus == "" {
+					return apperr.NewValidationError(
+						"--to or --transition-id is required (or use --list to see available transitions)",
+						nil,
+					)
+				}
+				var findErr error
+				transitionID, findErr = findTransitionID(transitions, targetStatus)
+				if findErr != nil {
+					return findErr
+				}
 			}
 
 			reqBody := map[string]any{
@@ -494,6 +616,9 @@ jira-agent issue transition PROJ-123 --to Done --comment "Completed"`,
 						},
 					},
 				}
+			}
+			if err := mergePayloadJSON(reqBody, cmd.String("payload-json")); err != nil {
+				return err
 			}
 
 			if err := apiClient.Post(ctx, "/issue/"+key+"/transitions", reqBody, nil); err != nil {
@@ -1297,6 +1422,18 @@ func parseJSONPayload(jsonStr, flagName string) (map[string]any, error) {
 	}
 
 	return body, nil
+}
+
+func mergePayloadJSON(body map[string]any, jsonStr string) error {
+	if jsonStr == "" {
+		return nil
+	}
+	payload, err := parseJSONPayload(jsonStr, "payload-json")
+	if err != nil {
+		return err
+	}
+	maps.Copy(body, payload)
+	return nil
 }
 
 // findTransitionID searches the transitions response for a transition matching

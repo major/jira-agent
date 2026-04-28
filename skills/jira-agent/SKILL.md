@@ -112,7 +112,7 @@ Flat rows with header, no envelope. Nested values become inline JSON in cells.
 - **Custom fields**: `--field key=value` parses value as JSON if valid, else raw string. Quote carefully in shell.
 - **Project flag**: Command-level `--project` overrides root `-p`.
 - **Type resolution**: Issue type matching is case-insensitive.
-- **Transition resolution**: Matches status/transition name (case-insensitive), not numeric ID.
+- **Transition resolution**: `issue transition --to` matches status/transition name case-insensitively. Use `--transition-id` when you already know Jira's numeric transition ID.
 - **Schema output**: Raw JSON, not wrapped in success envelope.
 - **Pagination**: `issue search` uses `--next-page-token` (cursor). Most other list commands use `--start-at` (offset).
 - **Assignment**: `issue assign` accepts account ID, not email. `--unassign` clears, `--default` uses project default.

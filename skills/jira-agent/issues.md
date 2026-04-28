@@ -7,7 +7,19 @@ Issue CRUD, search, bulk operations, metadata, and count.
 ```bash
 jira-agent issue get KEY-123
 jira-agent issue get KEY-123 --fields summary,status,assignee --expand changelog
+jira-agent issue get KEY-123 --properties request --fields-by-keys --update-history
 ```
+
+Useful flags: `--properties`, `--fields-by-keys`, `--update-history`, and `--fail-fast=false` for partial field-resolution failures.
+
+## issue picker
+
+```bash
+jira-agent issue picker --query KEY-123
+jira-agent issue picker --query login --current-jql "project = PROJ" --show-subtasks=false
+```
+
+Find issues using Jira's picker endpoint. Useful when the user provides partial keys or summary text instead of exact issue keys.
 
 ## issue search
 
@@ -15,6 +27,7 @@ jira-agent issue get KEY-123 --fields summary,status,assignee --expand changelog
 jira-agent issue search --jql "project = PROJ AND status = 'In Progress'"
 jira-agent issue search --jql "assignee = currentUser()" --fields key,summary,status --max-results 20
 jira-agent issue search --jql "..." --next-page-token TOKEN
+jira-agent issue search --jql "project = PROJ" --properties request --fields-by-keys --fail-fast=false
 ```
 
 | Flag | Default | Notes |
@@ -26,6 +39,10 @@ jira-agent issue search --jql "..." --next-page-token TOKEN
 | `--expand` | | e.g., `changelog,renderedFields` |
 | `--order-by` | | Sort field |
 | `--order` | | `asc` or `desc` |
+| `--properties` | | Comma-separated issue properties |
+| `--fields-by-keys` | false | Treat field identifiers as field keys |
+| `--fail-fast` | true | Set false to tolerate unresolved fields |
+| `--reconcile-issues` | | Comma-separated issue IDs for Jira reconciliation |
 
 ## issue create
 
@@ -49,6 +66,7 @@ jira-agent issue create --project PROJ --type Story --summary "New feature" \
 | `--parent` | Parent key (subtasks) |
 | `--field` | Repeatable `key=value` (JSON-parsed if valid) |
 | `--fields-json` | JSON object merged into fields, overrides individual flags |
+| `--payload-json` | Full issue create payload merged after field flags. Use for top-level `properties`, `update`, `historyMetadata`, or `transition` |
 
 ## issue edit
 
@@ -56,9 +74,10 @@ jira-agent issue create --project PROJ --type Story --summary "New feature" \
 jira-agent issue edit KEY-123 --summary "Updated title"
 jira-agent issue edit KEY-123 --field customfield_10001='{"complex":"value"}'
 jira-agent issue edit KEY-123 --fields-json '{"summary":"New","priority":{"name":"High"}}'
+jira-agent issue edit KEY-123 --payload-json '{"update":{"labels":[{"add":"triaged"}]}}'
 ```
 
-Same optional field flags as create, except `--project` and `--type`, plus `--notify` (default true). At least one field change required.
+Same optional field flags as create, except `--project` and `--type`, plus `--notify` (default true). At least one field change or `--payload-json` update is required. Use `--payload-json` for top-level edit payloads like `update`, `properties`, `historyMetadata`, or `transition`.
 
 ## issue delete
 

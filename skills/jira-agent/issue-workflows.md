@@ -8,17 +8,28 @@ Transition, assign, comment, worklog, watcher, vote, attachment, link, remote-li
 jira-agent issue transition KEY-123 --to "In Progress"
 jira-agent issue transition KEY-123 --to Done --comment "Completed"
 jira-agent issue transition KEY-123 --to Done --field customfield_10001=value
+jira-agent issue transition KEY-123 --transition-id 31
+jira-agent issue transition KEY-123 --transition-id 31 \
+  --payload-json '{"properties":[{"key":"source","value":"cli"}]}'
 jira-agent issue transition KEY-123 --list
+jira-agent issue transition KEY-123 --list --expand transitions.fields
 ```
 
 | Flag | Notes |
 |------|-------|
-| `--to` | Target status name (case-insensitive). Required unless `--list` |
+| `--to` | Target status name (case-insensitive). Required unless `--transition-id` or `--list` |
+| `--transition-id` | Direct transition ID when already known |
 | `--comment` | Transition comment |
 | `--field` | Repeatable `key=value` for transition fields |
+| `--payload-json` | Full transition payload merged after flag-derived body |
 | `--list` | List available transitions (read-only, bypasses write guard) |
+| `--expand` | Transition list expansion, e.g., `transitions.fields` |
+| `--list-transition-id` | Filter transition list by ID |
+| `--include-unavailable-transitions` | Include transitions blocked by conditions |
+| `--skip-remote-only-condition` | Skip remote-only transition condition checks |
+| `--sort-by-ops-bar-and-status` | Sort transition list like Jira operations bar |
 
-Matches against both transition names and target status names.
+Matches against both transition names and target status names when `--to` is used.
 
 ## issue assign
 
@@ -46,6 +57,16 @@ jira-agent issue comment list KEY-123 --order-by -created --max-results 10
 | `--max-results` | 50 | Page size |
 | `--start-at` | 0 | Offset |
 
+### issue comment get / list-by-ids
+
+```bash
+jira-agent issue comment get KEY-123 10005
+jira-agent issue comment get KEY-123 10005 --expand renderedBody
+jira-agent issue comment list-by-ids --ids 10005,10006 --expand renderedBody
+```
+
+Use `get` for one known comment ID. Use `list-by-ids` to fetch comments across issues by ID; `--ids` is comma-separated and required.
+
 ### issue comment add
 
 ```bash
@@ -65,9 +86,10 @@ jira-agent issue comment add KEY-123 --body '{"type":"doc",...}' \
 
 ```bash
 jira-agent issue comment edit KEY-123 10005 --body "Updated comment"
+jira-agent issue comment edit KEY-123 10005 --body "Updated" --override-editable-flag
 ```
 
-Same flags as add, plus `--notify` (default true). Args: `<issue-key> <comment-id>`.
+Same flags as add, plus `--notify` (default true) and `--override-editable-flag`. Args: `<issue-key> <comment-id>`.
 
 ### issue comment delete
 
@@ -92,6 +114,17 @@ jira-agent issue worklog list KEY-123 --started-after 1700000000000 --max-result
 | `--started-before` | | Unix ms timestamp |
 | `--expand` | | `properties` |
 
+### issue worklog get / updated / deleted / list-by-ids
+
+```bash
+jira-agent issue worklog get KEY-123 10005 --expand properties
+jira-agent issue worklog updated --since 1700000000000 --expand properties
+jira-agent issue worklog deleted --since 1700000000000
+jira-agent issue worklog list-by-ids --ids 10005,10006 --expand properties
+```
+
+Use `updated` and `deleted` for Jira worklog sync cursors. `--since` is a Unix millisecond timestamp. Use `list-by-ids` when you already have worklog IDs from sync results.
+
 ### issue worklog add
 
 ```bash
@@ -114,6 +147,8 @@ jira-agent issue worklog add KEY-123 \
 | `--notify` | Default true |
 | `--adjust-estimate` | `auto`, `leave`, `manual`, or `new` |
 | `--new-estimate` | For estimate adjustment |
+| `--reduce-by` | For manual estimate reduction |
+| `--expand` | e.g., `properties` |
 | `--override-editable-flag` | Override Jira's editable check |
 
 ### issue worklog edit
@@ -184,8 +219,11 @@ jira-agent issue attachment delete 10500
 
 ```bash
 jira-agent issue link list KEY-123
+jira-agent issue link get 10500
 jira-agent issue link add --inward KEY-123 --outward KEY-456 --type "Blocks"
 jira-agent issue link add --inward KEY-123 --outward KEY-456 --type-id 10000
+jira-agent issue link add --inward KEY-123 --outward KEY-456 --type "Blocks" \
+  --comment "Related root cause"
 jira-agent issue link delete 10500
 jira-agent issue link types
 ```
@@ -196,8 +234,9 @@ jira-agent issue link types
 | `--outward` | Required for add. Outward issue key |
 | `--type` | Link type name (e.g., "Blocks", "Cloners") |
 | `--type-id` | Link type ID (alternative to `--type`) |
+| `--comment` | Optional link comment, plain text or ADF JSON |
 
-`delete` takes link ID. `types` lists all available link types.
+`get` and `delete` take link ID. `types` lists all available link types.
 
 ## Remote Links
 
@@ -205,18 +244,21 @@ jira-agent issue link types
 
 ```bash
 jira-agent issue remote-link list KEY-123
+jira-agent issue remote-link list KEY-123 --global-id "ci-build-42"
+jira-agent issue remote-link get KEY-123 10500
 jira-agent issue remote-link add KEY-123 --title "Design Doc" --url "https://..."
 jira-agent issue remote-link add KEY-123 --title "CI Build" --url "https://..." \
   --global-id "ci-build-42" --relationship "is built by"
 jira-agent issue remote-link edit KEY-123 10500 --title "Updated" --url "https://new-url"
 jira-agent issue remote-link delete KEY-123 10500
+jira-agent issue remote-link delete KEY-123 --global-id "ci-build-42"
 ```
 
 | Flag | Notes |
 |------|-------|
 | `--title` | Required for add/edit |
 | `--url` | Required for add/edit |
-| `--global-id` | Optional unique ID |
+| `--global-id` | Optional unique ID for add/edit, filter for list, or delete selector |
 | `--relationship` | Optional relationship description |
 
 ## Changelog
