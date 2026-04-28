@@ -396,6 +396,8 @@ func writeCommandPaths() map[string]struct{} {
 		"issue worklog add",
 		"issue worklog delete",
 		"issue worklog edit",
+		"project roles add-actor",
+		"project roles remove-actor",
 		"sprint create",
 		"sprint delete",
 		"sprint move-issues",

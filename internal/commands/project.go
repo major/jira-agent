@@ -8,23 +8,25 @@ import (
 	"github.com/urfave/cli/v3"
 
 	"github.com/major/jira-agent/internal/client"
+	apperr "github.com/major/jira-agent/internal/errors"
 	"github.com/major/jira-agent/internal/output"
 )
 
-// ProjectCommand returns the top-level "project" command with project read operations.
-func ProjectCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
+// ProjectCommand returns the top-level "project" command with project operations.
+func ProjectCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
 	return &cli.Command{
 		Name:  "project",
 		Usage: "Project operations (list, get, roles, categories)",
 		UsageText: `jira-agent project list
 jira-agent project get PROJ
 jira-agent project roles PROJ
+jira-agent project roles add-actor PROJ 10000 --user 5b10ac8d82e05b22cc7d4ef5
 jira-agent project categories`,
 		DefaultCommand: "list",
 		Commands: []*cli.Command{
 			projectListCommand(apiClient, w, format),
 			projectGetCommand(apiClient, w, format),
-			projectRolesCommand(apiClient, w, format),
+			projectRolesCommand(apiClient, w, format, allowWrites),
 			projectCategoriesCommand(apiClient, w, format),
 		},
 	}
@@ -76,17 +78,21 @@ jira-agent project list --expand lead,description`,
 }
 
 // projectRolesCommand returns project-scoped role operations.
-func projectRolesCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
+func projectRolesCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
 	return &cli.Command{
 		Name:  "roles",
-		Usage: "List project role URLs",
+		Usage: "Work with project roles",
 		UsageText: `jira-agent project roles PROJ
-jira-agent project roles get PROJ 10000 --exclude-inactive-users`,
+jira-agent project roles get PROJ 10000 --exclude-inactive-users
+jira-agent project roles add-actor PROJ 10000 --user 5b10ac8d82e05b22cc7d4ef5
+jira-agent project roles remove-actor PROJ 10000 --group-id 952d12c3-5b5b-4d04-bb32-44d383afc4b2`,
 		DefaultCommand: "list",
 		ArgsUsage:      "<project-key>",
 		Commands: []*cli.Command{
 			projectRolesListCommand(apiClient, w, format),
 			projectRoleCommand(apiClient, w, format),
+			projectRoleAddActorCommand(apiClient, w, format, allowWrites),
+			projectRoleRemoveActorCommand(apiClient, w, format, allowWrites),
 		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			projectKey, err := requireArg(cmd, "project key")
@@ -99,6 +105,117 @@ jira-agent project roles get PROJ 10000 --exclude-inactive-users`,
 			})
 		},
 	}
+}
+
+// POST /rest/api/3/project/{projectIdOrKey}/role/{id}
+func projectRoleAddActorCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
+	return &cli.Command{
+		Name:  "add-actor",
+		Usage: "Add actors to a project role",
+		UsageText: `jira-agent project roles add-actor PROJ 10000 --user 5b10ac8d82e05b22cc7d4ef5
+jira-agent project roles add-actor PROJ 10000 --group-id 952d12c3-5b5b-4d04-bb32-44d383afc4b2
+jira-agent project roles add-actor PROJ 10000 --group "jira-developers"`,
+		ArgsUsage: "<project-key> <role-id>",
+		Flags: []cli.Flag{
+			&cli.StringSliceFlag{Name: "user", Usage: "User account ID to add (repeatable)"},
+			&cli.StringSliceFlag{Name: "group", Usage: "Group name to add (repeatable)"},
+			&cli.StringSliceFlag{Name: "group-id", Usage: "Group ID to add (repeatable)"},
+		},
+		Metadata: writeCommandMetadata(),
+		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
+			args, err := requireArgs(cmd, "project key", "role ID")
+			if err != nil {
+				return err
+			}
+			roleID, err := parsePositiveIntID(args[1], "role ID")
+			if err != nil {
+				return err
+			}
+
+			body, err := buildRoleActorBody(cmd)
+			if err != nil {
+				return err
+			}
+			path := "/project/" + escapePathSegment(args[0]) + "/role/" + strconv.FormatInt(roleID, 10)
+
+			return writeAPIResult(w, *format, func(result any) error {
+				return apiClient.Post(ctx, path, body, result)
+			})
+		}),
+	}
+}
+
+// DELETE /rest/api/3/project/{projectIdOrKey}/role/{id}
+func projectRoleRemoveActorCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
+	return &cli.Command{
+		Name:  "remove-actor",
+		Usage: "Remove an actor from a project role",
+		UsageText: `jira-agent project roles remove-actor PROJ 10000 --user 5b10ac8d82e05b22cc7d4ef5
+jira-agent project roles remove-actor PROJ 10000 --group-id 952d12c3-5b5b-4d04-bb32-44d383afc4b2
+jira-agent project roles remove-actor PROJ 10000 --group "jira-developers"`,
+		ArgsUsage: "<project-key> <role-id>",
+		Flags: []cli.Flag{
+			&cli.StringFlag{Name: "user", Usage: "User account ID to remove"},
+			&cli.StringFlag{Name: "group", Usage: "Group name to remove"},
+			&cli.StringFlag{Name: "group-id", Usage: "Group ID to remove"},
+		},
+		Metadata: writeCommandMetadata(),
+		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
+			args, err := requireArgs(cmd, "project key", "role ID")
+			if err != nil {
+				return err
+			}
+			roleID, err := parsePositiveIntID(args[1], "role ID")
+			if err != nil {
+				return err
+			}
+
+			params, err := buildRoleActorRemoveParams(cmd)
+			if err != nil {
+				return err
+			}
+			path := "/project/" + escapePathSegment(args[0]) + "/role/" + strconv.FormatInt(roleID, 10)
+
+			if err := apiClient.Delete(ctx, appendQueryParams(path, params), nil); err != nil {
+				return err
+			}
+			return output.WriteResult(w, map[string]any{"removed": true}, *format)
+		}),
+	}
+}
+
+func buildRoleActorBody(cmd *cli.Command) (map[string][]string, error) {
+	body := map[string][]string{}
+	if users := cmd.StringSlice("user"); len(users) > 0 {
+		body["user"] = users
+	}
+	if groups := cmd.StringSlice("group"); len(groups) > 0 {
+		body["group"] = groups
+	}
+	if groupIDs := cmd.StringSlice("group-id"); len(groupIDs) > 0 {
+		body["groupId"] = groupIDs
+	}
+	if len(body) == 0 {
+		return nil, apperr.NewValidationError("at least one of --user, --group, or --group-id is required", nil)
+	}
+	return body, nil
+}
+
+func buildRoleActorRemoveParams(cmd *cli.Command) (map[string]string, error) {
+	params := map[string]string{}
+	if user := cmd.String("user"); user != "" {
+		params["user"] = user
+	}
+	if group := cmd.String("group"); group != "" {
+		params["group"] = group
+	}
+	if groupID := cmd.String("group-id"); groupID != "" {
+		params["groupId"] = groupID
+	}
+	if len(params) != 1 {
+		return nil, apperr.NewValidationError("exactly one of --user, --group, or --group-id is required", nil)
+	}
+	return params, nil
 }
 
 // projectRolesListCommand lists role URLs for a project.

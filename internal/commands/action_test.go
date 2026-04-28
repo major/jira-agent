@@ -67,7 +67,7 @@ func TestCommandGroups_RegisterSubcommands(t *testing.T) {
 		{name: "label", cmd: LabelCommand(apiClient, &buf, format), want: 1},
 		{name: "permission", cmd: PermissionCommand(apiClient, &buf, format), want: 3},
 		{name: "priority", cmd: PriorityCommand(apiClient, &buf, format), want: 1},
-		{name: "project", cmd: ProjectCommand(apiClient, &buf, format), want: 4},
+		{name: "project", cmd: ProjectCommand(apiClient, &buf, format, testAllowWrites()), want: 4},
 		{name: "role", cmd: RoleCommand(apiClient, &buf, format), want: 2},
 		{name: "resolution", cmd: ResolutionCommand(apiClient, &buf, format), want: 1},
 		{name: "status", cmd: StatusCommand(apiClient, &buf, format), want: 3},
@@ -437,6 +437,20 @@ func TestWriteGuard_BlocksWriteCommands(t *testing.T) {
 				return taskCancelCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"10641"},
+		},
+		{
+			name: "project_roles_add_actor",
+			cmd: func(buf *bytes.Buffer) *cli.Command {
+				return projectRoleAddActorCommand(apiClient, buf, format, testDenyWrites())
+			},
+			args: []string{"--user", "abc123", "PROJ", "10000"},
+		},
+		{
+			name: "project_roles_remove_actor",
+			cmd: func(buf *bytes.Buffer) *cli.Command {
+				return projectRoleRemoveActorCommand(apiClient, buf, format, testDenyWrites())
+			},
+			args: []string{"--user", "abc123", "PROJ", "10000"},
 		},
 		{
 			name: "context_create",
@@ -2366,7 +2380,7 @@ func TestProjectCommands(t *testing.T) {
 		defer server.Close()
 
 		var buf bytes.Buffer
-		runCommandAction(t, projectRolesCommand(testCommandClient(server.URL), &buf, testCommandFormat()), "TEST")
+		runCommandAction(t, projectRolesCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites()), "TEST")
 		if !bytes.Contains(buf.Bytes(), []byte(`"Developers"`)) {
 			t.Errorf("output = %q, want role map", buf.String())
 		}
@@ -2393,6 +2407,73 @@ func TestProjectCommands(t *testing.T) {
 		runCommandAction(t, projectRoleCommand(testCommandClient(server.URL), &buf, testCommandFormat()), "TEST", "10000", "--exclude-inactive-users")
 		if !bytes.Contains(buf.Bytes(), []byte(`"name":"Developers"`)) {
 			t.Errorf("output = %q, want role payload", buf.String())
+		}
+	})
+
+	t.Run("add role actor", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPost {
+				t.Errorf("method = %q, want %q", r.Method, http.MethodPost)
+			}
+			if r.URL.Path != "/project/TEST/role/10000" {
+				t.Errorf("path = %q, want %q", r.URL.Path, "/project/TEST/role/10000")
+			}
+
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				t.Fatalf("reading request body: %v", err)
+			}
+			for _, want := range [][]byte{
+				[]byte(`"user":["abc123"]`),
+				[]byte(`"group":["jira-users"]`),
+				[]byte(`"groupId":["gid-1"]`),
+			} {
+				if !bytes.Contains(body, want) {
+					t.Errorf("body = %s, want %s", body, want)
+				}
+			}
+			testhelpers.WriteJSONResponse(t, w, `{"id":10000,"name":"Developers","actors":[{"accountId":"abc123"}]}`)
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		runCommandAction(
+			t,
+			projectRoleAddActorCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites()),
+			"TEST", "10000", "--user", "abc123", "--group", "jira-users", "--group-id", "gid-1",
+		)
+		if !bytes.Contains(buf.Bytes(), []byte(`"actors"`)) {
+			t.Errorf("output = %q, want updated project role", buf.String())
+		}
+	})
+
+	t.Run("remove role actor", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodDelete {
+				t.Errorf("method = %q, want %q", r.Method, http.MethodDelete)
+			}
+			if r.URL.Path != "/project/TEST/role/10000" {
+				t.Errorf("path = %q, want %q", r.URL.Path, "/project/TEST/role/10000")
+			}
+			if got := r.URL.Query().Get("groupId"); got != "gid-1" {
+				t.Errorf("groupId = %q, want %q", got, "gid-1")
+			}
+			w.WriteHeader(http.StatusNoContent)
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		runCommandAction(
+			t,
+			projectRoleRemoveActorCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites()),
+			"TEST", "10000", "--group-id", "gid-1",
+		)
+		if !bytes.Contains(buf.Bytes(), []byte(`"removed":true`)) {
+			t.Errorf("output = %q, want removal confirmation", buf.String())
 		}
 	})
 
