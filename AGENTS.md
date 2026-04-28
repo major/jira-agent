@@ -1,0 +1,97 @@
+# jira-agent agent guide
+
+Generated: Tue Apr 28 2026. Source state: branch `main`, commit `ed66075`.
+
+## Purpose and audience
+
+`jira-agent` is a command line tool meant to be used by large tool-calling LLMs first: Claude Opus, GPT, and similar agents. Human users may enjoy it too, but the primary contract is helping an LLM get the right Jira answer on the first try. Favor structured output, schema discovery, bounded responses, deterministic behavior, and remediation-rich errors over human-oriented prose.
+
+Keep this file and any nested `AGENTS.md` files current anytime code changes. Every code change must include a quick check that the affected guidance still matches the implementation. Keep `skills/jira-agent` files updated in the same change whenever code changes affect commands, flags, args, output contracts, auth/write behavior, errors, pagination, examples, or recommended LLM workflows. Keep guidance compact and source-backed.
+
+## Project map
+
+| Path | Role |
+| --- | --- |
+| `cmd/jira-agent/main.go` | Real executable entrypoint, root CLI wiring, global flags, auth `Before` hook, command registration, schema command attachment. |
+| `internal/commands` | Domain command tree. See `internal/commands/AGENTS.md` before changing commands. |
+| `internal/client` | Jira REST API v3 and Agile API HTTP client, Basic auth headers, content-type checks, typed error mapping. |
+| `internal/output` | All user-visible envelopes and CSV/TSV serialization. Output is an LLM-facing contract. |
+| `internal/errors` | Typed errors and exit codes. Preserve wrapping and typed inspection. |
+| `internal/auth` | Config loading, env overrides, Basic auth, write-enable config. |
+| `internal/testhelpers` | Shared test HTTP helpers. |
+| `skills/jira-agent` | Embedded LLM skill docs. See `skills/jira-agent/AGENTS.md` before changing skill files. |
+| `jira-openapi.json` | Large local Jira API reference, not generated code. |
+
+Module: `github.com/major/jira-agent`. Go version: `1.26`. CLI framework: `github.com/urfave/cli/v3`.
+
+## LLM-first CLI contract
+
+- Agents should discover before guessing: `jira-agent schema --compact`, then narrow with `jira-agent schema --command "issue create" --required-only` or `jira-agent schema --category issue --required-only --depth 1`.
+- `schema --compact` emits token-efficient metadata keyed by canonical command path. `--command` and `--category` accept aliases but emit canonical paths.
+- Prefer canonical paths in docs and examples, not legacy aliases. Examples: `issue bulk <action>`, `issue remote-link`.
+- Output must be organized so an LLM can parse it without scraping help text or human prose.
+- Bounded output matters. Prefer commands and examples that request only needed fields, for example `--fields key,summary,status`.
+- Use CSV/TSV only for simple flat tables. Use JSON for nested Jira data, updates, errors, and partial success.
+- `--pretty` is for humans only. It must never appear in `skills/jira-agent` files or LLM-facing examples.
+
+## Root CLI invariants
+
+- `buildAppWithDeps` pre-allocates `apiClient := &client.Ref{}` and fills it in the root `Before` hook. Do not replace this with per-command clients; command closures share that reference intentionally.
+- `outputFormat` and `allowWrites` are shared pointers set during root initialization and consumed by commands.
+- `schema`, `help`, `--version`, and empty root invocation must not load auth. Jira project-version commands require auth.
+- Root flags include `--project/-p` from `JIRA_PROJECT`, `--output/-o` as `json|csv|tsv`, `--pretty`, `--verbose/-v`, and `--config`.
+- Verbose logging uses JSON slog to stderr. Data output stays on the configured writer.
+
+## Auth, config, and writes
+
+- Basic auth is `base64(email:api_key)`.
+- Config precedence is environment over file: `JIRA_INSTANCE`, `JIRA_EMAIL`, `JIRA_API_KEY`, `JIRA_ALLOW_WRITES`, then `~/.config/jira-agent/config.json` or `XDG_CONFIG_HOME`.
+- Config field `"i-too-like-to-live-dangerously": true` or env `JIRA_ALLOW_WRITES=true` enables writes.
+- Writes are disabled by default. Mutating commands must use `writeGuard` or `requireWriteAccess`.
+- Blocked writes return `ValidationError`, exit 5, with remediation: set `"i-too-like-to-live-dangerously": true` in config or `JIRA_ALLOW_WRITES=true`.
+
+## Output and error contracts
+
+- Successful JSON goes through `output.WriteSuccess` or `output.WriteResult`; partial success goes through `output.WritePartial`.
+- Errors always go through `output.WriteError` and are JSON regardless of requested output format.
+- The JSON success envelope has `data`, optional `errors`, and `metadata`. Do not document or add a stale `status` field unless the code changes.
+- `metadata` carries `timestamp`, `total`, `returned`, `start_at`, and `max_results` when available.
+- JSON encoders must call `SetEscapeHTML(false)` so Jira URLs and text stay LLM-readable.
+- `schema` is the exception: it emits raw JSON, not the success envelope.
+- CSV/TSV output is flat rows with deterministic sorted headers; nested values serialize as inline JSON strings.
+- Exit codes: not found 2, auth 3, API 4, validation 5, unknown 1.
+
+## Client and Jira API rules
+
+- HTTP defaults: 30 second timeout, 10 MB response cap, default user-agent `jira-agent/dev` unless overridden.
+- Set `Content-Type` only when a request body exists.
+- Validate response `Content-Type` before JSON decode.
+- Map 401/403 to auth errors, 404 to not found, and 400+ to API errors with useful response details.
+- Use Jira search POST `/rest/api/3/search/jql`; GET can hit URL limits.
+- Jira transitions need transition IDs. If a workflow helper accepts status names, resolve them explicitly and keep matching case-insensitive.
+
+## Error handling style
+
+- Use typed errors from `internal/errors`.
+- Wrap with `%w` so callers can inspect causes.
+- Inspect typed errors with `errors.As` or Go 1.26 `errors.AsType`, not raw type assertions.
+- Do not swallow API response details; LLMs need the body/status context to recover.
+
+## Testing workflow
+
+- TDD is mandatory for behavior changes.
+- Prefer Makefile targets: `make lint`, `make test`, `make build`, `make vuln`, `make release-check`, `make release-snapshot`.
+- Focused tests: `go test -run TestName ./path/to/package`.
+- Full CI-style tests: `go test -v -race -shuffle=on -coverprofile=coverage.out ./...`.
+- Use standard Go assertions only. Do not add testify or mocking frameworks.
+- Setup failures use `t.Fatalf`; assertions use `t.Errorf` with got/want wording.
+- Put `t.Parallel()` first in tests and subtests unless shared state makes parallelism unsafe.
+- Use table-driven `t.Run`; helpers are unexported and call `t.Helper()`.
+- Prefer `httptest`, in-memory buffers, `appDeps`, and `client.WithHTTPClient`. No networked Jira integration tests without an explicit prerequisite or build tag.
+
+## Lint and release
+
+- `.golangci.yml` enables `bodyclose`, `errorlint`, `gocognit`, `gocritic`, `gosec`, `misspell`, `modernize`, `nolintlint`, `revive`, `unconvert`, and `unparam`.
+- Every `nolint` needs a linter name and explanation.
+- CI checks `go mod tidy && git diff --exit-code -- go.mod go.sum`, full race/shuffle tests, `go build ./cmd/jira-agent/`, govulncheck, and `goreleaser check`.
+- Releases use `make release VERSION=vX.Y.Z` from clean `main`, run checks, and create a signed tag from conventional commit history. `make release-snapshot` skips signing.

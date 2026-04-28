@@ -1,0 +1,141 @@
+# CodeRabbit Configuration for jira-agent
+# Docs: https://docs.coderabbit.ai/configuration/
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+
+language: en-US
+tone_instructions: >
+  You are a brilliant but world-weary senior developer who has seen too much.
+  Deliver feedback with dry wit and gentle sarcasm, but always be helpful.
+  Use programming puns when the opportunity arises.
+
+reviews:
+  profile: chill
+  collapse_walkthrough: false
+  poem: false
+  request_changes_workflow: true
+  high_level_summary: false
+  high_level_summary_placeholder: "@coderabbitai summary"
+  abort_on_close: true
+  review_status: true
+  suggested_labels: false
+  suggested_reviewers: false
+  in_progress_fortune: false
+
+  pre_merge_checks:
+    title:
+      mode: "off"
+    docstrings:
+      mode: "off"
+    description:
+      mode: warning
+
+  auto_review:
+    enabled: true
+    drafts: false
+    auto_pause_after_reviewed_commits: 0
+    base_branches:
+      - main
+    ignore_title_keywords:
+      - "WIP"
+      - "[WIP]"
+      - "DO NOT MERGE"
+
+  path_filters:
+    - "!**/vendor/**"
+    - "!**/dist/**"
+    - "!**/coverage.out"
+
+  path_instructions:
+    - path: "internal/**/*.go"
+      instructions: |
+        Focus on correctness and project conventions:
+        - Error wrapping must use fmt.Errorf("context: %w", err) with %w verb
+        - Use errors.As() for typed error matching, constructor functions to create errors
+        - No init() functions; all setup belongs in main() and the Before hook
+        - Command constructors must accept (apiClient *client.Ref, w io.Writer, format *output.Format)
+        - All output must go through output.WriteSuccess/WriteError/WritePartial JSON envelopes
+        - Always SetEscapeHTML(false) on JSON encoders
+        - Don't nitpick style (golangci-lint handles formatting and lint)
+
+    - path: "internal/auth/**/*.go"
+      instructions: |
+        Auth and config review:
+        - Basic auth with base64(email:api_key) in the Authorization header
+        - Config from JSON file (~/.config/jira-agent/config.json) with XDG_CONFIG_HOME support
+        - Env vars (JIRA_INSTANCE, JIRA_EMAIL, JIRA_API_KEY) override config file values
+        - Verify no credentials are logged or exposed in error messages
+        - Config loading must degrade gracefully on missing file or permission errors
+
+    - path: "internal/client/**/*.go"
+      instructions: |
+        HTTP client review:
+        - client.Ref embeds *Client; pre-allocated and shared by all commands
+        - The Before hook populates ref.Client after auth completes
+        - Functional options pattern: WithBaseURL, WithHTTPClient, WithLogger, WithUserAgent
+        - HTTP errors must be wrapped in typed errors from internal/errors
+        - 30s timeout, 10MB response cap
+        - Content-Type header only set when request has a body
+        - Validate response Content-Type before JSON decode (Jira proxies may return HTML)
+
+    - path: "internal/commands/**/*.go"
+      instructions: |
+        Command implementation review:
+        - Command constructors accept (apiClient *client.Ref, w io.Writer, format *output.Format)
+        - JQL search must use POST /rest/api/3/search/jql (GET has 2000-char limit)
+        - Transitions require transition ID, not status name (findTransitionID does case-insensitive match)
+        - ADF conversion: toADF converts plain text to Atlassian Document Format, valid ADF JSON passes through
+        - Custom fields: applyFieldOverrides parses values as JSON if valid, otherwise raw string
+        - Pagination via extractPaginationMeta for total, startAt, maxResults
+
+    - path: "internal/errors/**/*.go"
+      instructions: |
+        Error hierarchy review:
+        - All errors must embed JiraError base type
+        - Use constructor functions, not raw struct literals
+        - Each error type has a specific exit code (AuthError=3, NotFoundError=2, APIError=4, ValidationError=5)
+        - All errors support ErrorOption with WithDetails for remediation hints
+        - Use errors.As() for type checking, never raw type assertions
+
+    - path: "internal/output/**/*.go"
+      instructions: |
+        Output formatting review:
+        - JSON envelope: {"status":"success|error|partial","data":...}
+        - Error responses always JSON regardless of --format flag
+        - CSV/TSV delimited output for tabular data
+        - SetEscapeHTML(false) on all JSON encoders
+        - Schema command outputs raw JSON (not enveloped) for direct LLM consumption
+
+    - path: "**/*_test.go"
+      instructions: |
+        Focus on test quality:
+        - Standard Go assertions only (no assertion libraries): t.Fatalf for setup, t.Errorf for assertions
+        - Error messages: "field = %v, want %v" or "field = %q, want %q"
+        - t.Parallel() as first line in every test and subtest
+        - Table-driven subtests with t.Run()
+        - Test helpers: unexported, marked with t.Helper()
+        - Inline test data, no testdata/ directory
+        - No mocks: tests use in-memory buffers and DI overrides via appDeps
+        - Don't nitpick coverage percentages
+
+    - path: ".github/workflows/**"
+      instructions: "Validate workflow syntax and security (no secrets in logs, pin action SHAs)"
+
+    - path: "Makefile"
+      instructions: |
+        Makefile validation:
+        - .PHONY declarations for all non-file targets
+        - Avoid flags that are already defaults
+
+    - path: ".goreleaser.yml"
+      instructions: "Verify goreleaser v2 config, CGO disabled, correct platform matrix"
+
+chat:
+  auto_reply: true
+
+knowledge_base:
+  learnings:
+    scope: global
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - "**/AGENTS.md"
