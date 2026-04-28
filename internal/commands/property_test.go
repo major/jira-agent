@@ -75,6 +75,53 @@ func TestPropertyCommands(t *testing.T) {
 			wantOutput: `"deleted":true`,
 		},
 		{
+			name: "project list uses REST properties endpoint",
+			cmd: func(apiClient *client.Ref, buf *bytes.Buffer) *cli.Command {
+				return propertyListCommand(projectPropertyTarget(apiClient), buf, testCommandFormat())
+			},
+			args:       []string{"PROJ"},
+			method:     http.MethodGet,
+			path:       "/rest/api/3/project/PROJ/properties",
+			response:   `{"keys":[{"key":"com.example.flag"}]}`,
+			wantOutput: `"com.example.flag"`,
+		},
+		{
+			name: "project get uses REST property endpoint",
+			cmd: func(apiClient *client.Ref, buf *bytes.Buffer) *cli.Command {
+				return propertyGetCommand(projectPropertyTarget(apiClient), buf, testCommandFormat())
+			},
+			args:       []string{"PROJ", "com.example.flag"},
+			method:     http.MethodGet,
+			path:       "/rest/api/3/project/PROJ/properties/com.example.flag",
+			response:   `{"key":"com.example.flag","value":{"enabled":true}}`,
+			wantOutput: `"enabled":true`,
+		},
+		{
+			name: "project set sends raw JSON value",
+			cmd: func(apiClient *client.Ref, buf *bytes.Buffer) *cli.Command {
+				return propertySetCommand(projectPropertyTarget(apiClient), buf, testCommandFormat(), testAllowWrites())
+			},
+			args:   []string{"--value-json", `{"enabled":true}`, "PROJ", "com.example.flag"},
+			method: http.MethodPut,
+			path:   "/rest/api/3/project/PROJ/properties/com.example.flag",
+			wantBody: map[string]any{
+				"enabled": true,
+			},
+			response:   `{"key":"com.example.flag","value":{"enabled":true}}`,
+			wantOutput: `"enabled":true`,
+		},
+		{
+			name: "project delete emits confirmation",
+			cmd: func(apiClient *client.Ref, buf *bytes.Buffer) *cli.Command {
+				return propertyDeleteCommand(projectPropertyTarget(apiClient), buf, testCommandFormat(), testAllowWrites())
+			},
+			args:       []string{"PROJ", "com.example.flag"},
+			method:     http.MethodDelete,
+			path:       "/rest/api/3/project/PROJ/properties/com.example.flag",
+			response:   `{}`,
+			wantOutput: `"deleted":true`,
+		},
+		{
 			name: "sprint list uses Agile properties endpoint",
 			cmd: func(apiClient *client.Ref, buf *bytes.Buffer) *cli.Command {
 				return propertyListCommand(sprintPropertyTarget(apiClient), buf, testCommandFormat())

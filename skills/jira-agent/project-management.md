@@ -43,6 +43,17 @@ jira-agent project categories get 10000
 
 `add-actor` accepts repeatable `--user`, `--group`, and `--group-id` flags. `remove-actor` removes one actor at a time and requires exactly one of those flags. Actor mutations are write-protected.
 
+### project property
+
+```bash
+jira-agent project property list PROJ
+jira-agent project property get PROJ com.example.flag
+jira-agent project property set PROJ com.example.flag --value-json '{"enabled":true}'
+jira-agent project property delete PROJ com.example.flag
+```
+
+`property set` stores the raw JSON value you pass with `--value-json`; it is not wrapped in another object. `property set` and `property delete` are write-protected.
+
 ## Components
 
 ### component list

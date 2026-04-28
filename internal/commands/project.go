@@ -16,17 +16,19 @@ import (
 func ProjectCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
 	return &cli.Command{
 		Name:  "project",
-		Usage: "Project operations (list, get, roles, categories)",
+		Usage: "Project operations (list, get, roles, property, categories)",
 		UsageText: `jira-agent project list
 jira-agent project get PROJ
 jira-agent project roles PROJ
 jira-agent project roles add-actor PROJ 10000 --user 5b10ac8d82e05b22cc7d4ef5
+jira-agent project property get PROJ com.example.flag
 jira-agent project categories`,
 		DefaultCommand: "list",
 		Commands: []*cli.Command{
 			projectListCommand(apiClient, w, format),
 			projectGetCommand(apiClient, w, format),
 			projectRolesCommand(apiClient, w, format, allowWrites),
+			projectPropertyCommand(apiClient, w, format, allowWrites),
 			projectCategoriesCommand(apiClient, w, format),
 		},
 	}

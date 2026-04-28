@@ -23,7 +23,7 @@ This is the entry point. Command details are split by theme:
 | [issues.md](issues.md) | Issue CRUD, search, bulk ops, meta, count |
 | [issue-workflows.md](issue-workflows.md) | Transition, assign, comment, worklog, watcher, vote, attachment, link, remote-link, changelog, rank, notify |
 | [agile.md](agile.md) | Board, sprint, epic, backlog |
-| [project-management.md](project-management.md) | Project, component, version |
+| [project-management.md](project-management.md) | Project, project property, component, version |
 | [admin-reference.md](admin-reference.md) | Field, user, group, filter, permission, dashboard, workflow, status, priority, resolution, issuetype, label, JQL, audit records, tasks, server-info |
 
 ## Auth

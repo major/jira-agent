@@ -67,7 +67,7 @@ func TestCommandGroups_RegisterSubcommands(t *testing.T) {
 		{name: "label", cmd: LabelCommand(apiClient, &buf, format), want: 1},
 		{name: "permission", cmd: PermissionCommand(apiClient, &buf, format), want: 3},
 		{name: "priority", cmd: PriorityCommand(apiClient, &buf, format), want: 1},
-		{name: "project", cmd: ProjectCommand(apiClient, &buf, format, testAllowWrites()), want: 4},
+		{name: "project", cmd: ProjectCommand(apiClient, &buf, format, testAllowWrites()), want: 5},
 		{name: "role", cmd: RoleCommand(apiClient, &buf, format), want: 2},
 		{name: "resolution", cmd: ResolutionCommand(apiClient, &buf, format), want: 1},
 		{name: "status", cmd: StatusCommand(apiClient, &buf, format), want: 3},

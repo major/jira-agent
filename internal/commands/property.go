@@ -55,6 +55,34 @@ func issuePropertyTarget(apiClient *client.Ref) propertyTarget {
 	}
 }
 
+func projectPropertyCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
+	return propertyCommand(projectPropertyTarget(apiClient), w, format, allowWrites)
+}
+
+func projectPropertyTarget(apiClient *client.Ref) propertyTarget {
+	return propertyTarget{
+		resourceName: "project",
+		idLabel:      "project key",
+		basePath: func(projectKey string) (string, string, error) {
+			if projectKey == "" {
+				return "", "", apperr.NewValidationError("project key is required", nil)
+			}
+			return "/project/" + escapePathSegment(projectKey) + "/properties", projectKey, nil
+		},
+		api: propertyAPI{
+			get: func(ctx context.Context, path string, params map[string]string, result any) error {
+				return apiClient.Get(ctx, path, params, result)
+			},
+			put: func(ctx context.Context, path string, body, result any) error {
+				return apiClient.Put(ctx, path, body, result)
+			},
+			delete: func(ctx context.Context, path string, result any) error {
+				return apiClient.Delete(ctx, path, result)
+			},
+		},
+	}
+}
+
 func sprintPropertyCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
 	return propertyCommand(sprintPropertyTarget(apiClient), w, format, allowWrites)
 }
@@ -189,6 +217,7 @@ func propertySetCommand(target propertyTarget, w io.Writer, format *output.Forma
 				Required: true,
 			},
 		},
+		Metadata: writeCommandMetadata(),
 		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
 			basePath, propertyKey, err := propertyPathParts(target, cmd)
 			if err != nil {
@@ -212,6 +241,7 @@ func propertyDeleteCommand(target propertyTarget, w io.Writer, format *output.Fo
 		Usage:     fmt.Sprintf("Delete a %s property", target.resourceName),
 		UsageText: fmt.Sprintf(`jira-agent %s property delete %s com.example.flag`, target.resourceName, exampleResourceID(target.resourceName)),
 		ArgsUsage: "<" + target.idLabel + "> <property-key>",
+		Metadata:  writeCommandMetadata(),
 		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
 			basePath, propertyKey, err := propertyPathParts(target, cmd)
 			if err != nil {
@@ -269,6 +299,8 @@ func exampleResourceID(resourceName string) string {
 	switch resourceName {
 	case "issue":
 		return "PROJ-123"
+	case "project":
+		return "PROJ"
 	case "sprint":
 		return "100"
 	case "board":
