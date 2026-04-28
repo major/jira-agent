@@ -408,6 +408,8 @@ func writeCommandPaths() map[string]struct{} {
 		"sprint swap",
 		"sprint update",
 		"task cancel",
+		"time-tracking options set",
+		"time-tracking select",
 		"version create",
 		"version delete",
 		"version merge",

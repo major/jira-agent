@@ -113,6 +113,7 @@ func testFullSchemaApp() *cli.Command {
 			ProjectCommand(apiClient, &buf, &format, testAllowWrites()),
 			SprintCommand(apiClient, &buf, &format, testAllowWrites()),
 			TaskCommand(apiClient, &buf, &format, testAllowWrites()),
+			TimeTrackingCommand(apiClient, &buf, &format, testAllowWrites()),
 			VersionCommand(apiClient, &buf, &format, testAllowWrites()),
 		},
 	}

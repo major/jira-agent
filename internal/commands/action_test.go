@@ -79,6 +79,7 @@ func TestCommandGroups_RegisterSubcommands(t *testing.T) {
 		{name: "epic", cmd: EpicCommand(apiClient, &buf, format, testAllowWrites()), want: 6},
 		{name: "backlog", cmd: BacklogCommand(apiClient, &buf, format, testAllowWrites()), want: 2},
 		{name: "task", cmd: TaskCommand(apiClient, &buf, format, testAllowWrites()), want: 2},
+		{name: "time-tracking", cmd: TimeTrackingCommand(apiClient, &buf, format, testAllowWrites()), want: 4},
 		{name: "issue", cmd: IssueCommand(apiClient, &buf, format, testAllowWrites()), want: 31},
 		{name: "jql", cmd: JQLCommand(apiClient, &buf, format), want: 3},
 	}
@@ -437,6 +438,25 @@ func TestWriteGuard_BlocksWriteCommands(t *testing.T) {
 				return taskCancelCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"10641"},
+		},
+		{
+			name: "time_tracking_select",
+			cmd: func(buf *bytes.Buffer) *cli.Command {
+				return timeTrackingSelectCommand(apiClient, buf, format, testDenyWrites())
+			},
+			args: []string{"--key", "JIRA"},
+		},
+		{
+			name: "time_tracking_options_set",
+			cmd: func(buf *bytes.Buffer) *cli.Command {
+				return timeTrackingOptionsSetCommand(apiClient, buf, format, testDenyWrites())
+			},
+			args: []string{
+				"--working-hours-per-day", "8",
+				"--working-days-per-week", "5",
+				"--time-format", "pretty",
+				"--default-unit", "minute",
+			},
 		},
 		{
 			name: "project_roles_add_actor",
@@ -2290,6 +2310,119 @@ func TestAuditCommands(t *testing.T) {
 	if !bytes.Contains(buf.Bytes(), []byte(`"max_results":25`)) {
 		t.Errorf("output = %q, want limit metadata", buf.String())
 	}
+}
+
+func TestTimeTrackingCommands(t *testing.T) {
+	t.Parallel()
+
+	t.Run("get", func(t *testing.T) {
+		t.Parallel()
+
+		server := testhelpers.NewJSONServer(t, http.MethodGet, "/configuration/timetracking",
+			`{"key":"JIRA","name":"JIRA provided time tracking"}`)
+
+		var buf bytes.Buffer
+		runCommandAction(t, timeTrackingGetCommand(testCommandClient(server.URL), &buf, testCommandFormat()))
+		if !bytes.Contains(buf.Bytes(), []byte(`"key":"JIRA"`)) {
+			t.Errorf("output = %q, want selected provider", buf.String())
+		}
+	})
+
+	t.Run("providers", func(t *testing.T) {
+		t.Parallel()
+
+		server := testhelpers.NewJSONServer(t, http.MethodGet, "/configuration/timetracking/list",
+			`[{"key":"JIRA","name":"JIRA provided time tracking"}]`)
+
+		var buf bytes.Buffer
+		runCommandAction(t, timeTrackingProvidersCommand(testCommandClient(server.URL), &buf, testCommandFormat()))
+		if !bytes.Contains(buf.Bytes(), []byte(`"name":"JIRA provided time tracking"`)) {
+			t.Errorf("output = %q, want provider name", buf.String())
+		}
+	})
+
+	t.Run("select", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPut {
+				t.Errorf("method = %q, want %q", r.Method, http.MethodPut)
+			}
+			if r.URL.Path != "/configuration/timetracking" {
+				t.Errorf("path = %q, want %q", r.URL.Path, "/configuration/timetracking")
+			}
+			body := testhelpers.DecodeJSONBody(t, r)
+			if got := body["key"]; got != "JIRA" {
+				t.Errorf("key = %v, want %q", got, "JIRA")
+			}
+			testhelpers.WriteJSONResponse(t, w, `{"key":"JIRA"}`)
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		runCommandAction(
+			t,
+			timeTrackingSelectCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites()),
+			"--key", "JIRA",
+		)
+		if !bytes.Contains(buf.Bytes(), []byte(`"key":"JIRA"`)) {
+			t.Errorf("output = %q, want selected provider key", buf.String())
+		}
+	})
+
+	t.Run("options get", func(t *testing.T) {
+		t.Parallel()
+
+		server := testhelpers.NewJSONServer(t, http.MethodGet, "/configuration/timetracking/options",
+			`{"workingHoursPerDay":8,"workingDaysPerWeek":5,"timeFormat":"pretty","defaultUnit":"minute"}`)
+
+		var buf bytes.Buffer
+		runCommandAction(t, timeTrackingOptionsGetCommand(testCommandClient(server.URL), &buf, testCommandFormat()))
+		if !bytes.Contains(buf.Bytes(), []byte(`"timeFormat":"pretty"`)) {
+			t.Errorf("output = %q, want time tracking options", buf.String())
+		}
+	})
+
+	t.Run("options set", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPut {
+				t.Errorf("method = %q, want %q", r.Method, http.MethodPut)
+			}
+			if r.URL.Path != "/configuration/timetracking/options" {
+				t.Errorf("path = %q, want %q", r.URL.Path, "/configuration/timetracking/options")
+			}
+			body := testhelpers.DecodeJSONBody(t, r)
+			if got := body["workingHoursPerDay"]; got != float64(7) {
+				t.Errorf("workingHoursPerDay = %v, want %v", got, float64(7))
+			}
+			if got := body["workingDaysPerWeek"]; got != float64(5) {
+				t.Errorf("workingDaysPerWeek = %v, want %v", got, float64(5))
+			}
+			if got := body["timeFormat"]; got != "hours" {
+				t.Errorf("timeFormat = %v, want %q", got, "hours")
+			}
+			if got := body["defaultUnit"]; got != "hour" {
+				t.Errorf("defaultUnit = %v, want %q", got, "hour")
+			}
+			testhelpers.WriteJSONResponse(t, w, `{"workingHoursPerDay":7,"workingDaysPerWeek":5,"timeFormat":"hours","defaultUnit":"hour"}`)
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		runCommandAction(
+			t,
+			timeTrackingOptionsSetCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites()),
+			"--working-hours-per-day", "7",
+			"--working-days-per-week", "5",
+			"--time-format", "hours",
+			"--default-unit", "hour",
+		)
+		if !bytes.Contains(buf.Bytes(), []byte(`"defaultUnit":"hour"`)) {
+			t.Errorf("output = %q, want updated options", buf.String())
+		}
+	})
 }
 
 func TestLabelListCommand(t *testing.T) {
