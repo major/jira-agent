@@ -20,9 +20,13 @@ Keep this file and any nested `AGENTS.md` files current anytime code changes. Ev
 | `internal/auth` | Config loading, env overrides, Basic auth, write-enable config. |
 | `internal/testhelpers` | Shared test HTTP helpers. |
 | `skills/jira-agent` | Embedded LLM skill docs. See `skills/jira-agent/AGENTS.md` before changing skill files. |
-| `jira-openapi.json` | Large local Jira API reference, not generated code. |
 
 Module: `github.com/major/jira-agent`. Go version: `1.26`. CLI framework: `github.com/urfave/cli/v3`.
+
+## OpenAPI references
+
+- Jira Cloud Platform REST API (`/rest/api/3`): `https://developer.atlassian.com/cloud/jira/platform/swagger-v3.v3.json`.
+- Jira Software Cloud REST API (`/rest/agile/1.0`): `https://dac-static.atlassian.com/cloud/jira/software/swagger.v3.json`.
 
 ## LLM-first CLI contract
 
