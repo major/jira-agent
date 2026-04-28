@@ -110,7 +110,10 @@ func testFullSchemaApp() *cli.Command {
 			GroupCommand(apiClient, &buf, &format, testAllowWrites()),
 			IssueCommand(apiClient, &buf, &format, testAllowWrites()),
 			PermissionCommand(apiClient, &buf, &format),
+			ProjectCommand(apiClient, &buf, &format, testAllowWrites()),
 			SprintCommand(apiClient, &buf, &format, testAllowWrites()),
+			TaskCommand(apiClient, &buf, &format, testAllowWrites()),
+			TimeTrackingCommand(apiClient, &buf, &format, testAllowWrites()),
 			VersionCommand(apiClient, &buf, &format, testAllowWrites()),
 		},
 	}
@@ -280,7 +283,7 @@ func TestSchemaCommand_CommandPaginationFlagDescriptions(t *testing.T) {
 	app := &cli.Command{
 		Name: "test-app",
 		Commands: []*cli.Command{
-			ProjectCommand(&client.Ref{}, &buf, format),
+			ProjectCommand(&client.Ref{}, &buf, format, testAllowWrites()),
 			FieldCommand(&client.Ref{}, &buf, format, testAllowWrites()),
 		},
 	}

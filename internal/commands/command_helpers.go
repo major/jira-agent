@@ -213,10 +213,16 @@ func extractPaginationMeta(result any) output.Metadata {
 	if v, ok := m["startAt"].(float64); ok {
 		meta.StartAt = int(v)
 	}
+	if v, ok := m["offset"].(float64); ok {
+		meta.StartAt = int(v)
+	}
 	if v, ok := m["maxResults"].(float64); ok {
 		meta.MaxResults = int(v)
 	}
-	for _, key := range []string{"issues", "values", "comments", "worklogs"} {
+	if v, ok := m["limit"].(float64); ok {
+		meta.MaxResults = int(v)
+	}
+	for _, key := range []string{"issues", "values", "comments", "worklogs", "records"} {
 		if items, ok := m[key].([]any); ok {
 			meta.Returned = len(items)
 			break

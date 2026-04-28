@@ -1,6 +1,6 @@
 # Admin Reference
 
-Field management, users, groups, filters, permissions, dashboards, workflows, statuses, priorities, resolutions, issue types, labels, JQL helpers, and server info.
+Field management, users, groups, filters, permissions, dashboards, workflows, statuses, priorities, resolutions, issue types, labels, JQL helpers, audit records, tasks, time tracking configuration, and server info.
 
 ## Fields
 
@@ -313,6 +313,72 @@ jira-agent jql validate --query "bad query" --validation warn
 | `fields` | None. Lists JQL-searchable fields |
 | `suggest` | `--field-name` (required), `--field-value`, `--predicate-name`, `--predicate-value` |
 | `validate` | `--query` (required, repeatable), `--validation` (`strict`/`warn`/`none`, default `strict`) |
+
+## Tasks
+
+```bash
+jira-agent task get 10641
+jira-agent task cancel 10641
+```
+
+Use `task get` to poll async task IDs returned by long-running Jira operations. `task cancel` is write-protected and requires `JIRA_ALLOW_WRITES=true` or the config write-enable flag.
+
+## Time Tracking
+
+### time-tracking get / providers
+
+```bash
+jira-agent time-tracking get
+jira-agent time-tracking providers
+```
+
+`get` returns the selected time tracking provider. `providers` lists available providers. Both require Jira administrator permissions and are read-only.
+
+### time-tracking select
+
+```bash
+jira-agent time-tracking select --key JIRA
+```
+
+| Flag | Notes |
+|------|-------|
+| `--key` | Required. Provider key from `time-tracking providers` |
+
+Write-protected. Requires `JIRA_ALLOW_WRITES=true` or the config write-enable flag.
+
+### time-tracking options get / set
+
+```bash
+jira-agent time-tracking options get
+jira-agent time-tracking options set --working-hours-per-day 8 --working-days-per-week 5 --time-format pretty --default-unit minute
+```
+
+| Flag | Notes |
+|------|-------|
+| `--working-hours-per-day` | Required for set. Float value |
+| `--working-days-per-week` | Required for set. Float value |
+| `--time-format` | Required for set. `pretty`, `days`, or `hours` |
+| `--default-unit` | Required for set. `minute`, `hour`, `day`, or `week` |
+
+`options set` is write-protected. Requires Jira administrator permissions and `JIRA_ALLOW_WRITES=true` or the config write-enable flag.
+
+## Audit Records
+
+```bash
+jira-agent audit list
+jira-agent audit list --from 2024-01-01T00:00:00.000+0000 --to 2024-12-31T23:59:59.000+0000
+jira-agent audit list --filter "user created" --limit 25
+```
+
+| Flag | Notes |
+|------|-------|
+| `--filter` | Space-separated text search across audit record fields |
+| `--from` | Start date or datetime |
+| `--to` | End date or datetime |
+| `--limit` | Page size (default 1000) |
+| `--offset` | Pagination offset (default 0) |
+
+Read-only. Requires Jira administrator permissions. Pagination uses `--offset`/`--limit`, not `--start-at`/`--max-results`.
 
 ## Server Info
 

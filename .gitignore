@@ -34,8 +34,6 @@ go.work.sum
 
 # opencode
 .sisyphus
-jira-openapi.json
-COMMAND_STRUCTURE.md
 
 # temp
 .git-bak

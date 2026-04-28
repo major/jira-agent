@@ -27,9 +27,32 @@ jira-agent project get PROJ --expand description,issueTypes,lead
 ```bash
 jira-agent project roles list PROJ
 jira-agent project roles get PROJ 10000 --exclude-inactive-users
+jira-agent project roles add-actor PROJ 10000 --user 5b10ac8d82e05b22cc7d4ef5
+jira-agent project roles add-actor PROJ 10000 --group-id 952d12c3-5b5b-4d04-bb32-44d383afc4b2
+jira-agent project roles remove-actor PROJ 10000 --user 5b10ac8d82e05b22cc7d4ef5
 jira-agent project categories list
 jira-agent project categories get 10000
 ```
+
+| Flag | Notes |
+|------|-------|
+| `--exclude-inactive-users` | Hide inactive users from `project roles get` output |
+| `--user` | User account ID for add/remove actor |
+| `--group` | Group name for add/remove actor |
+| `--group-id` | Group ID for add/remove actor (preferred over group name) |
+
+`add-actor` accepts repeatable `--user`, `--group`, and `--group-id` flags. `remove-actor` removes one actor at a time and requires exactly one of those flags. Actor mutations are write-protected.
+
+### project property
+
+```bash
+jira-agent project property list PROJ
+jira-agent project property get PROJ com.example.flag
+jira-agent project property set PROJ com.example.flag --value-json '{"enabled":true}'
+jira-agent project property delete PROJ com.example.flag
+```
+
+`property set` stores the raw JSON value you pass with `--value-json`; it is not wrapped in another object. `property set` and `property delete` are write-protected.
 
 ## Components
 

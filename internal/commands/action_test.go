@@ -57,6 +57,7 @@ func TestCommandGroups_RegisterSubcommands(t *testing.T) {
 		cmd  *cli.Command
 		want int
 	}{
+		{name: "audit", cmd: AuditCommand(apiClient, &buf, format), want: 1},
 		{name: "board", cmd: BoardCommand(apiClient, &buf, format, testAllowWrites()), want: 11},
 		{name: "field", cmd: FieldCommand(apiClient, &buf, format, testAllowWrites()), want: 4},
 		{name: "filter", cmd: FilterCommand(apiClient, &buf, format, testAllowWrites()), want: 10},
@@ -66,7 +67,7 @@ func TestCommandGroups_RegisterSubcommands(t *testing.T) {
 		{name: "label", cmd: LabelCommand(apiClient, &buf, format), want: 1},
 		{name: "permission", cmd: PermissionCommand(apiClient, &buf, format), want: 3},
 		{name: "priority", cmd: PriorityCommand(apiClient, &buf, format), want: 1},
-		{name: "project", cmd: ProjectCommand(apiClient, &buf, format), want: 4},
+		{name: "project", cmd: ProjectCommand(apiClient, &buf, format, testAllowWrites()), want: 5},
 		{name: "role", cmd: RoleCommand(apiClient, &buf, format), want: 2},
 		{name: "resolution", cmd: ResolutionCommand(apiClient, &buf, format), want: 1},
 		{name: "status", cmd: StatusCommand(apiClient, &buf, format), want: 3},
@@ -77,6 +78,8 @@ func TestCommandGroups_RegisterSubcommands(t *testing.T) {
 		{name: "sprint", cmd: SprintCommand(apiClient, &buf, format, testAllowWrites()), want: 9},
 		{name: "epic", cmd: EpicCommand(apiClient, &buf, format, testAllowWrites()), want: 6},
 		{name: "backlog", cmd: BacklogCommand(apiClient, &buf, format, testAllowWrites()), want: 2},
+		{name: "task", cmd: TaskCommand(apiClient, &buf, format, testAllowWrites()), want: 2},
+		{name: "time-tracking", cmd: TimeTrackingCommand(apiClient, &buf, format, testAllowWrites()), want: 4},
 		{name: "issue", cmd: IssueCommand(apiClient, &buf, format, testAllowWrites()), want: 31},
 		{name: "jql", cmd: JQLCommand(apiClient, &buf, format), want: 3},
 	}
@@ -428,6 +431,46 @@ func TestWriteGuard_BlocksWriteCommands(t *testing.T) {
 				return boardDeleteCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"84"},
+		},
+		{
+			name: "task_cancel",
+			cmd: func(buf *bytes.Buffer) *cli.Command {
+				return taskCancelCommand(apiClient, buf, format, testDenyWrites())
+			},
+			args: []string{"10641"},
+		},
+		{
+			name: "time_tracking_select",
+			cmd: func(buf *bytes.Buffer) *cli.Command {
+				return timeTrackingSelectCommand(apiClient, buf, format, testDenyWrites())
+			},
+			args: []string{"--key", "JIRA"},
+		},
+		{
+			name: "time_tracking_options_set",
+			cmd: func(buf *bytes.Buffer) *cli.Command {
+				return timeTrackingOptionsSetCommand(apiClient, buf, format, testDenyWrites())
+			},
+			args: []string{
+				"--working-hours-per-day", "8",
+				"--working-days-per-week", "5",
+				"--time-format", "pretty",
+				"--default-unit", "minute",
+			},
+		},
+		{
+			name: "project_roles_add_actor",
+			cmd: func(buf *bytes.Buffer) *cli.Command {
+				return projectRoleAddActorCommand(apiClient, buf, format, testDenyWrites())
+			},
+			args: []string{"--user", "abc123", "PROJ", "10000"},
+		},
+		{
+			name: "project_roles_remove_actor",
+			cmd: func(buf *bytes.Buffer) *cli.Command {
+				return projectRoleRemoveActorCommand(apiClient, buf, format, testDenyWrites())
+			},
+			args: []string{"--user", "abc123", "PROJ", "10000"},
 		},
 		{
 			name: "context_create",
@@ -2177,6 +2220,211 @@ func TestServerInfoCommand(t *testing.T) {
 	}
 }
 
+func TestTaskCommands(t *testing.T) {
+	t.Parallel()
+
+	t.Run("get", func(t *testing.T) {
+		t.Parallel()
+
+		server := testhelpers.NewJSONServer(t, http.MethodGet, "/task/10641",
+			`{"id":"10641","status":"COMPLETE","progress":100}`)
+
+		var buf bytes.Buffer
+		runCommandAction(t, taskGetCommand(testCommandClient(server.URL), &buf, testCommandFormat()), "10641")
+		if !bytes.Contains(buf.Bytes(), []byte(`"status":"COMPLETE"`)) {
+			t.Errorf("output = %q, want task status", buf.String())
+		}
+	})
+
+	t.Run("cancel", func(t *testing.T) {
+		t.Parallel()
+
+		server := testhelpers.NewJSONServer(t, http.MethodPost, "/task/10641/cancel",
+			`{"id":"10641","status":"CANCELED"}`)
+
+		var buf bytes.Buffer
+		runCommandAction(t, taskCancelCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites()), "10641")
+		if !bytes.Contains(buf.Bytes(), []byte(`"status":"CANCELED"`)) {
+			t.Errorf("output = %q, want canceled task status", buf.String())
+		}
+	})
+}
+
+func TestAuditCommands(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("method = %q, want %q", r.Method, http.MethodGet)
+		}
+		if r.URL.Path != "/auditing/record" {
+			t.Errorf("path = %q, want %q", r.URL.Path, "/auditing/record")
+		}
+		if got := r.URL.Query().Get("limit"); got != "25" {
+			t.Errorf("limit = %q, want %q", got, "25")
+		}
+		if got := r.URL.Query().Get("offset"); got != "50" {
+			t.Errorf("offset = %q, want %q", got, "50")
+		}
+		if got := r.URL.Query().Get("filter"); got != "user created" {
+			t.Errorf("filter = %q, want %q", got, "user created")
+		}
+		if got := r.URL.Query().Get("from"); got != "2024-01-01T00:00:00.000+0000" {
+			t.Errorf("from = %q, want %q", got, "2024-01-01T00:00:00.000+0000")
+		}
+		if got := r.URL.Query().Get("to"); got != "2024-12-31T23:59:59.000+0000" {
+			t.Errorf("to = %q, want %q", got, "2024-12-31T23:59:59.000+0000")
+		}
+		testhelpers.WriteJSONResponse(t, w, `{
+			"offset":50,
+			"limit":25,
+			"total":2,
+			"records":[{
+				"id":10000,
+				"summary":"User created",
+				"authorAccountId":"5b10ac8d82e05b22cc7d4ef5"
+			}]
+		}`)
+	}))
+	defer server.Close()
+
+	var buf bytes.Buffer
+	runCommandAction(
+		t,
+		auditListCommand(testCommandClient(server.URL), &buf, testCommandFormat()),
+		"--limit", "25",
+		"--offset", "50",
+		"--filter", "user created",
+		"--from", "2024-01-01T00:00:00.000+0000",
+		"--to", "2024-12-31T23:59:59.000+0000",
+	)
+	if !bytes.Contains(buf.Bytes(), []byte(`"summary":"User created"`)) {
+		t.Errorf("output = %q, want audit record summary", buf.String())
+	}
+	if !bytes.Contains(buf.Bytes(), []byte(`"returned":1`)) {
+		t.Errorf("output = %q, want returned metadata", buf.String())
+	}
+	if !bytes.Contains(buf.Bytes(), []byte(`"start_at":50`)) {
+		t.Errorf("output = %q, want offset metadata", buf.String())
+	}
+	if !bytes.Contains(buf.Bytes(), []byte(`"max_results":25`)) {
+		t.Errorf("output = %q, want limit metadata", buf.String())
+	}
+}
+
+func TestTimeTrackingCommands(t *testing.T) {
+	t.Parallel()
+
+	t.Run("get", func(t *testing.T) {
+		t.Parallel()
+
+		server := testhelpers.NewJSONServer(t, http.MethodGet, "/configuration/timetracking",
+			`{"key":"JIRA","name":"JIRA provided time tracking"}`)
+
+		var buf bytes.Buffer
+		runCommandAction(t, timeTrackingGetCommand(testCommandClient(server.URL), &buf, testCommandFormat()))
+		if !bytes.Contains(buf.Bytes(), []byte(`"key":"JIRA"`)) {
+			t.Errorf("output = %q, want selected provider", buf.String())
+		}
+	})
+
+	t.Run("providers", func(t *testing.T) {
+		t.Parallel()
+
+		server := testhelpers.NewJSONServer(t, http.MethodGet, "/configuration/timetracking/list",
+			`[{"key":"JIRA","name":"JIRA provided time tracking"}]`)
+
+		var buf bytes.Buffer
+		runCommandAction(t, timeTrackingProvidersCommand(testCommandClient(server.URL), &buf, testCommandFormat()))
+		if !bytes.Contains(buf.Bytes(), []byte(`"name":"JIRA provided time tracking"`)) {
+			t.Errorf("output = %q, want provider name", buf.String())
+		}
+	})
+
+	t.Run("select", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPut {
+				t.Errorf("method = %q, want %q", r.Method, http.MethodPut)
+			}
+			if r.URL.Path != "/configuration/timetracking" {
+				t.Errorf("path = %q, want %q", r.URL.Path, "/configuration/timetracking")
+			}
+			body := testhelpers.DecodeJSONBody(t, r)
+			if got := body["key"]; got != "JIRA" {
+				t.Errorf("key = %v, want %q", got, "JIRA")
+			}
+			testhelpers.WriteJSONResponse(t, w, `{"key":"JIRA"}`)
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		runCommandAction(
+			t,
+			timeTrackingSelectCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites()),
+			"--key", "JIRA",
+		)
+		if !bytes.Contains(buf.Bytes(), []byte(`"key":"JIRA"`)) {
+			t.Errorf("output = %q, want selected provider key", buf.String())
+		}
+	})
+
+	t.Run("options get", func(t *testing.T) {
+		t.Parallel()
+
+		server := testhelpers.NewJSONServer(t, http.MethodGet, "/configuration/timetracking/options",
+			`{"workingHoursPerDay":8,"workingDaysPerWeek":5,"timeFormat":"pretty","defaultUnit":"minute"}`)
+
+		var buf bytes.Buffer
+		runCommandAction(t, timeTrackingOptionsGetCommand(testCommandClient(server.URL), &buf, testCommandFormat()))
+		if !bytes.Contains(buf.Bytes(), []byte(`"timeFormat":"pretty"`)) {
+			t.Errorf("output = %q, want time tracking options", buf.String())
+		}
+	})
+
+	t.Run("options set", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPut {
+				t.Errorf("method = %q, want %q", r.Method, http.MethodPut)
+			}
+			if r.URL.Path != "/configuration/timetracking/options" {
+				t.Errorf("path = %q, want %q", r.URL.Path, "/configuration/timetracking/options")
+			}
+			body := testhelpers.DecodeJSONBody(t, r)
+			if got := body["workingHoursPerDay"]; got != float64(7) {
+				t.Errorf("workingHoursPerDay = %v, want %v", got, float64(7))
+			}
+			if got := body["workingDaysPerWeek"]; got != float64(5) {
+				t.Errorf("workingDaysPerWeek = %v, want %v", got, float64(5))
+			}
+			if got := body["timeFormat"]; got != "hours" {
+				t.Errorf("timeFormat = %v, want %q", got, "hours")
+			}
+			if got := body["defaultUnit"]; got != "hour" {
+				t.Errorf("defaultUnit = %v, want %q", got, "hour")
+			}
+			testhelpers.WriteJSONResponse(t, w, `{"workingHoursPerDay":7,"workingDaysPerWeek":5,"timeFormat":"hours","defaultUnit":"hour"}`)
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		runCommandAction(
+			t,
+			timeTrackingOptionsSetCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites()),
+			"--working-hours-per-day", "7",
+			"--working-days-per-week", "5",
+			"--time-format", "hours",
+			"--default-unit", "hour",
+		)
+		if !bytes.Contains(buf.Bytes(), []byte(`"defaultUnit":"hour"`)) {
+			t.Errorf("output = %q, want updated options", buf.String())
+		}
+	})
+}
+
 func TestLabelListCommand(t *testing.T) {
 	t.Parallel()
 
@@ -2265,7 +2513,7 @@ func TestProjectCommands(t *testing.T) {
 		defer server.Close()
 
 		var buf bytes.Buffer
-		runCommandAction(t, projectRolesCommand(testCommandClient(server.URL), &buf, testCommandFormat()), "TEST")
+		runCommandAction(t, projectRolesCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites()), "TEST")
 		if !bytes.Contains(buf.Bytes(), []byte(`"Developers"`)) {
 			t.Errorf("output = %q, want role map", buf.String())
 		}
@@ -2292,6 +2540,73 @@ func TestProjectCommands(t *testing.T) {
 		runCommandAction(t, projectRoleCommand(testCommandClient(server.URL), &buf, testCommandFormat()), "TEST", "10000", "--exclude-inactive-users")
 		if !bytes.Contains(buf.Bytes(), []byte(`"name":"Developers"`)) {
 			t.Errorf("output = %q, want role payload", buf.String())
+		}
+	})
+
+	t.Run("add role actor", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPost {
+				t.Errorf("method = %q, want %q", r.Method, http.MethodPost)
+			}
+			if r.URL.Path != "/project/TEST/role/10000" {
+				t.Errorf("path = %q, want %q", r.URL.Path, "/project/TEST/role/10000")
+			}
+
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				t.Fatalf("reading request body: %v", err)
+			}
+			for _, want := range [][]byte{
+				[]byte(`"user":["abc123"]`),
+				[]byte(`"group":["jira-users"]`),
+				[]byte(`"groupId":["gid-1"]`),
+			} {
+				if !bytes.Contains(body, want) {
+					t.Errorf("body = %s, want %s", body, want)
+				}
+			}
+			testhelpers.WriteJSONResponse(t, w, `{"id":10000,"name":"Developers","actors":[{"accountId":"abc123"}]}`)
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		runCommandAction(
+			t,
+			projectRoleAddActorCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites()),
+			"TEST", "10000", "--user", "abc123", "--group", "jira-users", "--group-id", "gid-1",
+		)
+		if !bytes.Contains(buf.Bytes(), []byte(`"actors"`)) {
+			t.Errorf("output = %q, want updated project role", buf.String())
+		}
+	})
+
+	t.Run("remove role actor", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodDelete {
+				t.Errorf("method = %q, want %q", r.Method, http.MethodDelete)
+			}
+			if r.URL.Path != "/project/TEST/role/10000" {
+				t.Errorf("path = %q, want %q", r.URL.Path, "/project/TEST/role/10000")
+			}
+			if got := r.URL.Query().Get("groupId"); got != "gid-1" {
+				t.Errorf("groupId = %q, want %q", got, "gid-1")
+			}
+			w.WriteHeader(http.StatusNoContent)
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		runCommandAction(
+			t,
+			projectRoleRemoveActorCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites()),
+			"TEST", "10000", "--group-id", "gid-1",
+		)
+		if !bytes.Contains(buf.Bytes(), []byte(`"removed":true`)) {
+			t.Errorf("output = %q, want removal confirmation", buf.String())
 		}
 	})
 
