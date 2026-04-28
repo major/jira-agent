@@ -77,7 +77,7 @@ func TestCommandGroups_RegisterSubcommands(t *testing.T) {
 		{name: "sprint", cmd: SprintCommand(apiClient, &buf, format, testAllowWrites()), want: 9},
 		{name: "epic", cmd: EpicCommand(apiClient, &buf, format, testAllowWrites()), want: 6},
 		{name: "backlog", cmd: BacklogCommand(apiClient, &buf, format, testAllowWrites()), want: 2},
-		{name: "issue", cmd: IssueCommand(apiClient, &buf, format, testAllowWrites()), want: 29},
+		{name: "issue", cmd: IssueCommand(apiClient, &buf, format, testAllowWrites()), want: 31},
 		{name: "jql", cmd: JQLCommand(apiClient, &buf, format), want: 3},
 	}
 
@@ -2365,6 +2365,61 @@ func TestCommentCommands(t *testing.T) {
 		)
 	})
 
+	t.Run("get", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodGet {
+				t.Errorf("method = %q, want %q", r.Method, http.MethodGet)
+			}
+			if r.URL.Path != "/issue/TEST-1/comment/10000" {
+				t.Errorf("path = %q, want comment get path", r.URL.Path)
+			}
+			if got := r.URL.Query().Get("expand"); got != "renderedBody" {
+				t.Errorf("expand = %q, want renderedBody", got)
+			}
+			testhelpers.WriteJSONResponse(t, w, `{"id":"10000"}`)
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		runCommandAction(
+			t,
+			commentGetCommand(testCommandClient(server.URL), &buf, testCommandFormat()),
+			"--expand", "renderedBody", "TEST-1", "10000",
+		)
+	})
+
+	t.Run("list by ids", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPost {
+				t.Errorf("method = %q, want %q", r.Method, http.MethodPost)
+			}
+			if r.URL.Path != "/comment/list" {
+				t.Errorf("path = %q, want /comment/list", r.URL.Path)
+			}
+			if got := r.URL.Query().Get("expand"); got != "renderedBody" {
+				t.Errorf("expand = %q, want renderedBody", got)
+			}
+			body := testhelpers.DecodeJSONBody(t, r)
+			ids := body["ids"].([]any)
+			if len(ids) != 2 || ids[0] != float64(10000) || ids[1] != float64(10001) {
+				t.Errorf("ids = %v, want [10000 10001]", ids)
+			}
+			testhelpers.WriteJSONResponse(t, w, `{"values":[{"id":"10000"}],"total":1}`)
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		runCommandAction(
+			t,
+			commentListByIDsCommand(testCommandClient(server.URL), &buf, testCommandFormat()),
+			"--ids", "10000,10001", "--expand", "renderedBody",
+		)
+	})
+
 	t.Run("add", func(t *testing.T) {
 		t.Parallel()
 
@@ -2408,6 +2463,9 @@ func TestCommentCommands(t *testing.T) {
 			if got := r.URL.Query().Get("expand"); got != "renderedBody" {
 				t.Errorf("expand = %q, want %q", got, "renderedBody")
 			}
+			if got := r.URL.Query().Get("overrideEditableFlag"); got != "true" {
+				t.Errorf("overrideEditableFlag = %q, want true", got)
+			}
 			testhelpers.WriteJSONResponse(t, w, `{"id":"10000"}`)
 		}))
 		defer server.Close()
@@ -2416,7 +2474,7 @@ func TestCommentCommands(t *testing.T) {
 		runCommandAction(
 			t,
 			commentEditCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites()),
-			"--body", "updated", "--notify=false", "--expand", "renderedBody", "TEST-1", "10000",
+			"--body", "updated", "--notify=false", "--override-editable-flag", "--expand", "renderedBody", "TEST-1", "10000",
 		)
 	})
 
@@ -2464,6 +2522,24 @@ func TestIssueLinkCommands(t *testing.T) {
 		if !bytes.Contains(buf.Bytes(), []byte(`"returned":1`)) {
 			t.Errorf("output = %q, want returned metadata", buf.String())
 		}
+	})
+
+	t.Run("get", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodGet {
+				t.Errorf("method = %q, want %q", r.Method, http.MethodGet)
+			}
+			if r.URL.Path != "/issueLink/10000" {
+				t.Errorf("path = %q, want /issueLink/10000", r.URL.Path)
+			}
+			testhelpers.WriteJSONResponse(t, w, `{"id":"10000"}`)
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		runCommandAction(t, issueLinkGetCommand(testCommandClient(server.URL), &buf, testCommandFormat()), "10000")
 	})
 
 	t.Run("types", func(t *testing.T) {
@@ -2519,6 +2595,8 @@ func TestIssueLinkCommands(t *testing.T) {
 			if got := outward["key"]; got != "TEST-2" {
 				t.Errorf("outwardIssue.key = %v, want %q", got, "TEST-2")
 			}
+			comment := body["comment"].(map[string]any)
+			assertADFText(t, comment["body"], "linked for duplicate tracking")
 			testhelpers.WriteJSONResponse(t, w, `{"id":"10000"}`)
 		}))
 		defer server.Close()
@@ -2527,7 +2605,7 @@ func TestIssueLinkCommands(t *testing.T) {
 		runCommandAction(
 			t,
 			issueLinkAddCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites()),
-			"--type", "Blocks", "--inward", "TEST-1", "--outward", "TEST-2",
+			"--type", "Blocks", "--inward", "TEST-1", "--outward", "TEST-2", "--comment", "linked for duplicate tracking",
 		)
 	})
 
@@ -2566,15 +2644,40 @@ func TestRemoteLinkCommands(t *testing.T) {
 			if r.URL.Path != "/issue/TEST-1/remotelink" {
 				t.Errorf("path = %q, want %q", r.URL.Path, "/issue/TEST-1/remotelink")
 			}
+			if got := r.URL.Query().Get("globalId"); got != "system=https://example.com&id=1" {
+				t.Errorf("globalId = %q, want global ID", got)
+			}
 			testhelpers.WriteJSONResponse(t, w, `[{"id":10000,"object":{"title":"Example"}}]`)
 		}))
 		defer server.Close()
 
 		var buf bytes.Buffer
-		runCommandAction(t, remoteLinkListCommand(testCommandClient(server.URL), &buf, testCommandFormat()), "TEST-1")
+		runCommandAction(
+			t,
+			remoteLinkListCommand(testCommandClient(server.URL), &buf, testCommandFormat()),
+			"--global-id", "system=https://example.com&id=1", "TEST-1",
+		)
 		if !bytes.Contains(buf.Bytes(), []byte(`"returned":1`)) {
 			t.Errorf("output = %q, want returned metadata", buf.String())
 		}
+	})
+
+	t.Run("get", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodGet {
+				t.Errorf("method = %q, want %q", r.Method, http.MethodGet)
+			}
+			if r.URL.Path != "/issue/TEST-1/remotelink/10000" {
+				t.Errorf("path = %q, want remote link get path", r.URL.Path)
+			}
+			testhelpers.WriteJSONResponse(t, w, `{"id":10000}`)
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		runCommandAction(t, remoteLinkGetCommand(testCommandClient(server.URL), &buf, testCommandFormat()), "TEST-1", "10000")
 	})
 
 	t.Run("add", func(t *testing.T) {
@@ -2655,6 +2758,34 @@ func TestRemoteLinkCommands(t *testing.T) {
 
 		var buf bytes.Buffer
 		runCommandAction(t, remoteLinkDeleteCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites()), "TEST-1", "10000")
+		if !bytes.Contains(buf.Bytes(), []byte(`"deleted":true`)) {
+			t.Errorf("output = %q, want delete confirmation", buf.String())
+		}
+	})
+
+	t.Run("delete by global id", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodDelete {
+				t.Errorf("method = %q, want %q", r.Method, http.MethodDelete)
+			}
+			if r.URL.Path != "/issue/TEST-1/remotelink" {
+				t.Errorf("path = %q, want remote link collection", r.URL.Path)
+			}
+			if got := r.URL.Query().Get("globalId"); got != "system=https://example.com&id=1" {
+				t.Errorf("globalId = %q, want global ID", got)
+			}
+			w.WriteHeader(http.StatusNoContent)
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		runCommandAction(
+			t,
+			remoteLinkDeleteCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites()),
+			"--global-id", "system=https://example.com&id=1", "TEST-1",
+		)
 		if !bytes.Contains(buf.Bytes(), []byte(`"deleted":true`)) {
 			t.Errorf("output = %q, want delete confirmation", buf.String())
 		}
@@ -3128,6 +3259,18 @@ func TestIssueGetAndSearchCommands(t *testing.T) {
 			if got := r.URL.Query().Get("expand"); got != "changelog" {
 				t.Errorf("expand = %q, want %q", got, "changelog")
 			}
+			if got := r.URL.Query().Get("properties"); got != "request" {
+				t.Errorf("properties = %q, want %q", got, "request")
+			}
+			if got := r.URL.Query().Get("fieldsByKeys"); got != "true" {
+				t.Errorf("fieldsByKeys = %q, want %q", got, "true")
+			}
+			if got := r.URL.Query().Get("updateHistory"); got != "true" {
+				t.Errorf("updateHistory = %q, want %q", got, "true")
+			}
+			if got := r.URL.Query().Get("failFast"); got != "false" {
+				t.Errorf("failFast = %q, want %q", got, "false")
+			}
 			testhelpers.WriteJSONResponse(t, w, `{"key":"TEST-1"}`)
 		}))
 		defer server.Close()
@@ -3136,7 +3279,42 @@ func TestIssueGetAndSearchCommands(t *testing.T) {
 		runCommandAction(
 			t,
 			issueGetCommand(testCommandClient(server.URL), &buf, testCommandFormat()),
-			"--fields", "summary,status", "--expand", "changelog", "TEST-1",
+			"--fields", "summary,status", "--expand", "changelog", "--properties", "request",
+			"--fields-by-keys", "--update-history", "--fail-fast=false", "TEST-1",
+		)
+		if !bytes.Contains(buf.Bytes(), []byte(`"key":"TEST-1"`)) {
+			t.Errorf("output = %q, want issue key", buf.String())
+		}
+	})
+
+	t.Run("picker", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodGet {
+				t.Errorf("method = %q, want %q", r.Method, http.MethodGet)
+			}
+			if r.URL.Path != "/issue/picker" {
+				t.Errorf("path = %q, want %q", r.URL.Path, "/issue/picker")
+			}
+			if got := r.URL.Query().Get("query"); got != "login" {
+				t.Errorf("query = %q, want %q", got, "login")
+			}
+			if got := r.URL.Query().Get("currentJQL"); got != "project = TEST" {
+				t.Errorf("currentJQL = %q, want %q", got, "project = TEST")
+			}
+			if got := r.URL.Query().Get("showSubTasks"); got != "false" {
+				t.Errorf("showSubTasks = %q, want %q", got, "false")
+			}
+			testhelpers.WriteJSONResponse(t, w, `{"sections":[{"issues":[{"key":"TEST-1"}]}]}`)
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		runCommandAction(
+			t,
+			issuePickerCommand(testCommandClient(server.URL), &buf, testCommandFormat()),
+			"--query", "login", "--current-jql", "project = TEST", "--show-subtasks=false",
 		)
 		if !bytes.Contains(buf.Bytes(), []byte(`"key":"TEST-1"`)) {
 			t.Errorf("output = %q, want issue key", buf.String())
@@ -3164,6 +3342,20 @@ func TestIssueGetAndSearchCommands(t *testing.T) {
 			if len(fields) != 2 || fields[0] != "summary" || fields[1] != "status" {
 				t.Errorf("fields = %v, want [summary status]", fields)
 			}
+			properties := body["properties"].([]any)
+			if len(properties) != 1 || properties[0] != "request" {
+				t.Errorf("properties = %v, want [request]", properties)
+			}
+			if body["fieldsByKeys"] != true {
+				t.Errorf("fieldsByKeys = %v, want true", body["fieldsByKeys"])
+			}
+			if body["failFast"] != false {
+				t.Errorf("failFast = %v, want false", body["failFast"])
+			}
+			reconcileIssues := body["reconcileIssues"].([]any)
+			if len(reconcileIssues) != 1 || reconcileIssues[0] != "10001" {
+				t.Errorf("reconcileIssues = %v, want [10001]", reconcileIssues)
+			}
 			testhelpers.WriteJSONResponse(t, w, `{"total":1,"startAt":0,"maxResults":25,"issues":[{"key":"TEST-1"}]}`)
 		}))
 		defer server.Close()
@@ -3174,6 +3366,7 @@ func TestIssueGetAndSearchCommands(t *testing.T) {
 			issueSearchCommand(testCommandClient(server.URL), &buf, testCommandFormat()),
 			"--jql", "project = TEST", "--fields", "summary,status", "--max-results", "25",
 			"--next-page-token", "token-1", "--order-by", "created", "--order", "desc",
+			"--properties", "request", "--fields-by-keys", "--fail-fast=false", "--reconcile-issues", "10001",
 		)
 		if !bytes.Contains(buf.Bytes(), []byte(`"returned":1`)) {
 			t.Errorf("output = %q, want pagination metadata", buf.String())
@@ -3288,6 +3481,11 @@ func TestIssueMutationCommands(t *testing.T) {
 			if len(labels) != 2 {
 				t.Errorf("labels length = %d, want %d", len(labels), 2)
 			}
+			properties := body["properties"].([]any)
+			property := properties[0].(map[string]any)
+			if property["key"] != "request" {
+				t.Errorf("property key = %v, want request", property["key"])
+			}
 			testhelpers.WriteJSONResponse(t, w, `{"key":"TEST-2"}`)
 		}))
 		defer server.Close()
@@ -3298,6 +3496,7 @@ func TestIssueMutationCommands(t *testing.T) {
 			issueCreateCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites()),
 			"--project", "TEST", "--type", "Task", "--summary", "New issue", "--labels", "bug,cli",
 			"--field", "customfield_10000=5", "--fields-json", `{"priority":{"name":"High"}}`,
+			"--payload-json", `{"properties":[{"key":"request","value":"cli"}]}`,
 		)
 	})
 
@@ -3325,6 +3524,35 @@ func TestIssueMutationCommands(t *testing.T) {
 			t,
 			issueEditCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites()),
 			"--summary", "Updated", "--notify=false", "TEST-1",
+		)
+	})
+
+	t.Run("edit payload json", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPut {
+				t.Errorf("method = %q, want %q", r.Method, http.MethodPut)
+			}
+			if r.URL.Path != "/issue/TEST-1" {
+				t.Errorf("path = %q, want edit path", r.URL.Path)
+			}
+			body := testhelpers.DecodeJSONBody(t, r)
+			update := body["update"].(map[string]any)
+			labels := update["labels"].([]any)
+			labelAdd := labels[0].(map[string]any)
+			if labelAdd["add"] != "triaged" {
+				t.Errorf("label add = %v, want triaged", labelAdd["add"])
+			}
+			w.WriteHeader(http.StatusNoContent)
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		runCommandAction(
+			t,
+			issueEditCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites()),
+			"--payload-json", `{"update":{"labels":[{"add":"triaged"}]}}`, "TEST-1",
 		)
 	})
 
@@ -3410,6 +3638,12 @@ func TestIssueTransitionAndMetaCommands(t *testing.T) {
 				if r.Method != http.MethodGet || r.URL.Path != "/issue/TEST-1/transitions" {
 					t.Errorf("first request = %s %s, want GET transitions", r.Method, r.URL.Path)
 				}
+				if got := r.URL.Query().Get("expand"); got != "transitions.fields" {
+					t.Errorf("expand = %q, want %q", got, "transitions.fields")
+				}
+				if got := r.URL.Query().Get("includeUnavailableTransitions"); got != "true" {
+					t.Errorf("includeUnavailableTransitions = %q, want true", got)
+				}
 				testhelpers.WriteJSONResponse(t, w, `{"transitions":[{"id":"31","name":"Start Progress","to":{"name":"In Progress"}}]}`)
 			case 2:
 				if r.Method != http.MethodPost || r.URL.Path != "/issue/TEST-1/transitions" {
@@ -3434,7 +3668,71 @@ func TestIssueTransitionAndMetaCommands(t *testing.T) {
 		runCommandAction(
 			t,
 			issueTransitionCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites()),
-			"--to", "in progress", "--field", "resolution=null", "--comment", "moving", "TEST-1",
+			"--to", "in progress", "--field", "resolution=null", "--comment", "moving",
+			"--expand", "transitions.fields", "--include-unavailable-transitions", "TEST-1",
+		)
+	})
+
+	t.Run("transition direct id payload", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPost {
+				t.Errorf("method = %q, want %q", r.Method, http.MethodPost)
+			}
+			if r.URL.Path != "/issue/TEST-1/transitions" {
+				t.Errorf("path = %q, want transition path", r.URL.Path)
+			}
+			body := testhelpers.DecodeJSONBody(t, r)
+			transition := body["transition"].(map[string]any)
+			if transition["id"] != "41" {
+				t.Errorf("transition[id] = %v, want 41", transition["id"])
+			}
+			properties := body["properties"].([]any)
+			property := properties[0].(map[string]any)
+			if property["key"] != "request" {
+				t.Errorf("property key = %v, want request", property["key"])
+			}
+			w.WriteHeader(http.StatusNoContent)
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		runCommandAction(
+			t,
+			issueTransitionCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites()),
+			"--transition-id", "41", "--payload-json", `{"properties":[{"key":"request","value":"cli"}]}`, "TEST-1",
+		)
+	})
+
+	t.Run("transition list filters", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodGet {
+				t.Errorf("method = %q, want %q", r.Method, http.MethodGet)
+			}
+			if r.URL.Path != "/issue/TEST-1/transitions" {
+				t.Errorf("path = %q, want transitions path", r.URL.Path)
+			}
+			if got := r.URL.Query().Get("transitionId"); got != "31" {
+				t.Errorf("transitionId = %q, want 31", got)
+			}
+			if got := r.URL.Query().Get("skipRemoteOnlyCondition"); got != "true" {
+				t.Errorf("skipRemoteOnlyCondition = %q, want true", got)
+			}
+			if got := r.URL.Query().Get("sortByOpsBarAndStatus"); got != "true" {
+				t.Errorf("sortByOpsBarAndStatus = %q, want true", got)
+			}
+			testhelpers.WriteJSONResponse(t, w, `{"transitions":[{"id":"31"}]}`)
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		runCommandAction(
+			t,
+			issueTransitionCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites()),
+			"--list", "--list-transition-id", "31", "--skip-remote-only-condition", "--sort-by-ops-bar-and-status", "TEST-1",
 		)
 	})
 
@@ -3546,6 +3844,76 @@ func TestIssueChangelogCommand(t *testing.T) {
 			issueChangelogCommand(testCommandClient(server.URL), &buf, testCommandFormat()),
 			"--start-at", "10", "--max-results", "25", "TEST-1",
 		)
+	})
+
+	t.Run("list by ids", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPost {
+				t.Errorf("method = %s, want POST", r.Method)
+			}
+			if r.URL.Path != "/issue/TEST-1/changelog/list" {
+				t.Errorf("path = %q, want /issue/TEST-1/changelog/list", r.URL.Path)
+			}
+			body := testhelpers.DecodeJSONBody(t, r)
+			ids, ok := body["changelogIds"].([]any)
+			if !ok || len(ids) != 2 || ids[0] != float64(10001) || ids[1] != float64(10002) {
+				t.Errorf("changelogIds = %v, want [10001 10002]", body["changelogIds"])
+			}
+			testhelpers.WriteJSONResponse(t, w, `{"values":[{"id":"10001"}],"startAt":0,"maxResults":2,"total":1}`)
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		runCommandAction(
+			t,
+			issueChangelogCommand(testCommandClient(server.URL), &buf, testCommandFormat()),
+			"list-by-ids", "--ids", "10001,10002", "TEST-1",
+		)
+		if !bytes.Contains(buf.Bytes(), []byte(`"10001"`)) {
+			t.Errorf("output = %q, want changelog ID", buf.String())
+		}
+	})
+
+	t.Run("bulk fetch", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPost {
+				t.Errorf("method = %s, want POST", r.Method)
+			}
+			if r.URL.Path != "/changelog/bulkfetch" {
+				t.Errorf("path = %q, want /changelog/bulkfetch", r.URL.Path)
+			}
+			body := testhelpers.DecodeJSONBody(t, r)
+			issues, ok := body["issueIdsOrKeys"].([]any)
+			if !ok || len(issues) != 2 || issues[0] != "TEST-1" || issues[1] != "TEST-2" {
+				t.Errorf("issueIdsOrKeys = %v, want [TEST-1 TEST-2]", body["issueIdsOrKeys"])
+			}
+			fields, ok := body["fieldIds"].([]any)
+			if !ok || len(fields) != 2 || fields[0] != "status" || fields[1] != "assignee" {
+				t.Errorf("fieldIds = %v, want [status assignee]", body["fieldIds"])
+			}
+			if body["maxResults"] != float64(100) {
+				t.Errorf("maxResults = %v, want 100", body["maxResults"])
+			}
+			if body["nextPageToken"] != "token-1" {
+				t.Errorf("nextPageToken = %v, want token-1", body["nextPageToken"])
+			}
+			testhelpers.WriteJSONResponse(t, w, `{"issueChangeLogs":[{"issueId":"10001","changeHistories":[{"id":"20001"}]}],"nextPageToken":"token-2"}`)
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		runCommandAction(
+			t,
+			issueChangelogCommand(testCommandClient(server.URL), &buf, testCommandFormat()),
+			"bulk-fetch", "--issues", "TEST-1,TEST-2", "--field-ids", "status,assignee", "--max-results", "100", "--next-page-token", "token-1",
+		)
+		if !bytes.Contains(buf.Bytes(), []byte(`"issueId":"10001"`)) {
+			t.Errorf("output = %q, want bulk changelog result", buf.String())
+		}
 	})
 }
 
@@ -3717,6 +4085,110 @@ func TestIssueWorklogCommands(t *testing.T) {
 		}
 	})
 
+	t.Run("get", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodGet {
+				t.Errorf("method = %q, want %q", r.Method, http.MethodGet)
+			}
+			if r.URL.Path != "/issue/TEST-1/worklog/10000" {
+				t.Errorf("path = %q, want worklog get path", r.URL.Path)
+			}
+			if got := r.URL.Query().Get("expand"); got != "properties" {
+				t.Errorf("expand = %q, want properties", got)
+			}
+			testhelpers.WriteJSONResponse(t, w, `{"id":"10000"}`)
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		runCommandAction(
+			t,
+			worklogGetCommand(testCommandClient(server.URL), &buf, testCommandFormat()),
+			"--expand", "properties", "TEST-1", "10000",
+		)
+	})
+
+	t.Run("updated", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodGet {
+				t.Errorf("method = %q, want %q", r.Method, http.MethodGet)
+			}
+			if r.URL.Path != "/worklog/updated" {
+				t.Errorf("path = %q, want /worklog/updated", r.URL.Path)
+			}
+			if got := r.URL.Query().Get("since"); got != "1700000000000" {
+				t.Errorf("since = %q, want timestamp", got)
+			}
+			if got := r.URL.Query().Get("expand"); got != "properties" {
+				t.Errorf("expand = %q, want properties", got)
+			}
+			testhelpers.WriteJSONResponse(t, w, `{"values":[{"worklogId":"10000"}],"since":1700000000000}`)
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		runCommandAction(
+			t,
+			worklogUpdatedCommand(testCommandClient(server.URL), &buf, testCommandFormat()),
+			"--since", "1700000000000", "--expand", "properties",
+		)
+	})
+
+	t.Run("deleted", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodGet {
+				t.Errorf("method = %q, want %q", r.Method, http.MethodGet)
+			}
+			if r.URL.Path != "/worklog/deleted" {
+				t.Errorf("path = %q, want /worklog/deleted", r.URL.Path)
+			}
+			if got := r.URL.Query().Get("since"); got != "1700000000000" {
+				t.Errorf("since = %q, want timestamp", got)
+			}
+			testhelpers.WriteJSONResponse(t, w, `{"values":[{"worklogId":"10000"}],"since":1700000000000}`)
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		runCommandAction(t, worklogDeletedCommand(testCommandClient(server.URL), &buf, testCommandFormat()), "--since", "1700000000000")
+	})
+
+	t.Run("list by ids", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPost {
+				t.Errorf("method = %q, want %q", r.Method, http.MethodPost)
+			}
+			if r.URL.Path != "/worklog/list" {
+				t.Errorf("path = %q, want /worklog/list", r.URL.Path)
+			}
+			if got := r.URL.Query().Get("expand"); got != "properties" {
+				t.Errorf("expand = %q, want properties", got)
+			}
+			body := testhelpers.DecodeJSONBody(t, r)
+			ids := body["ids"].([]any)
+			if len(ids) != 2 || ids[0] != float64(10000) || ids[1] != float64(10001) {
+				t.Errorf("ids = %v, want [10000 10001]", ids)
+			}
+			testhelpers.WriteJSONResponse(t, w, `[{"id":"10000"}]`)
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		runCommandAction(
+			t,
+			worklogListByIDsCommand(testCommandClient(server.URL), &buf, testCommandFormat()),
+			"--ids", "10000,10001", "--expand", "properties",
+		)
+	})
+
 	t.Run("add", func(t *testing.T) {
 		t.Parallel()
 
@@ -3735,6 +4207,12 @@ func TestIssueWorklogCommands(t *testing.T) {
 			}
 			if got := r.URL.Query().Get("notifyUsers"); got != "false" {
 				t.Errorf("notifyUsers = %q, want %q", got, "false")
+			}
+			if got := r.URL.Query().Get("expand"); got != "properties" {
+				t.Errorf("expand = %q, want properties", got)
+			}
+			if got := r.URL.Query().Get("reduceBy"); got != "30m" {
+				t.Errorf("reduceBy = %q, want 30m", got)
 			}
 			body := testhelpers.DecodeJSONBody(t, r)
 			if body["started"] != "2026-04-27T10:00:00.000-0500" {
@@ -3760,7 +4238,7 @@ func TestIssueWorklogCommands(t *testing.T) {
 			worklogAddCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites()),
 			"--started", "2026-04-27T10:00:00.000-0500", "--time-spent", "1h", "--comment", "worked",
 			"--visibility-type", "role", "--visibility-value", "Developers", "--notify=false",
-			"--adjust-estimate", "new", "--new-estimate", "2d", "TEST-1",
+			"--adjust-estimate", "new", "--new-estimate", "2d", "--reduce-by", "30m", "--expand", "properties", "TEST-1",
 		)
 	})
 
@@ -5081,6 +5559,27 @@ func TestIssueBulkOperations(t *testing.T) {
 			"--transitions-json", transitionsJSON, "--send-notification=false")
 		if !bytes.Contains(buf.Bytes(), []byte(`"10644"`)) {
 			t.Errorf("output = %q, want taskId 10644 in output", buf.String())
+		}
+	})
+
+	t.Run("bulk status gets progress", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodGet {
+				t.Errorf("method = %q, want GET", r.Method)
+			}
+			if r.URL.Path != "/bulk/queue/10641" {
+				t.Errorf("path = %q, want /bulk/queue/10641", r.URL.Path)
+			}
+			testhelpers.WriteJSONResponse(t, w, `{"taskId":"10641","status":"COMPLETE","progressPercent":100}`)
+		}))
+		t.Cleanup(server.Close)
+
+		var buf bytes.Buffer
+		runCommandAction(t, issueBulkStatusCommand(testCommandClient(server.URL), &buf, format), "10641")
+		if !bytes.Contains(buf.Bytes(), []byte(`"COMPLETE"`)) {
+			t.Errorf("output = %q, want COMPLETE status", buf.String())
 		}
 	})
 

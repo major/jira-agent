@@ -21,9 +21,72 @@ jira-agent issue comment add PROJ-123 --body "This is a comment"`,
 		DefaultCommand: "list",
 		Commands: []*cli.Command{
 			commentListCommand(apiClient, w, format),
+			commentGetCommand(apiClient, w, format),
+			commentListByIDsCommand(apiClient, w, format),
 			commentAddCommand(apiClient, w, format, allowWrites),
 			commentEditCommand(apiClient, w, format, allowWrites),
 			commentDeleteCommand(apiClient, w, format, allowWrites),
+		},
+	}
+}
+
+// commentGetCommand gets a single comment by ID.
+// GET /rest/api/3/issue/{issueIdOrKey}/comment/{id}
+func commentGetCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
+	return &cli.Command{
+		Name:      "get",
+		Usage:     "Get a single comment",
+		UsageText: `jira-agent issue comment get PROJ-123 10001`,
+		ArgsUsage: "<issue-key> <comment-id>",
+		Flags: []cli.Flag{
+			&cli.StringFlag{Name: "expand", Usage: "Comma-separated expansions (renderedBody, properties)"},
+		},
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			args, err := requireArgs(cmd, "issue key", "comment ID")
+			if err != nil {
+				return err
+			}
+			key, commentID := args[0], args[1]
+
+			params := map[string]string{}
+			addOptionalParams(cmd, params, map[string]string{"expand": "expand"})
+			path := appendQueryParams(fmt.Sprintf("/issue/%s/comment/%s", key, commentID), params)
+			return writeAPIResult(w, *format, func(result any) error {
+				return apiClient.Get(ctx, path, nil, result)
+			})
+		},
+	}
+}
+
+// commentListByIDsCommand gets comments across issues by comment ID.
+// POST /rest/api/3/comment/list
+func commentListByIDsCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
+	return &cli.Command{
+		Name:      "list-by-ids",
+		Usage:     "Get comments by IDs",
+		UsageText: `jira-agent issue comment list-by-ids --ids 10001,10002`,
+		Metadata:  requiredFlagMetadata("ids"),
+		Flags: []cli.Flag{
+			&cli.StringFlag{Name: "ids", Usage: "Comma-separated comment IDs (required)"},
+			&cli.StringFlag{Name: "expand", Usage: "Comma-separated expansions (renderedBody, properties)"},
+		},
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			idsFlag, err := requireFlag(cmd, "ids")
+			if err != nil {
+				return err
+			}
+			ids, err := parseInt64List(idsFlag)
+			if err != nil {
+				return err
+			}
+			body := map[string]any{"ids": ids}
+			params := map[string]string{}
+			addOptionalParams(cmd, params, map[string]string{"expand": "expand"})
+			path := appendQueryParams("/comment/list", params)
+
+			return writePaginatedAPIResult(w, *format, func(result any) error {
+				return apiClient.Post(ctx, path, body, result)
+			})
 		},
 	}
 }
@@ -32,8 +95,8 @@ jira-agent issue comment add PROJ-123 --body "This is a comment"`,
 // GET /rest/api/3/issue/{issueIdOrKey}/comment
 func commentListCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
 	return &cli.Command{
-		Name:      "list",
-		Usage:     "List comments on an issue",
+		Name:  "list",
+		Usage: "List comments on an issue",
 		UsageText: `jira-agent issue comment list PROJ-123
 jira-agent issue comment list PROJ-123 --order-by -created`,
 		ArgsUsage: "<issue-key>",
@@ -69,8 +132,8 @@ jira-agent issue comment list PROJ-123 --order-by -created`,
 // POST /rest/api/3/issue/{issueIdOrKey}/comment
 func commentAddCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
 	return &cli.Command{
-		Name:      "add",
-		Usage:     "Add a comment to an issue",
+		Name:  "add",
+		Usage: "Add a comment to an issue",
 		UsageText: `jira-agent issue comment add PROJ-123 --body "This is a comment"
 jira-agent issue comment add PROJ-123 --body "Internal note" --visibility-type role --visibility-value Developers`,
 		ArgsUsage: "<issue-key>",
@@ -130,8 +193,8 @@ jira-agent issue comment add PROJ-123 --body "Internal note" --visibility-type r
 // PUT /rest/api/3/issue/{issueIdOrKey}/comment/{id}
 func commentEditCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
 	return &cli.Command{
-		Name:      "edit",
-		Usage:     "Edit an existing comment",
+		Name:  "edit",
+		Usage: "Edit an existing comment",
 		UsageText: `jira-agent issue comment edit PROJ-123 10001 --body "Updated comment"
 jira-agent issue comment edit PROJ-123 10001 --body "Updated" --notify=false`,
 		ArgsUsage: "<issue-key> <comment-id>",
@@ -154,6 +217,10 @@ jira-agent issue comment edit PROJ-123 10001 --body "Updated" --notify=false`,
 				Name:  "notify",
 				Usage: "Send notification to watchers",
 				Value: true,
+			},
+			&cli.BoolFlag{
+				Name:  "override-editable-flag",
+				Usage: "Override comment editable flag",
 			},
 			&cli.StringFlag{
 				Name:  "expand",
@@ -186,6 +253,7 @@ jira-agent issue comment edit PROJ-123 10001 --body "Updated" --notify=false`,
 			if !cmd.Bool("notify") {
 				params["notifyUsers"] = "false"
 			}
+			addBoolParam(cmd, params, "override-editable-flag", "overrideEditableFlag")
 			addOptionalParams(cmd, params, map[string]string{"expand": "expand"})
 			path := appendQueryParams(fmt.Sprintf("/issue/%s/comment/%s", key, commentID), params)
 

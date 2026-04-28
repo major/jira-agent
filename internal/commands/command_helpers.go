@@ -123,6 +123,27 @@ func splitTrimmed(s string) []string {
 	return out
 }
 
+func parseInt64List(s string) ([]int64, error) {
+	parts := splitTrimmed(s)
+	if len(parts) == 0 {
+		return nil, apperr.NewValidationError("--ids must include at least one ID", nil)
+	}
+
+	ids := make([]int64, 0, len(parts))
+	for _, part := range parts {
+		id, err := strconv.ParseInt(part, 10, 64)
+		if err != nil {
+			return nil, apperr.NewValidationError(
+				fmt.Sprintf("invalid --ids ID %q", part),
+				err,
+			)
+		}
+		ids = append(ids, id)
+	}
+
+	return ids, nil
+}
+
 type paginationFlagUsage struct {
 	maxResults string
 	startAt    string

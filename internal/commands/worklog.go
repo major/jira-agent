@@ -22,9 +22,107 @@ jira-agent issue worklog add PROJ-123 --time-spent 2h`,
 		DefaultCommand: "list",
 		Commands: []*cli.Command{
 			worklogListCommand(apiClient, w, format),
+			worklogGetCommand(apiClient, w, format),
+			worklogUpdatedCommand(apiClient, w, format),
+			worklogDeletedCommand(apiClient, w, format),
+			worklogListByIDsCommand(apiClient, w, format),
 			worklogAddCommand(apiClient, w, format, allowWrites),
 			worklogEditCommand(apiClient, w, format, allowWrites),
 			worklogDeleteCommand(apiClient, w, format, allowWrites),
+		},
+	}
+}
+
+func worklogGetCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
+	return &cli.Command{
+		Name:      "get",
+		Usage:     "Get a single worklog",
+		UsageText: `jira-agent issue worklog get PROJ-123 12345`,
+		ArgsUsage: "<issue-key> <worklog-id>",
+		Flags: []cli.Flag{
+			&cli.StringFlag{Name: "expand", Usage: "Comma-separated expansions (properties)"},
+		},
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			args, err := requireArgs(cmd, "issue key", "worklog ID")
+			if err != nil {
+				return err
+			}
+			key, worklogID := args[0], args[1]
+			params := map[string]string{}
+			addOptionalParams(cmd, params, map[string]string{"expand": "expand"})
+			path := appendQueryParams(fmt.Sprintf("/issue/%s/worklog/%s", key, worklogID), params)
+
+			return writeAPIResult(w, *format, func(result any) error {
+				return apiClient.Get(ctx, path, nil, result)
+			})
+		},
+	}
+}
+
+func worklogUpdatedCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
+	return &cli.Command{
+		Name:      "updated",
+		Usage:     "List updated worklogs",
+		UsageText: `jira-agent issue worklog updated --since 1700000000000`,
+		Flags: []cli.Flag{
+			&cli.StringFlag{Name: "since", Usage: "Unix timestamp in milliseconds"},
+			&cli.StringFlag{Name: "expand", Usage: "Comma-separated expansions (properties)"},
+		},
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			params := map[string]string{}
+			addOptionalParams(cmd, params, map[string]string{"since": "since", "expand": "expand"})
+			return writePaginatedAPIResult(w, *format, func(result any) error {
+				return apiClient.Get(ctx, "/worklog/updated", params, result)
+			})
+		},
+	}
+}
+
+func worklogDeletedCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
+	return &cli.Command{
+		Name:      "deleted",
+		Usage:     "List deleted worklogs",
+		UsageText: `jira-agent issue worklog deleted --since 1700000000000`,
+		Flags: []cli.Flag{
+			&cli.StringFlag{Name: "since", Usage: "Unix timestamp in milliseconds"},
+		},
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			params := map[string]string{}
+			addOptionalParams(cmd, params, map[string]string{"since": "since"})
+			return writePaginatedAPIResult(w, *format, func(result any) error {
+				return apiClient.Get(ctx, "/worklog/deleted", params, result)
+			})
+		},
+	}
+}
+
+func worklogListByIDsCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
+	return &cli.Command{
+		Name:      "list-by-ids",
+		Usage:     "Get worklogs by IDs",
+		UsageText: `jira-agent issue worklog list-by-ids --ids 12345,67890`,
+		Metadata:  requiredFlagMetadata("ids"),
+		Flags: []cli.Flag{
+			&cli.StringFlag{Name: "ids", Usage: "Comma-separated worklog IDs (required)"},
+			&cli.StringFlag{Name: "expand", Usage: "Comma-separated expansions (properties)"},
+		},
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			idsFlag, err := requireFlag(cmd, "ids")
+			if err != nil {
+				return err
+			}
+			ids, err := parseInt64List(idsFlag)
+			if err != nil {
+				return err
+			}
+			body := map[string]any{"ids": ids}
+			params := map[string]string{}
+			addOptionalParams(cmd, params, map[string]string{"expand": "expand"})
+			path := appendQueryParams("/worklog/list", params)
+
+			return writeAPIResult(w, *format, func(result any) error {
+				return apiClient.Post(ctx, path, body, result)
+			})
 		},
 	}
 }
@@ -63,8 +161,8 @@ func worklogListCommand(apiClient *client.Ref, w io.Writer, format *output.Forma
 
 func worklogAddCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
 	return &cli.Command{
-		Name:      "add",
-		Usage:     "Add a worklog to an issue",
+		Name:  "add",
+		Usage: "Add a worklog to an issue",
 		UsageText: `jira-agent issue worklog add PROJ-123 --time-spent 2h
 jira-agent issue worklog add PROJ-123 --time-spent 30m --started "2025-01-15T09:00:00.000+0000"`,
 		ArgsUsage: "<issue-key>",
@@ -164,9 +262,11 @@ func worklogMutationFlags() []cli.Flag {
 		&cli.StringFlag{Name: "visibility-type", Usage: "Visibility restriction type: group or role"},
 		&cli.StringFlag{Name: "visibility-value", Usage: "Visibility restriction value (group/role name)"},
 		&cli.StringFlag{Name: "properties-json", Usage: "JSON array of worklog properties"},
+		&cli.StringFlag{Name: "expand", Usage: "Comma-separated expansions (properties)"},
 		&cli.BoolFlag{Name: "notify", Usage: "Send notification to watchers", Value: true},
 		&cli.StringFlag{Name: "adjust-estimate", Usage: "Estimate adjustment: auto, leave, manual, new"},
 		&cli.StringFlag{Name: "new-estimate", Usage: "New remaining estimate when adjust-estimate is new"},
+		&cli.StringFlag{Name: "reduce-by", Usage: "Amount to reduce remaining estimate when adjust-estimate is manual"},
 		&cli.BoolFlag{Name: "override-editable-flag", Usage: "Override worklog editable flag"},
 	}
 }
@@ -234,6 +334,8 @@ func worklogMutationParams(cmd *cli.Command, includeIncreaseBy bool) map[string]
 	addOptionalParams(cmd, params, map[string]string{
 		"adjust-estimate": "adjustEstimate",
 		"new-estimate":    "newEstimate",
+		"reduce-by":       "reduceBy",
+		"expand":          "expand",
 	})
 	if includeIncreaseBy {
 		addOptionalParams(cmd, params, map[string]string{"increase-by": "increaseBy"})
