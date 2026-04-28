@@ -1,6 +1,6 @@
 ---
 name: jira-agent
-description: "Jira Cloud CLI for AI agents. Structured JSON/CSV/TSV output, semantic exit codes. Covers: issue CRUD, search, bulk ops (create/fetch/delete/edit/move/transition), transitions, assignments, comments, worklogs, watchers, votes, attachments, issue links, remote links, changelog, ranking, notifications; agile boards, sprints, epics, backlogs; projects, components, versions; fields (contexts/options), users, groups, filters, permissions, dashboards, workflows, statuses, priorities, resolutions, issue types, labels, JQL helpers, and server info. Triggers: 'jira', 'jira issue', 'jira search', 'jql', 'jira create', 'jira bulk', 'jira transition', 'jira assign', 'jira comment', 'jira worklog', 'jira sprint', 'jira epic', 'jira board', 'jira backlog', 'jira component', 'jira version', 'jira project', 'jira field', 'jira user', 'jira group', 'jira filter', 'jira permission', 'jira dashboard', 'jira workflow', 'jira status', 'jira-agent'."
+description: "Jira Cloud CLI for AI agents. Structured JSON/CSV/TSV output, semantic exit codes. Covers: issue CRUD, search, bulk ops (create/fetch/delete/edit/move/transition), transitions, assignments, comments, worklogs, watchers, votes, attachments, issue links, remote links, changelog, ranking, notifications; agile boards, sprints, epics, backlogs; projects, components, versions; fields (contexts/options), users, groups, filters, permissions, dashboards, workflows, statuses, priorities, resolutions, issue types, labels, JQL helpers, audit records, tasks, and server info. Triggers: 'jira', 'jira issue', 'jira search', 'jql', 'jira create', 'jira bulk', 'jira transition', 'jira assign', 'jira comment', 'jira worklog', 'jira sprint', 'jira epic', 'jira board', 'jira backlog', 'jira component', 'jira version', 'jira project', 'jira field', 'jira user', 'jira group', 'jira filter', 'jira permission', 'jira dashboard', 'jira workflow', 'jira status', 'jira-agent'."
 metadata:
   author: "Major Hayden"
   version: "2.0.0"
@@ -24,7 +24,7 @@ This is the entry point. Command details are split by theme:
 | [issue-workflows.md](issue-workflows.md) | Transition, assign, comment, worklog, watcher, vote, attachment, link, remote-link, changelog, rank, notify |
 | [agile.md](agile.md) | Board, sprint, epic, backlog |
 | [project-management.md](project-management.md) | Project, component, version |
-| [admin-reference.md](admin-reference.md) | Field, user, group, filter, permission, dashboard, workflow, status, priority, resolution, issuetype, label, JQL, server-info |
+| [admin-reference.md](admin-reference.md) | Field, user, group, filter, permission, dashboard, workflow, status, priority, resolution, issuetype, label, JQL, audit records, tasks, server-info |
 
 ## Auth
 

@@ -1,6 +1,6 @@
 # Admin Reference
 
-Field management, users, groups, filters, permissions, dashboards, workflows, statuses, priorities, resolutions, issue types, labels, JQL helpers, tasks, and server info.
+Field management, users, groups, filters, permissions, dashboards, workflows, statuses, priorities, resolutions, issue types, labels, JQL helpers, audit records, tasks, and server info.
 
 ## Fields
 
@@ -322,6 +322,24 @@ jira-agent task cancel 10641
 ```
 
 Use `task get` to poll async task IDs returned by long-running Jira operations. `task cancel` is write-protected and requires `JIRA_ALLOW_WRITES=true` or the config write-enable flag.
+
+## Audit Records
+
+```bash
+jira-agent audit list
+jira-agent audit list --from 2024-01-01T00:00:00.000+0000 --to 2024-12-31T23:59:59.000+0000
+jira-agent audit list --filter "user created" --limit 25
+```
+
+| Flag | Notes |
+|------|-------|
+| `--filter` | Space-separated text search across audit record fields |
+| `--from` | Start date or datetime |
+| `--to` | End date or datetime |
+| `--limit` | Page size (default 1000) |
+| `--offset` | Pagination offset (default 0) |
+
+Read-only. Requires Jira administrator permissions. Pagination uses `--offset`/`--limit`, not `--start-at`/`--max-results`.
 
 ## Server Info
 

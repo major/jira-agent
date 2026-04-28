@@ -57,6 +57,7 @@ func TestCommandGroups_RegisterSubcommands(t *testing.T) {
 		cmd  *cli.Command
 		want int
 	}{
+		{name: "audit", cmd: AuditCommand(apiClient, &buf, format), want: 1},
 		{name: "board", cmd: BoardCommand(apiClient, &buf, format, testAllowWrites()), want: 11},
 		{name: "field", cmd: FieldCommand(apiClient, &buf, format, testAllowWrites()), want: 4},
 		{name: "filter", cmd: FilterCommand(apiClient, &buf, format, testAllowWrites()), want: 10},
@@ -2213,6 +2214,68 @@ func TestTaskCommands(t *testing.T) {
 			t.Errorf("output = %q, want cancelled task status", buf.String())
 		}
 	})
+}
+
+func TestAuditCommands(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("method = %q, want %q", r.Method, http.MethodGet)
+		}
+		if r.URL.Path != "/auditing/record" {
+			t.Errorf("path = %q, want %q", r.URL.Path, "/auditing/record")
+		}
+		if got := r.URL.Query().Get("limit"); got != "25" {
+			t.Errorf("limit = %q, want %q", got, "25")
+		}
+		if got := r.URL.Query().Get("offset"); got != "50" {
+			t.Errorf("offset = %q, want %q", got, "50")
+		}
+		if got := r.URL.Query().Get("filter"); got != "user created" {
+			t.Errorf("filter = %q, want %q", got, "user created")
+		}
+		if got := r.URL.Query().Get("from"); got != "2024-01-01T00:00:00.000+0000" {
+			t.Errorf("from = %q, want %q", got, "2024-01-01T00:00:00.000+0000")
+		}
+		if got := r.URL.Query().Get("to"); got != "2024-12-31T23:59:59.000+0000" {
+			t.Errorf("to = %q, want %q", got, "2024-12-31T23:59:59.000+0000")
+		}
+		testhelpers.WriteJSONResponse(t, w, `{
+			"offset":50,
+			"limit":25,
+			"total":2,
+			"records":[{
+				"id":10000,
+				"summary":"User created",
+				"authorAccountId":"5b10ac8d82e05b22cc7d4ef5"
+			}]
+		}`)
+	}))
+	defer server.Close()
+
+	var buf bytes.Buffer
+	runCommandAction(
+		t,
+		auditListCommand(testCommandClient(server.URL), &buf, testCommandFormat()),
+		"--limit", "25",
+		"--offset", "50",
+		"--filter", "user created",
+		"--from", "2024-01-01T00:00:00.000+0000",
+		"--to", "2024-12-31T23:59:59.000+0000",
+	)
+	if !bytes.Contains(buf.Bytes(), []byte(`"summary":"User created"`)) {
+		t.Errorf("output = %q, want audit record summary", buf.String())
+	}
+	if !bytes.Contains(buf.Bytes(), []byte(`"returned":1`)) {
+		t.Errorf("output = %q, want returned metadata", buf.String())
+	}
+	if !bytes.Contains(buf.Bytes(), []byte(`"start_at":50`)) {
+		t.Errorf("output = %q, want offset metadata", buf.String())
+	}
+	if !bytes.Contains(buf.Bytes(), []byte(`"max_results":25`)) {
+		t.Errorf("output = %q, want limit metadata", buf.String())
+	}
 }
 
 func TestLabelListCommand(t *testing.T) {

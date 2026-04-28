@@ -181,6 +181,7 @@ jira-agent whoami`,
 		},
 		Commands: []*cli.Command{
 			whoamiCommand(apiClient, w, outputFormat),
+			commands.AuditCommand(apiClient, w, outputFormat),
 			commands.IssueCommand(apiClient, w, outputFormat, allowWrites),
 			commands.FieldCommand(apiClient, w, outputFormat, allowWrites),
 			commands.ProjectCommand(apiClient, w, outputFormat),
