@@ -2240,12 +2240,12 @@ func TestTaskCommands(t *testing.T) {
 		t.Parallel()
 
 		server := testhelpers.NewJSONServer(t, http.MethodPost, "/task/10641/cancel",
-			`{"id":"10641","status":"CANCELLED"}`)
+			`{"id":"10641","status":"CANCELED"}`)
 
 		var buf bytes.Buffer
 		runCommandAction(t, taskCancelCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites()), "10641")
-		if !bytes.Contains(buf.Bytes(), []byte(`"status":"CANCELLED"`)) {
-			t.Errorf("output = %q, want cancelled task status", buf.String())
+		if !bytes.Contains(buf.Bytes(), []byte(`"status":"CANCELED"`)) {
+			t.Errorf("output = %q, want canceled task status", buf.String())
 		}
 	})
 }
