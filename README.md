@@ -3,6 +3,7 @@
 [![CI](https://github.com/major/jira-agent/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/major/jira-agent/actions/workflows/ci.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/major/jira-agent.svg)](https://pkg.go.dev/github.com/major/jira-agent)
 [![Go Report Card](https://goreportcard.com/badge/github.com/major/jira-agent)](https://goreportcard.com/report/github.com/major/jira-agent)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/major/jira-agent/badge)](https://securityscorecards.dev/viewer/?uri=github.com/major/jira-agent)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/major/jira-agent)](https://go.dev/)
 [![License](https://img.shields.io/github/license/major/jira-agent)](./LICENSE)
 
