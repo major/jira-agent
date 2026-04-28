@@ -84,7 +84,7 @@ Common read-only commands:
 
 ```bash
 jira-agent issue get PROJ-123 --fields key,summary,status,assignee
-jira-agent issue search --jql "assignee = currentUser()" --fields key,summary,status
+jira-agent issue search --jql "assignee = currentUser()"
 jira-agent project list --output csv
 ```
 
@@ -99,6 +99,8 @@ JSON is the default output format. CSV and TSV are available for flat tables:
 ```bash
 jira-agent issue search --jql "project = PROJ" --fields key,summary,status --output tsv
 ```
+
+`issue search` returns compact JSON rows by default to keep LLM context small. Add `--raw` when you need Jira's full nested API response.
 
 ## Command areas
 

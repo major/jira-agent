@@ -28,14 +28,17 @@ jira-agent issue search --jql "project = PROJ AND status = 'In Progress'"
 jira-agent issue search --jql "assignee = currentUser()" --fields key,summary,status --max-results 20
 jira-agent issue search --jql "..." --next-page-token TOKEN
 jira-agent issue search --jql "project = PROJ" --properties request --fields-by-keys --fail-fast=false
+jira-agent issue search --jql "project = PROJ" --raw
 ```
+
+Default JSON output is flattened for LLM efficiency: `.data.issues[]` contains compact rows such as `key`, `summary`, `status`, `assignee`, and `priority`, with common Jira wrapper fields like `self`, `avatarUrls`, `iconUrl`, and `statusCategory` removed. Use `--raw` only for debugging, scripting against Jira's original response shape, or field discovery that needs the full nested API payload.
 
 | Flag | Default | Notes |
 |------|---------|-------|
 | `--jql` | (required) | JQL query string |
-| `--fields` | summary,status,assignee,priority | Comma-separated |
+| `--fields` | key,summary,status,assignee,priority | Comma-separated; `key` is returned from the issue object and not sent as a Jira field |
 | `--max-results` | 50 | Page size |
-| `--next-page-token` | | Cursor from previous `.metadata` |
+| `--next-page-token` | | Cursor from previous `.data.nextPageToken` |
 | `--expand` | | e.g., `changelog,renderedFields` |
 | `--order-by` | | Sort field |
 | `--order` | | `asc` or `desc` |
@@ -43,6 +46,7 @@ jira-agent issue search --jql "project = PROJ" --properties request --fields-by-
 | `--fields-by-keys` | false | Treat field identifiers as field keys |
 | `--fail-fast` | true | Set false to tolerate unresolved fields |
 | `--reconcile-issues` | | Comma-separated issue IDs for Jira reconciliation |
+| `--raw` | false | Return the unmodified Jira search response instead of compact issue rows |
 
 ## issue create
 
@@ -237,7 +241,7 @@ jira-agent issue create --project PROJ --type Story \
 
 ```bash
 RESULT=$(jira-agent issue search --jql "project = PROJ" --max-results 50)
-# Extract next-page-token from .metadata, pass to subsequent calls
+# Extract nextPageToken from .data.nextPageToken, pass to subsequent calls
 jira-agent issue search --jql "project = PROJ" --max-results 50 \
   --next-page-token "TOKEN_FROM_PREVIOUS_RESPONSE"
 ```

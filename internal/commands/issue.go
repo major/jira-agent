@@ -269,7 +269,8 @@ func issueSearchCommand(apiClient *client.Ref, w io.Writer, format *output.Forma
 		Usage: "Search issues via JQL",
 		UsageText: `jira-agent issue search --jql "project = PROJ AND status = Open"
 jira-agent issue search --jql "assignee = currentUser()" --fields key,summary,status
-jira-agent issue search --jql "project = PROJ" --max-results 10 --order-by created --order desc`,
+jira-agent issue search --jql "project = PROJ" --max-results 10 --order-by created --order desc
+jira-agent issue search --jql "project = PROJ" --raw`,
 		Metadata: requiredFlagMetadata("jql"),
 		Flags: []cli.Flag{
 			&cli.StringFlag{
@@ -279,7 +280,7 @@ jira-agent issue search --jql "project = PROJ" --max-results 10 --order-by creat
 			&cli.StringFlag{
 				Name:  "fields",
 				Usage: "Comma-separated field list",
-				Value: "summary,status,assignee,priority",
+				Value: "key,summary,status,assignee,priority",
 			},
 			&cli.IntFlag{
 				Name:  "max-results",
@@ -319,6 +320,10 @@ jira-agent issue search --jql "project = PROJ" --max-results 10 --order-by creat
 				Name:  "order",
 				Usage: "Sort direction: asc or desc (used with --order-by)",
 			},
+			&cli.BoolFlag{
+				Name:  "raw",
+				Usage: "Return the unmodified Jira API response for JSON output",
+			},
 		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			jql, err := requireFlag(cmd, "jql")
@@ -343,8 +348,8 @@ jira-agent issue search --jql "project = PROJ" --max-results 10 --order-by creat
 			if t := cmd.String("next-page-token"); t != "" {
 				body["nextPageToken"] = t
 			}
-			if f := cmd.String("fields"); f != "" {
-				body["fields"] = splitTrimmed(f)
+			if f := issueSearchFields(cmd.String("fields")); cmd.IsSet("fields") || len(f) > 0 {
+				body["fields"] = f
 			}
 			if e := cmd.String("expand"); e != "" {
 				body["expand"] = e
@@ -362,9 +367,18 @@ jira-agent issue search --jql "project = PROJ" --max-results 10 --order-by creat
 				body["reconcileIssues"] = reconcile
 			}
 
-			return writePaginatedAPIResult(w, *format, func(result any) error {
-				return apiClient.Post(ctx, "/search/jql", body, result)
-			})
+			if cmd.Bool("raw") || !isJSONOutputFormat(*format) {
+				return writePaginatedAPIResult(w, *format, func(result any) error {
+					return apiClient.Post(ctx, "/search/jql", body, result)
+				})
+			}
+
+			var result any
+			if err := apiClient.Post(ctx, "/search/jql", body, &result); err != nil {
+				return err
+			}
+			meta := extractPaginationMeta(result)
+			return output.WriteSuccess(w, flattenIssueSearchResult(result), meta, *format)
 		},
 	}
 }
