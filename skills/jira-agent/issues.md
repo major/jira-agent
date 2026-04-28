@@ -113,7 +113,15 @@ Returns issue count without fetching full results. `--jql` is required.
 
 ## Bulk Operations
 
-All bulk ops require write access. Issue limits noted per command.
+Bulk mutating ops require write access. Read-only helpers like `bulk fetch`, `bulk transitions`, and `bulk status` do not. Issue limits noted per command.
+
+### issue bulk status
+
+```bash
+jira-agent issue bulk status 10641
+```
+
+Use the `taskId` returned by async bulk delete, edit, move, or transition operations to poll `/bulk/queue/{taskId}` progress. Jira keeps bulk progress records for a limited time.
 
 ### issue bulk create
 
@@ -230,7 +238,7 @@ jira-agent issue search --jql "project = PROJ" --max-results 50 \
   --next-page-token "TOKEN_FROM_PREVIOUS_RESPONSE"
 ```
 
-### Bulk status check
+### Bulk sprint status check
 
 ```bash
 jira-agent issue search \

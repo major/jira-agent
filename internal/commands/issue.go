@@ -44,6 +44,7 @@ jira-agent issue transition PROJ-123 --to "In Progress"`,
 			legacyIssueBulkCommand(issueBulkMoveCommand(apiClient, w, format, allowWrites)),
 			legacyIssueBulkCommand(issueBulkTransitionsCommand(apiClient, w, format)),
 			legacyIssueBulkCommand(issueBulkTransitionCommand(apiClient, w, format, allowWrites)),
+			legacyIssueBulkCommand(issueBulkStatusCommand(apiClient, w, format)),
 			issueEditCommand(apiClient, w, format, allowWrites),
 			issueTransitionCommand(apiClient, w, format, allowWrites),
 			issueAssignCommand(apiClient, w, format, allowWrites),
@@ -81,6 +82,7 @@ jira-agent issue bulk transition --transitions-json '[{"selectedIssueIdsOrKeys":
 			canonicalIssueBulkCommand(issueBulkMoveCommand(apiClient, w, format, allowWrites), "move"),
 			canonicalIssueBulkCommand(issueBulkTransitionsCommand(apiClient, w, format), "transitions"),
 			canonicalIssueBulkCommand(issueBulkTransitionCommand(apiClient, w, format, allowWrites), "transition"),
+			canonicalIssueBulkCommand(issueBulkStatusCommand(apiClient, w, format), "status"),
 		},
 	}
 }
@@ -674,9 +676,15 @@ func issueChangelogCommand(apiClient *client.Ref, w io.Writer, format *output.Fo
 		Name:  "changelog",
 		Usage: "List changelog entries for an issue",
 		UsageText: `jira-agent issue changelog PROJ-123
-jira-agent issue changelog PROJ-123 --max-results 10`,
+jira-agent issue changelog PROJ-123 --max-results 10
+jira-agent issue changelog list-by-ids PROJ-123 --ids 10001,10002
+jira-agent issue changelog bulk-fetch --issues PROJ-1,PROJ-2`,
 		ArgsUsage: "<issue-key>",
 		Flags:     appendPaginationFlags(nil),
+		Commands: []*cli.Command{
+			issueChangelogListByIDsCommand(apiClient, w, format),
+			issueChangelogBulkFetchCommand(apiClient, w, format),
+		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			key, err := requireArg(cmd, "issue key")
 			if err != nil {
@@ -687,6 +695,78 @@ jira-agent issue changelog PROJ-123 --max-results 10`,
 
 			return writePaginatedAPIResult(w, *format, func(result any) error {
 				return apiClient.Get(ctx, "/issue/"+key+"/changelog", params, result)
+			})
+		},
+	}
+}
+
+func issueChangelogListByIDsCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
+	return &cli.Command{
+		Name:      "list-by-ids",
+		Usage:     "Get issue changelogs by IDs",
+		UsageText: `jira-agent issue changelog list-by-ids PROJ-123 --ids 10001,10002`,
+		Metadata:  requiredFlagMetadata("ids"),
+		ArgsUsage: "<issue-key>",
+		Flags: []cli.Flag{
+			&cli.StringFlag{Name: "ids", Usage: "Comma-separated changelog IDs (required)"},
+		},
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			key, err := requireArg(cmd, "issue key")
+			if err != nil {
+				return err
+			}
+			idsFlag, err := requireFlag(cmd, "ids")
+			if err != nil {
+				return err
+			}
+
+			body := map[string]any{"changelogIds": splitTrimmed(idsFlag)}
+			return writePaginatedAPIResult(w, *format, func(result any) error {
+				return apiClient.Post(ctx, "/issue/"+key+"/changelog/list", body, result)
+			})
+		},
+	}
+}
+
+func issueChangelogBulkFetchCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
+	return &cli.Command{
+		Name:  "bulk-fetch",
+		Usage: "Bulk fetch changelogs for issues",
+		UsageText: `jira-agent issue changelog bulk-fetch --issues PROJ-1,PROJ-2
+jira-agent issue changelog bulk-fetch --issues PROJ-1,PROJ-2 --field-ids status,assignee --max-results 100`,
+		Metadata: requiredFlagMetadata("issues"),
+		Flags: []cli.Flag{
+			&cli.StringFlag{Name: "issues", Usage: "Comma-separated issue keys or IDs (required, max 1000)"},
+			&cli.StringFlag{Name: "field-ids", Usage: "Comma-separated field IDs to filter changelogs (max 10)"},
+			&cli.IntFlag{Name: "max-results", Usage: "Maximum changelog items to return", Value: 1000},
+			&cli.StringFlag{Name: "next-page-token", Usage: "Cursor token from previous response"},
+		},
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			issuesFlag, err := requireFlag(cmd, "issues")
+			if err != nil {
+				return err
+			}
+			issues := splitTrimmed(issuesFlag)
+			if len(issues) > 1000 {
+				return apperr.NewValidationError("--issues supports at most 1000 issues", nil)
+			}
+
+			body := map[string]any{"issueIdsOrKeys": issues}
+			if fields := splitTrimmed(cmd.String("field-ids")); len(fields) > 0 {
+				if len(fields) > 10 {
+					return apperr.NewValidationError("--field-ids supports at most 10 fields", nil)
+				}
+				body["fieldIds"] = fields
+			}
+			if cmd.IsSet("max-results") {
+				body["maxResults"] = cmd.Int("max-results")
+			}
+			if token := cmd.String("next-page-token"); token != "" {
+				body["nextPageToken"] = token
+			}
+
+			return writeAPIResult(w, *format, func(result any) error {
+				return apiClient.Post(ctx, "/changelog/bulkfetch", body, result)
 			})
 		},
 	}
@@ -1404,6 +1484,26 @@ jira-agent issue bulk-transition --transitions-json '[{"selectedIssueIdsOrKeys":
 				return apiClient.Post(ctx, "/bulk/issues/transition", body, result)
 			})
 		}),
+	}
+}
+
+// GET /rest/api/3/bulk/queue/{taskId}
+func issueBulkStatusCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
+	return &cli.Command{
+		Name:      "bulk-status",
+		Usage:     "Get bulk issue operation progress",
+		UsageText: `jira-agent issue bulk-status 10641`,
+		ArgsUsage: "<task-id>",
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			taskID, err := requireArg(cmd, "task ID")
+			if err != nil {
+				return err
+			}
+
+			return writeAPIResult(w, *format, func(result any) error {
+				return apiClient.Get(ctx, "/bulk/queue/"+taskID, nil, result)
+			})
+		},
 	}
 }
 

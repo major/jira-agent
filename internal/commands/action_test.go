@@ -77,7 +77,7 @@ func TestCommandGroups_RegisterSubcommands(t *testing.T) {
 		{name: "sprint", cmd: SprintCommand(apiClient, &buf, format, testAllowWrites()), want: 9},
 		{name: "epic", cmd: EpicCommand(apiClient, &buf, format, testAllowWrites()), want: 6},
 		{name: "backlog", cmd: BacklogCommand(apiClient, &buf, format, testAllowWrites()), want: 2},
-		{name: "issue", cmd: IssueCommand(apiClient, &buf, format, testAllowWrites()), want: 30},
+		{name: "issue", cmd: IssueCommand(apiClient, &buf, format, testAllowWrites()), want: 31},
 		{name: "jql", cmd: JQLCommand(apiClient, &buf, format), want: 3},
 	}
 
@@ -3845,6 +3845,76 @@ func TestIssueChangelogCommand(t *testing.T) {
 			"--start-at", "10", "--max-results", "25", "TEST-1",
 		)
 	})
+
+	t.Run("list by ids", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPost {
+				t.Errorf("method = %s, want POST", r.Method)
+			}
+			if r.URL.Path != "/issue/TEST-1/changelog/list" {
+				t.Errorf("path = %q, want /issue/TEST-1/changelog/list", r.URL.Path)
+			}
+			body := testhelpers.DecodeJSONBody(t, r)
+			ids, ok := body["changelogIds"].([]any)
+			if !ok || len(ids) != 2 || ids[0] != "10001" || ids[1] != "10002" {
+				t.Errorf("changelogIds = %v, want [10001 10002]", body["changelogIds"])
+			}
+			testhelpers.WriteJSONResponse(t, w, `{"values":[{"id":"10001"}],"startAt":0,"maxResults":2,"total":1}`)
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		runCommandAction(
+			t,
+			issueChangelogCommand(testCommandClient(server.URL), &buf, testCommandFormat()),
+			"list-by-ids", "--ids", "10001,10002", "TEST-1",
+		)
+		if !bytes.Contains(buf.Bytes(), []byte(`"10001"`)) {
+			t.Errorf("output = %q, want changelog ID", buf.String())
+		}
+	})
+
+	t.Run("bulk fetch", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPost {
+				t.Errorf("method = %s, want POST", r.Method)
+			}
+			if r.URL.Path != "/changelog/bulkfetch" {
+				t.Errorf("path = %q, want /changelog/bulkfetch", r.URL.Path)
+			}
+			body := testhelpers.DecodeJSONBody(t, r)
+			issues, ok := body["issueIdsOrKeys"].([]any)
+			if !ok || len(issues) != 2 || issues[0] != "TEST-1" || issues[1] != "TEST-2" {
+				t.Errorf("issueIdsOrKeys = %v, want [TEST-1 TEST-2]", body["issueIdsOrKeys"])
+			}
+			fields, ok := body["fieldIds"].([]any)
+			if !ok || len(fields) != 2 || fields[0] != "status" || fields[1] != "assignee" {
+				t.Errorf("fieldIds = %v, want [status assignee]", body["fieldIds"])
+			}
+			if body["maxResults"] != float64(100) {
+				t.Errorf("maxResults = %v, want 100", body["maxResults"])
+			}
+			if body["nextPageToken"] != "token-1" {
+				t.Errorf("nextPageToken = %v, want token-1", body["nextPageToken"])
+			}
+			testhelpers.WriteJSONResponse(t, w, `{"issueChangeLogs":[{"issueId":"10001","changeHistories":[{"id":"20001"}]}],"nextPageToken":"token-2"}`)
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		runCommandAction(
+			t,
+			issueChangelogCommand(testCommandClient(server.URL), &buf, testCommandFormat()),
+			"bulk-fetch", "--issues", "TEST-1,TEST-2", "--field-ids", "status,assignee", "--max-results", "100", "--next-page-token", "token-1",
+		)
+		if !bytes.Contains(buf.Bytes(), []byte(`"issueId":"10001"`)) {
+			t.Errorf("output = %q, want bulk changelog result", buf.String())
+		}
+	})
 }
 
 func TestIssueRankCommand(t *testing.T) {
@@ -5489,6 +5559,27 @@ func TestIssueBulkOperations(t *testing.T) {
 			"--transitions-json", transitionsJSON, "--send-notification=false")
 		if !bytes.Contains(buf.Bytes(), []byte(`"10644"`)) {
 			t.Errorf("output = %q, want taskId 10644 in output", buf.String())
+		}
+	})
+
+	t.Run("bulk status gets progress", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodGet {
+				t.Errorf("method = %q, want GET", r.Method)
+			}
+			if r.URL.Path != "/bulk/queue/10641" {
+				t.Errorf("path = %q, want /bulk/queue/10641", r.URL.Path)
+			}
+			testhelpers.WriteJSONResponse(t, w, `{"taskId":"10641","status":"COMPLETE","progressPercent":100}`)
+		}))
+		t.Cleanup(server.Close)
+
+		var buf bytes.Buffer
+		runCommandAction(t, issueBulkStatusCommand(testCommandClient(server.URL), &buf, format), "10641")
+		if !bytes.Contains(buf.Bytes(), []byte(`"COMPLETE"`)) {
+			t.Errorf("output = %q, want COMPLETE status", buf.String())
 		}
 	})
 

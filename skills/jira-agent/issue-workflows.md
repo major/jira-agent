@@ -266,9 +266,12 @@ jira-agent issue remote-link delete KEY-123 --global-id "ci-build-42"
 ```bash
 jira-agent issue changelog KEY-123
 jira-agent issue changelog KEY-123 --max-results 10 --start-at 0
+jira-agent issue changelog list-by-ids KEY-123 --ids 10001,10002
+jira-agent issue changelog bulk-fetch --issues KEY-123,KEY-456 \
+  --field-ids status,assignee --max-results 100 --next-page-token TOKEN
 ```
 
-Returns field change history. Offset pagination.
+Returns field change history. Direct issue changelog listing uses offset pagination. Use `list-by-ids` when Jira returned specific changelog IDs. Use `bulk-fetch` for cross-issue changelog sync, optionally filtered to up to 10 field IDs and paginated with `--next-page-token`.
 
 ## Ranking
 
