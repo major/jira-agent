@@ -95,3 +95,11 @@ Module: `github.com/major/jira-agent`. Go version: `1.26`. CLI framework: `githu
 - Every `nolint` needs a linter name and explanation.
 - CI checks `go mod tidy && git diff --exit-code -- go.mod go.sum`, full race/shuffle tests, `go build ./cmd/jira-agent/`, govulncheck, and `goreleaser check`.
 - Releases use `make release VERSION=vX.Y.Z` from clean `main`, run checks, and create a signed tag from conventional commit history. `make release-snapshot` skips signing.
+
+## Release process
+
+- Release from a clean, up-to-date `main` branch. Confirm with `git status --short --branch`, `git fetch --tags origin`, and `git tag --list --sort=version:refname` before choosing the next SemVer tag.
+- Use `make release-snapshot` before the real release when changing GoReleaser config or release packaging. It runs `goreleaser check` and `goreleaser release --snapshot --clean --skip=sign` without creating a tag or publishing artifacts.
+- Create the signed release tag with `make release VERSION=vX.Y.Z`. The target requires `VERSION`, verifies `main`, verifies a clean tree, runs `make test`, `make lint`, `make vuln`, and signs an annotated tag whose message is built from conventional commits since the previous tag.
+- Push only the release tag after the Makefile succeeds: `git push origin vX.Y.Z`. The tag push triggers `.github/workflows/release.yml`, which runs GoReleaser with GitHub release permissions and Sigstore keyless checksum signing.
+- Do not run GoReleaser locally for publishing. Local release work should stop at the signed tag; GitHub Actions owns published archives, checksums, signatures, and the GitHub Release.
