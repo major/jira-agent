@@ -199,6 +199,7 @@ jira-agent permission schemes project PROJ
 ```bash
 jira-agent dashboard list
 jira-agent dashboard list --filter my --max-results 10
+jira-agent dashboard list --search "ops" --max-results 25
 jira-agent dashboard get 10100
 jira-agent dashboard gadgets 10100
 jira-agent dashboard gadgets 10100 --module-key "com.atlassian.jira.gadgets:filter-results-gadget"
@@ -206,7 +207,8 @@ jira-agent dashboard gadgets 10100 --module-key "com.atlassian.jira.gadgets:filt
 
 | Flag | Notes |
 |------|-------|
-| `--filter` | `my` or `favorite` (list only) |
+| `--filter` | `my` or `favorite` (list only, mutually exclusive with `--search`) |
+| `--search` | Search by name substring (list only, uses `/dashboard/search`, mutually exclusive with `--filter`) |
 | `--gadget-id` | Filter gadgets (gadgets only) |
 | `--module-key` | Filter by module (gadgets only) |
 | `--uri` | Filter by URI (gadgets only) |

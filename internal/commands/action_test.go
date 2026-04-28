@@ -1668,6 +1668,56 @@ func TestDashboardCommands(t *testing.T) {
 		}
 	})
 
+	t.Run("list_search", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/dashboard/search" {
+				t.Errorf("path = %q, want %q", r.URL.Path, "/dashboard/search")
+			}
+			if got := r.URL.Query().Get("searchTerm"); got != "ops" {
+				t.Errorf("searchTerm = %q, want %q", got, "ops")
+			}
+			if got := r.URL.Query().Get("maxResults"); got != "10" {
+				t.Errorf("maxResults = %q, want %q", got, "10")
+			}
+			testhelpers.WriteJSONResponse(t, w, `{"startAt":0,"maxResults":10,"total":2,"values":[{"id":"100","name":"Ops Board"},{"id":"101","name":"Ops Alerts"}]}`)
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		runCommandAction(t, dashboardListCommand(testCommandClient(server.URL), &buf, testCommandFormat()), "--search", "ops", "--max-results", "10")
+		if !bytes.Contains(buf.Bytes(), []byte(`"total":2`)) {
+			t.Errorf("output = %q, want total metadata", buf.String())
+		}
+		if !bytes.Contains(buf.Bytes(), []byte(`"returned":2`)) {
+			t.Errorf("output = %q, want returned metadata", buf.String())
+		}
+	})
+
+	t.Run("list_search_and_filter_conflict", func(t *testing.T) {
+		t.Parallel()
+
+		var buf bytes.Buffer
+		cmd := dashboardListCommand(testCommandClient("http://example.invalid"), &buf, testCommandFormat())
+		cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
+		err := cmd.Run(
+			context.Background(),
+			[]string{cmd.Name, "--search", "ops", "--filter", "my"},
+		)
+		if err == nil {
+			t.Fatal("cmd.Run() error = nil, want validation error")
+		}
+
+		var validationErr *apperr.ValidationError
+		if !errors.As(err, &validationErr) {
+			t.Fatalf("errors.As(ValidationError) = false for %T", err)
+		}
+		if validationErr.Message != "--search and --filter cannot be used together; choose one" {
+			t.Errorf("ValidationError.Message = %q, want conflict message", validationErr.Message)
+		}
+	})
+
 	t.Run("get", func(t *testing.T) {
 		t.Parallel()
 
