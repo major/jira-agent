@@ -69,6 +69,7 @@ Module: `github.com/major/jira-agent`. Go version: `1.26`. CLI framework: `githu
 - Map 401/403 to auth errors, 404 to not found, and 400+ to API errors with useful response details.
 - Use Jira search POST `/rest/api/3/search/jql`; GET can hit URL limits.
 - Jira transitions need transition IDs. If a workflow helper accepts status names, resolve them explicitly and keep matching case-insensitive.
+- Jira Cloud REST v3 requires ADF for issue descriptions. `--description` defaults to auto mode for plain text or ADF JSON; `--description-format wiki` converts common Jira wiki headings and bullet lists before sending.
 
 ## Error handling style
 

@@ -96,7 +96,7 @@ Return typed validation errors rather than generic `fmt.Errorf` for user-correct
 
 ## Gotchas agents depend on
 
-- Plain issue descriptions auto-convert to ADF; structured ADF must be valid JSON.
+- Issue descriptions default to auto mode: plain text auto-converts to ADF and structured ADF JSON passes through. Use `--description-format wiki` when the input uses Jira wiki markup such as `h4.` headings or `*` bullet lists.
 - Assignments use account IDs, not email addresses.
 - Transitions ultimately require transition IDs, even when helpers resolve case-insensitive names.
 - Bulk create is limited by Jira API constraints; keep examples small and schema-backed.

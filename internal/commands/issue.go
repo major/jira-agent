@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"strconv"
 	"strings"
 
 	"github.com/urfave/cli/v3"
@@ -392,7 +393,12 @@ jira-agent issue create --project PROJ --type Task --summary "Subtask" --parent 
 			},
 			&cli.StringFlag{
 				Name:  "description",
-				Usage: "Description (plain text or ADF JSON)",
+				Usage: "Description text, ADF JSON, or wiki markup with --description-format",
+			},
+			&cli.StringFlag{
+				Name:  "description-format",
+				Value: "auto",
+				Usage: "Description input format: auto, plain, adf, or wiki",
 			},
 			&cli.StringFlag{
 				Name:  "assignee",
@@ -449,7 +455,9 @@ jira-agent issue create --project PROJ --type Task --summary "Subtask" --parent 
 				"summary":   summary,
 			}
 
-			applyCommonFields(fields, cmd)
+			if err := applyCommonFields(fields, cmd); err != nil {
+				return err
+			}
 
 			if err := applyMerges(fields, cmd); err != nil {
 				return err
@@ -478,7 +486,8 @@ jira-agent issue edit PROJ-123 --fields-json '{"customfield_10001":"value"}'`,
 		ArgsUsage: "<issue-key>",
 		Flags: []cli.Flag{
 			&cli.StringFlag{Name: "summary", Usage: "Issue summary"},
-			&cli.StringFlag{Name: "description", Usage: "Description (plain text or ADF JSON)"},
+			&cli.StringFlag{Name: "description", Usage: "Description text, ADF JSON, or wiki markup with --description-format"},
+			&cli.StringFlag{Name: "description-format", Value: "auto", Usage: "Description input format: auto, plain, adf, or wiki"},
 			&cli.StringFlag{Name: "assignee", Usage: "Assignee account ID"},
 			&cli.StringFlag{Name: "priority", Usage: "Priority name"},
 			&cli.StringFlag{Name: "labels", Usage: "Comma-separated labels"},
@@ -501,7 +510,9 @@ jira-agent issue edit PROJ-123 --fields-json '{"customfield_10001":"value"}'`,
 				fields["summary"] = v
 			}
 
-			applyCommonFields(fields, cmd)
+			if err := applyCommonFields(fields, cmd); err != nil {
+				return err
+			}
 
 			if err := applyMerges(fields, cmd); err != nil {
 				return err
@@ -937,9 +948,13 @@ jira-agent issue meta --operation edit --issue PROJ-123`,
 // applyCommonFields sets optional issue fields that are shared between create
 // and edit: description, assignee, priority, labels, components, and parent.
 // Each field is only set when the corresponding flag has a non-empty value.
-func applyCommonFields(fields map[string]any, cmd *cli.Command) {
+func applyCommonFields(fields map[string]any, cmd *cli.Command) error {
 	if v := cmd.String("description"); v != "" {
-		fields["description"] = toADF(v)
+		description, err := descriptionToADF(v, cmd.String("description-format"))
+		if err != nil {
+			return err
+		}
+		fields["description"] = description
 	}
 	if v := cmd.String("assignee"); v != "" {
 		fields["assignee"] = map[string]any{"accountId": v}
@@ -961,6 +976,7 @@ func applyCommonFields(fields map[string]any, cmd *cli.Command) {
 	if v := cmd.String("parent"); v != "" {
 		fields["parent"] = map[string]any{"key": v}
 	}
+	return nil
 }
 
 // applyMerges applies --field overrides and --fields-json merges to the fields
@@ -1001,6 +1017,42 @@ func toADF(text string) any {
 			return parsed
 		}
 	}
+	return plainTextADF(text)
+}
+
+func descriptionToADF(text, format string) (any, error) {
+	switch strings.ToLower(strings.TrimSpace(format)) {
+	case "", "auto":
+		return toADF(text), nil
+	case "plain":
+		return plainTextADF(text), nil
+	case "adf":
+		var parsed map[string]any
+		if err := json.Unmarshal([]byte(text), &parsed); err != nil {
+			return nil, apperr.NewValidationError(
+				fmt.Sprintf("invalid --description ADF JSON: %v", err),
+				err,
+			)
+		}
+		if _, hasType := parsed["type"]; !hasType {
+			return nil, apperr.NewValidationError(
+				"invalid --description ADF JSON: root object must include a type field",
+				nil,
+			)
+		}
+		return parsed, nil
+	case "wiki":
+		return wikiToADF(text), nil
+	default:
+		return nil, apperr.NewValidationError(
+			fmt.Sprintf("invalid --description-format %q", format),
+			nil,
+			apperr.WithDetails("valid formats: auto, plain, adf, wiki"),
+		)
+	}
+}
+
+func plainTextADF(text string) map[string]any {
 	return map[string]any{
 		"type":    "doc",
 		"version": 1,
@@ -1014,6 +1066,122 @@ func toADF(text string) any {
 					},
 				},
 			},
+		},
+	}
+}
+
+func wikiToADF(text string) map[string]any {
+	lines := strings.Split(text, "\n")
+	content := make([]any, 0, len(lines))
+	for i := 0; i < len(lines); {
+		line := strings.TrimSpace(lines[i])
+		if line == "" {
+			i++
+			continue
+		}
+
+		if level, heading, ok := parseWikiHeading(line); ok {
+			content = append(content, headingADF(level, heading))
+			i++
+			continue
+		}
+
+		if item, ok := parseWikiBullet(line); ok {
+			items := []any{listItemADF(item)}
+			i++
+			for i < len(lines) {
+				itemLine := strings.TrimSpace(lines[i])
+				nextItem, isItem := parseWikiBullet(itemLine)
+				if !isItem {
+					break
+				}
+				items = append(items, listItemADF(nextItem))
+				i++
+			}
+			content = append(content, map[string]any{"type": "bulletList", "content": items})
+			continue
+		}
+
+		paragraphLines := []string{line}
+		i++
+		for i < len(lines) {
+			nextLine := strings.TrimSpace(lines[i])
+			if nextLine == "" {
+				break
+			}
+			if _, _, ok := parseWikiHeading(nextLine); ok {
+				break
+			}
+			if _, ok := parseWikiBullet(nextLine); ok {
+				break
+			}
+			paragraphLines = append(paragraphLines, nextLine)
+			i++
+		}
+		content = append(content, paragraphADF(strings.Join(paragraphLines, "\n")))
+	}
+
+	if len(content) == 0 {
+		content = append(content, paragraphADF(""))
+	}
+
+	return map[string]any{
+		"type":    "doc",
+		"version": 1,
+		"content": content,
+	}
+}
+
+func parseWikiHeading(line string) (level int, heading string, ok bool) {
+	if len(line) < len("h1. ") || line[0] != 'h' || line[2] != '.' {
+		return 0, "", false
+	}
+	level, err := strconv.Atoi(line[1:2])
+	if err != nil || level < 1 || level > 6 {
+		return 0, "", false
+	}
+	heading = strings.TrimSpace(line[3:])
+	if heading == "" {
+		return 0, "", false
+	}
+	return level, heading, true
+}
+
+func parseWikiBullet(line string) (string, bool) {
+	if !strings.HasPrefix(line, "*") {
+		return "", false
+	}
+	item := strings.TrimSpace(strings.TrimPrefix(line, "*"))
+	if item == "" {
+		return "", false
+	}
+	return item, true
+}
+
+func headingADF(level int, text string) map[string]any {
+	return map[string]any{
+		"type":  "heading",
+		"attrs": map[string]any{"level": level},
+		"content": []any{
+			map[string]any{"type": "text", "text": text},
+		},
+	}
+}
+
+func listItemADF(text string) map[string]any {
+	return map[string]any{
+		"type": "listItem",
+		"content": []any{
+			paragraphADF(text),
+		},
+	}
+}
+
+func paragraphADF(text string) map[string]any {
+	return map[string]any{
+		"type": "paragraph",
+		"content": []any{
+			map[string]any{"type": "text", "text": text},
 		},
 	}
 }
