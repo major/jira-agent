@@ -8,6 +8,8 @@
 
 `jira-agent` is an LLM-first command line tool for Jira Cloud.
 
+This is an unofficial project. It is not produced, endorsed, supported, or affiliated with Atlassian or the official Jira product teams.
+
 It wraps the Jira REST API v3 and Jira Software Agile API with structured output, schema discovery, deterministic exit codes, and write protection by default. Human users can run it directly, but the main contract is helping tool-calling agents discover the right Jira command without scraping help text.
 
 ## Install
