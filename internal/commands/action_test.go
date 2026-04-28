@@ -2405,7 +2405,7 @@ func TestCommentCommands(t *testing.T) {
 			}
 			body := testhelpers.DecodeJSONBody(t, r)
 			ids := body["ids"].([]any)
-			if len(ids) != 2 || ids[0] != "10000" || ids[1] != "10001" {
+			if len(ids) != 2 || ids[0] != float64(10000) || ids[1] != float64(10001) {
 				t.Errorf("ids = %v, want [10000 10001]", ids)
 			}
 			testhelpers.WriteJSONResponse(t, w, `{"values":[{"id":"10000"}],"total":1}`)
@@ -3858,7 +3858,7 @@ func TestIssueChangelogCommand(t *testing.T) {
 			}
 			body := testhelpers.DecodeJSONBody(t, r)
 			ids, ok := body["changelogIds"].([]any)
-			if !ok || len(ids) != 2 || ids[0] != "10001" || ids[1] != "10002" {
+			if !ok || len(ids) != 2 || ids[0] != float64(10001) || ids[1] != float64(10002) {
 				t.Errorf("changelogIds = %v, want [10001 10002]", body["changelogIds"])
 			}
 			testhelpers.WriteJSONResponse(t, w, `{"values":[{"id":"10001"}],"startAt":0,"maxResults":2,"total":1}`)
@@ -4174,7 +4174,7 @@ func TestIssueWorklogCommands(t *testing.T) {
 			}
 			body := testhelpers.DecodeJSONBody(t, r)
 			ids := body["ids"].([]any)
-			if len(ids) != 2 || ids[0] != "10000" || ids[1] != "10001" {
+			if len(ids) != 2 || ids[0] != float64(10000) || ids[1] != float64(10001) {
 				t.Errorf("ids = %v, want [10000 10001]", ids)
 			}
 			testhelpers.WriteJSONResponse(t, w, `[{"id":"10000"}]`)

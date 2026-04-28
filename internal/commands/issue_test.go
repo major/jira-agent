@@ -74,6 +74,36 @@ func TestSplitTrimmed(t *testing.T) {
 	}
 }
 
+func TestParseInt64List(t *testing.T) {
+	t.Parallel()
+
+	t.Run("valid IDs", func(t *testing.T) {
+		t.Parallel()
+
+		got, err := parseInt64List(" 10000,10001 ")
+		if err != nil {
+			t.Fatalf("parseInt64List() error = %v, want nil", err)
+		}
+		want := []int64{10000, 10001}
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("parseInt64List() = %v, want %v", got, want)
+		}
+	})
+
+	t.Run("invalid ID", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := parseInt64List("10000,abc")
+		if err == nil {
+			t.Fatal("parseInt64List() error = nil, want error")
+		}
+		var validationErr *apperr.ValidationError
+		if !errors.As(err, &validationErr) {
+			t.Errorf("errors.As(ValidationError) = false, want true")
+		}
+	})
+}
+
 func TestApplyFieldOverrides(t *testing.T) {
 	t.Parallel()
 

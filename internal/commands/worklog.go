@@ -111,7 +111,11 @@ func worklogListByIDsCommand(apiClient *client.Ref, w io.Writer, format *output.
 			if err != nil {
 				return err
 			}
-			body := map[string]any{"ids": splitTrimmed(idsFlag)}
+			ids, err := parseInt64List(idsFlag)
+			if err != nil {
+				return err
+			}
+			body := map[string]any{"ids": ids}
 			params := map[string]string{}
 			addOptionalParams(cmd, params, map[string]string{"expand": "expand"})
 			path := appendQueryParams("/worklog/list", params)

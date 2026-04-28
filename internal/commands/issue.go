@@ -720,7 +720,11 @@ func issueChangelogListByIDsCommand(apiClient *client.Ref, w io.Writer, format *
 				return err
 			}
 
-			body := map[string]any{"changelogIds": splitTrimmed(idsFlag)}
+			ids, err := parseInt64List(idsFlag)
+			if err != nil {
+				return err
+			}
+			body := map[string]any{"changelogIds": ids}
 			return writePaginatedAPIResult(w, *format, func(result any) error {
 				return apiClient.Post(ctx, "/issue/"+key+"/changelog/list", body, result)
 			})
