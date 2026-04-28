@@ -57,13 +57,25 @@ func dashboardListCommand(apiClient *client.Ref, w io.Writer, format *output.For
 		Name:  "list",
 		Usage: "List dashboards",
 		UsageText: `jira-agent dashboard list
-jira-agent dashboard list --filter my`,
+jira-agent dashboard list --filter my
+jira-agent dashboard list --search "ops"`,
 		Flags: appendPaginationFlags([]cli.Flag{
 			&cli.StringFlag{Name: "filter", Usage: "Dashboard filter: my or favorite"},
+			&cli.StringFlag{Name: "search", Usage: "Search dashboards by name substring"},
 		}),
 		Action: func(ctx context.Context, cmd *cli.Command) error {
-			params := buildPaginationParams(cmd, map[string]string{"filter": "filter"})
+			if cmd.String("search") != "" && cmd.String("filter") != "" {
+				return apperr.NewValidationError("--search and --filter cannot be used together; choose one", nil)
+			}
 
+			if cmd.String("search") != "" {
+				params := buildPaginationParams(cmd, map[string]string{"search": "searchTerm"})
+				return writePaginatedAPIResult(w, *format, func(result any) error {
+					return apiClient.Get(ctx, "/dashboard/search", params, result)
+				})
+			}
+
+			params := buildPaginationParams(cmd, map[string]string{"filter": "filter"})
 			return writePaginatedAPIResult(w, *format, func(result any) error {
 				return apiClient.Get(ctx, "/dashboard", params, result)
 			})
