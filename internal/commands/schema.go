@@ -403,6 +403,7 @@ func writeCommandPaths() map[string]struct{} {
 		"sprint property set",
 		"sprint swap",
 		"sprint update",
+		"task cancel",
 		"version create",
 		"version delete",
 		"version merge",

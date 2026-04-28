@@ -77,6 +77,7 @@ func TestCommandGroups_RegisterSubcommands(t *testing.T) {
 		{name: "sprint", cmd: SprintCommand(apiClient, &buf, format, testAllowWrites()), want: 9},
 		{name: "epic", cmd: EpicCommand(apiClient, &buf, format, testAllowWrites()), want: 6},
 		{name: "backlog", cmd: BacklogCommand(apiClient, &buf, format, testAllowWrites()), want: 2},
+		{name: "task", cmd: TaskCommand(apiClient, &buf, format, testAllowWrites()), want: 2},
 		{name: "issue", cmd: IssueCommand(apiClient, &buf, format, testAllowWrites()), want: 31},
 		{name: "jql", cmd: JQLCommand(apiClient, &buf, format), want: 3},
 	}
@@ -428,6 +429,13 @@ func TestWriteGuard_BlocksWriteCommands(t *testing.T) {
 				return boardDeleteCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"84"},
+		},
+		{
+			name: "task_cancel",
+			cmd: func(buf *bytes.Buffer) *cli.Command {
+				return taskCancelCommand(apiClient, buf, format, testDenyWrites())
+			},
+			args: []string{"10641"},
 		},
 		{
 			name: "context_create",
@@ -2175,6 +2183,36 @@ func TestServerInfoCommand(t *testing.T) {
 	if !bytes.Contains(buf.Bytes(), []byte(`"serverTitle":"My Jira"`)) {
 		t.Errorf("output = %q, want serverTitle", buf.String())
 	}
+}
+
+func TestTaskCommands(t *testing.T) {
+	t.Parallel()
+
+	t.Run("get", func(t *testing.T) {
+		t.Parallel()
+
+		server := testhelpers.NewJSONServer(t, http.MethodGet, "/task/10641",
+			`{"id":"10641","status":"COMPLETE","progress":100}`)
+
+		var buf bytes.Buffer
+		runCommandAction(t, taskGetCommand(testCommandClient(server.URL), &buf, testCommandFormat()), "10641")
+		if !bytes.Contains(buf.Bytes(), []byte(`"status":"COMPLETE"`)) {
+			t.Errorf("output = %q, want task status", buf.String())
+		}
+	})
+
+	t.Run("cancel", func(t *testing.T) {
+		t.Parallel()
+
+		server := testhelpers.NewJSONServer(t, http.MethodPost, "/task/10641/cancel",
+			`{"id":"10641","status":"CANCELLED"}`)
+
+		var buf bytes.Buffer
+		runCommandAction(t, taskCancelCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites()), "10641")
+		if !bytes.Contains(buf.Bytes(), []byte(`"status":"CANCELLED"`)) {
+			t.Errorf("output = %q, want cancelled task status", buf.String())
+		}
+	})
 }
 
 func TestLabelListCommand(t *testing.T) {

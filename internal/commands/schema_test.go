@@ -111,6 +111,7 @@ func testFullSchemaApp() *cli.Command {
 			IssueCommand(apiClient, &buf, &format, testAllowWrites()),
 			PermissionCommand(apiClient, &buf, &format),
 			SprintCommand(apiClient, &buf, &format, testAllowWrites()),
+			TaskCommand(apiClient, &buf, &format, testAllowWrites()),
 			VersionCommand(apiClient, &buf, &format, testAllowWrites()),
 		},
 	}

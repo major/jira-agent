@@ -1,6 +1,6 @@
 # Admin Reference
 
-Field management, users, groups, filters, permissions, dashboards, workflows, statuses, priorities, resolutions, issue types, labels, JQL helpers, and server info.
+Field management, users, groups, filters, permissions, dashboards, workflows, statuses, priorities, resolutions, issue types, labels, JQL helpers, tasks, and server info.
 
 ## Fields
 
@@ -313,6 +313,15 @@ jira-agent jql validate --query "bad query" --validation warn
 | `fields` | None. Lists JQL-searchable fields |
 | `suggest` | `--field-name` (required), `--field-value`, `--predicate-name`, `--predicate-value` |
 | `validate` | `--query` (required, repeatable), `--validation` (`strict`/`warn`/`none`, default `strict`) |
+
+## Tasks
+
+```bash
+jira-agent task get 10641
+jira-agent task cancel 10641
+```
+
+Use `task get` to poll async task IDs returned by long-running Jira operations. `task cancel` is write-protected and requires `JIRA_ALLOW_WRITES=true` or the config write-enable flag.
 
 ## Server Info
 
