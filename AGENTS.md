@@ -35,6 +35,7 @@ Module: `github.com/major/jira-agent`. Go version: `1.26`. CLI framework: `githu
 - Prefer canonical paths in docs and examples, not legacy aliases. Examples: `issue bulk <action>`, `issue remote-link`.
 - Output must be organized so an LLM can parse it without scraping help text or human prose.
 - Bounded output matters. Prefer commands and examples that request only needed fields, for example `--fields key,summary,status`.
+- `issue search` JSON is compact by default: `.data.issues[]` contains flattened issue rows and common Jira wrapper objects collapse to useful scalar values. Use `--raw` only when an agent needs Jira's unmodified nested search response.
 - Use CSV/TSV only for simple flat tables. Use JSON for nested Jira data, updates, errors, and partial success.
 - `--pretty` is for humans only. It must never appear in `skills/jira-agent` files or LLM-facing examples.
 

@@ -70,7 +70,7 @@ jira-agent schema --command "issue link"              # subtree: returns link + 
 
 Parent command filters return descendant commands, so `--command "issue link"` covers `list`, `add`, `delete`, `types`.
 
-For reads/searches, request only needed fields: `--fields key,summary,status`. Use CSV/TSV for simple tables, JSON for updates or nested data.
+For reads/searches, request only needed fields: `--fields key,summary,status`. `issue search` JSON is compact by default and returns flattened rows under `.data.issues[]`; use `--raw` only when the full Jira API response shape is needed. Use CSV/TSV for simple tables, JSON for updates or nested data.
 
 ## Output
 
@@ -115,6 +115,7 @@ Flat rows with header, no envelope. Nested values become inline JSON in cells.
 - **Transition resolution**: `issue transition --to` matches status/transition name case-insensitively. Use `--transition-id` when you already know Jira's numeric transition ID.
 - **Schema output**: Raw JSON, not wrapped in success envelope.
 - **Pagination**: `issue search` uses `--next-page-token` (cursor). Most other list commands use `--start-at` (offset).
+- **Issue search shape**: Default JSON flattens common objects to useful scalar values, for example `status` to its name and `assignee` to display name. `--raw` restores Jira's nested response.
 - **Assignment**: `issue assign` accepts account ID, not email. `--unassign` clears, `--default` uses project default.
 - **Visibility**: Both `--visibility-type` and `--visibility-value` must be set together.
 - **Write protection**: All writes blocked unless `JIRA_ALLOW_WRITES=true` or config set. Exit 5 with remediation.
