@@ -51,6 +51,9 @@ jira-agent issue create --project PROJ --type Task --summary "Fix the bug"
 jira-agent issue create --project PROJ --type Story --summary "New feature" \
   --description "Details" --priority High --labels bug,urgent \
   --assignee 5b10ac8d82e05b22cc7d4ef5 --field customfield_10016=5
+jira-agent issue create --project PROJ --type Task --summary "Formatted" \
+  --description $'h4. Goal\n\nSome text.\n\n* First bullet\n* Second bullet' \
+  --description-format wiki
 ```
 
 | Flag | Notes |
@@ -58,7 +61,8 @@ jira-agent issue create --project PROJ --type Story --summary "New feature" \
 | `--project` | Required (also reads `JIRA_PROJECT` env) |
 | `--type` | Required, case-insensitive |
 | `--summary` | Required |
-| `--description` | Plain text auto-converts to ADF; valid ADF JSON passes through |
+| `--description` | Auto mode accepts plain text or valid ADF JSON; use `--description-format wiki` for Jira wiki markup |
+| `--description-format` | `auto` (default), `plain`, `adf`, or `wiki` |
 | `--assignee` | Account ID only (not email) |
 | `--priority` | Name: High, Medium, Low |
 | `--labels` | Comma-separated |
@@ -77,7 +81,7 @@ jira-agent issue edit KEY-123 --fields-json '{"summary":"New","priority":{"name"
 jira-agent issue edit KEY-123 --payload-json '{"update":{"labels":[{"add":"triaged"}]}}'
 ```
 
-Same optional field flags as create, except `--project` and `--type`, plus `--notify` (default true). At least one field change or `--payload-json` update is required. Use `--payload-json` for top-level edit payloads like `update`, `properties`, `historyMetadata`, or `transition`.
+Same optional field flags as create, except `--project` and `--type`, plus `--notify` (default true). At least one field change or `--payload-json` update is required. Use `--description-format wiki` when editing descriptions from Jira wiki markup, and use `--payload-json` for top-level edit payloads like `update`, `properties`, `historyMetadata`, or `transition`.
 
 ## issue delete
 

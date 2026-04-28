@@ -64,6 +64,65 @@ func TestToADF(t *testing.T) {
 	})
 }
 
+func TestDescriptionToADF(t *testing.T) {
+	t.Parallel()
+
+	t.Run("wiki heading and bullet list", func(t *testing.T) {
+		t.Parallel()
+
+		got, err := descriptionToADF("h4. Goal\n\nSome text here.\n\nh4. Acceptance Criteria\n\n* First bullet\n* Second bullet", "wiki")
+		if err != nil {
+			t.Fatalf("descriptionToADF() error = %v, want nil", err)
+		}
+
+		doc := got.(map[string]any)
+		content := doc["content"].([]any)
+		if len(content) != 4 {
+			t.Fatalf("ADF content length = %d, want 4", len(content))
+		}
+
+		assertADFHeading(t, content[0], 4, "Goal")
+		assertADFParagraphText(t, content[1], "Some text here.")
+		assertADFHeading(t, content[2], 4, "Acceptance Criteria")
+		assertADFBulletList(t, content[3], []string{"First bullet", "Second bullet"})
+	})
+
+	t.Run("plain format preserves wiki characters", func(t *testing.T) {
+		t.Parallel()
+
+		got, err := descriptionToADF("h4. Goal", "plain")
+		if err != nil {
+			t.Fatalf("descriptionToADF() error = %v, want nil", err)
+		}
+		assertADFText(t, got, "h4. Goal")
+	})
+
+	t.Run("adf format rejects plain text", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := descriptionToADF("not json", "adf")
+		if err == nil {
+			t.Fatal("descriptionToADF() error = nil, want error")
+		}
+		var validationErr *apperr.ValidationError
+		if !errors.As(err, &validationErr) {
+			t.Errorf("errors.As(ValidationError) = false, want true")
+		}
+	})
+
+	t.Run("invalid format", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := descriptionToADF("hello", "markdown")
+		if err == nil {
+			t.Fatal("descriptionToADF() error = nil, want error")
+		}
+		if !strings.Contains(err.Error(), "invalid --description-format") {
+			t.Errorf("error = %q, want invalid --description-format", err.Error())
+		}
+	})
+}
+
 func TestSplitTrimmed(t *testing.T) {
 	t.Parallel()
 
@@ -185,6 +244,7 @@ func TestApplyCommonFields(t *testing.T) {
 		Name: "test",
 		Flags: []cli.Flag{
 			&cli.StringFlag{Name: "description"},
+			&cli.StringFlag{Name: "description-format", Value: "auto"},
 			&cli.StringFlag{Name: "assignee"},
 			&cli.StringFlag{Name: "priority"},
 			&cli.StringFlag{Name: "labels"},
@@ -193,8 +253,7 @@ func TestApplyCommonFields(t *testing.T) {
 		},
 		Action: func(_ context.Context, cmd *cli.Command) error {
 			got = map[string]any{"summary": "Keep existing summary"}
-			applyCommonFields(got, cmd)
-			return nil
+			return applyCommonFields(got, cmd)
 		},
 	}
 
@@ -356,9 +415,18 @@ func assertADFText(t *testing.T, value any, want string) {
 	if !ok || len(content) == 0 {
 		t.Fatalf("ADF content = %v, want non-empty []any", doc["content"])
 	}
-	paragraph, ok := content[0].(map[string]any)
+	assertADFParagraphText(t, content[0], want)
+}
+
+func assertADFParagraphText(t *testing.T, value any, want string) {
+	t.Helper()
+
+	paragraph, ok := value.(map[string]any)
 	if !ok {
-		t.Fatalf("ADF paragraph type = %T, want map[string]any", content[0])
+		t.Fatalf("ADF paragraph type = %T, want map[string]any", value)
+	}
+	if paragraph["type"] != "paragraph" {
+		t.Fatalf("ADF node type = %v, want paragraph", paragraph["type"])
 	}
 	paragraphContent, ok := paragraph["content"].([]any)
 	if !ok || len(paragraphContent) == 0 {
@@ -370,6 +438,66 @@ func assertADFText(t *testing.T, value any, want string) {
 	}
 	if textNode["text"] != want {
 		t.Errorf("ADF text = %v, want %q", textNode["text"], want)
+	}
+}
+
+func assertADFHeading(t *testing.T, value any, wantLevel int, wantText string) {
+	t.Helper()
+
+	heading, ok := value.(map[string]any)
+	if !ok {
+		t.Fatalf("ADF heading type = %T, want map[string]any", value)
+	}
+	if heading["type"] != "heading" {
+		t.Fatalf("ADF node type = %v, want heading", heading["type"])
+	}
+	attrs, ok := heading["attrs"].(map[string]any)
+	if !ok {
+		t.Fatalf("ADF heading attrs = %T, want map[string]any", heading["attrs"])
+	}
+	if attrs["level"] != wantLevel {
+		t.Errorf("ADF heading level = %v, want %d", attrs["level"], wantLevel)
+	}
+	content, ok := heading["content"].([]any)
+	if !ok || len(content) == 0 {
+		t.Fatalf("ADF heading content = %v, want non-empty []any", heading["content"])
+	}
+	textNode, ok := content[0].(map[string]any)
+	if !ok {
+		t.Fatalf("ADF heading text node type = %T, want map[string]any", content[0])
+	}
+	if textNode["text"] != wantText {
+		t.Errorf("ADF heading text = %v, want %q", textNode["text"], wantText)
+	}
+}
+
+func assertADFBulletList(t *testing.T, value any, wantItems []string) {
+	t.Helper()
+
+	list, ok := value.(map[string]any)
+	if !ok {
+		t.Fatalf("ADF bullet list type = %T, want map[string]any", value)
+	}
+	if list["type"] != "bulletList" {
+		t.Fatalf("ADF node type = %v, want bulletList", list["type"])
+	}
+	items, ok := list["content"].([]any)
+	if !ok {
+		t.Fatalf("ADF bullet list content = %T, want []any", list["content"])
+	}
+	if len(items) != len(wantItems) {
+		t.Fatalf("ADF bullet list length = %d, want %d", len(items), len(wantItems))
+	}
+	for i, want := range wantItems {
+		item, ok := items[i].(map[string]any)
+		if !ok {
+			t.Fatalf("ADF list item type = %T, want map[string]any", items[i])
+		}
+		itemContent, ok := item["content"].([]any)
+		if !ok || len(itemContent) == 0 {
+			t.Fatalf("ADF list item content = %v, want non-empty []any", item["content"])
+		}
+		assertADFParagraphText(t, itemContent[0], want)
 	}
 }
 

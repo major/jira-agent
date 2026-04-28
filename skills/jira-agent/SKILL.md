@@ -108,7 +108,7 @@ Flat rows with header, no envelope. Nested values become inline JSON in cells.
 
 ## Gotchas
 
-- **Description**: Plain text auto-converts to ADF. Pass valid ADF JSON for structured content.
+- **Description**: `--description` defaults to auto mode: plain text auto-converts to ADF and valid ADF JSON passes through. Use `--description-format wiki` for Jira wiki markup like `h4.` headings and `*` bullet lists.
 - **Custom fields**: `--field key=value` parses value as JSON if valid, else raw string. Quote carefully in shell.
 - **Project flag**: Command-level `--project` overrides root `-p`.
 - **Type resolution**: Issue type matching is case-insensitive.
