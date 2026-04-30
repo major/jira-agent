@@ -299,15 +299,24 @@ func TestIssueGetCommand_CompactsJSONByDefault(t *testing.T) {
 	}
 
 	issue := decodeIssueData(t, buf.Bytes())
-	fields := issue["fields"].(map[string]any)
-	assignee := fields["assignee"].(map[string]any)
+	fields, ok := issue["fields"].(map[string]any)
+	if !ok {
+		t.Fatalf("fields type = %T, want map[string]any", issue["fields"])
+	}
+	assignee, ok := fields["assignee"].(map[string]any)
+	if !ok {
+		t.Fatalf("assignee type = %T, want map[string]any", fields["assignee"])
+	}
 	if assignee["accountId"] != "abc123" {
 		t.Errorf("assignee accountId = %v, want abc123", assignee["accountId"])
 	}
 	if assignee["displayName"] != "Sam Doran" {
 		t.Errorf("assignee displayName = %v, want Sam Doran", assignee["displayName"])
 	}
-	status := fields["status"].(map[string]any)
+	status, ok := fields["status"].(map[string]any)
+	if !ok {
+		t.Fatalf("status type = %T, want map[string]any", fields["status"])
+	}
 	if status["statusCategory"] != "In Progress" {
 		t.Errorf("statusCategory = %v, want In Progress", status["statusCategory"])
 	}
