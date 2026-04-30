@@ -3,12 +3,14 @@ package commands
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/urfave/cli/v3"
@@ -4389,14 +4391,17 @@ func TestIssueCountCommand(t *testing.T) {
 			if r.Method != http.MethodPost {
 				t.Errorf("method = %s, want POST", r.Method)
 			}
-			if r.URL.Path != "/search/approximate-count" {
-				t.Errorf("path = %q, want /search/approximate-count", r.URL.Path)
+			if r.URL.Path != "/search/jql" {
+				t.Errorf("path = %q, want /search/jql", r.URL.Path)
 			}
 			body := testhelpers.DecodeJSONBody(t, r)
 			if got, want := body["jql"], "project = FOO"; got != want {
 				t.Errorf("jql = %v, want %s", got, want)
 			}
-			testhelpers.WriteJSONResponse(t, w, `{"count": 42}`)
+			if got, want := body["maxResults"], float64(0); got != want {
+				t.Errorf("maxResults = %v, want %v", got, want)
+			}
+			testhelpers.WriteJSONResponse(t, w, `{"issues":[],"maxResults":0,"startAt":0,"total":42}`)
 		}))
 		defer server.Close()
 
@@ -4407,8 +4412,43 @@ func TestIssueCountCommand(t *testing.T) {
 			"--jql", "project = FOO",
 		)
 
-		if !bytes.Contains(buf.Bytes(), []byte("42")) {
-			t.Errorf("output missing count, got %s", buf.String())
+		var got struct {
+			Data struct {
+				Total int `json:"total"`
+			} `json:"data"`
+			Metadata struct {
+				Total int `json:"total"`
+			} `json:"metadata"`
+		}
+		if err := json.Unmarshal(buf.Bytes(), &got); err != nil {
+			t.Fatalf("json.Unmarshal() error = %v, output %s", err, buf.String())
+		}
+		if got.Data.Total != 42 {
+			t.Errorf("data.total = %d, want 42", got.Data.Total)
+		}
+		if got.Metadata.Total != 42 {
+			t.Errorf("metadata.total = %d, want 42", got.Metadata.Total)
+		}
+	})
+
+	t.Run("requires jql", func(t *testing.T) {
+		t.Parallel()
+
+		var buf bytes.Buffer
+		cmd := issueCountCommand(testCommandClient("http://unused"), &buf, testCommandFormat())
+		cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
+
+		err := cmd.Run(context.Background(), []string{"count"})
+		if err == nil {
+			t.Fatal("cmd.Run() error = nil, want validation error")
+		}
+
+		var validErr *apperr.ValidationError
+		if !errors.As(err, &validErr) {
+			t.Errorf("err type = %T, want *apperr.ValidationError", err)
+		}
+		if !strings.Contains(err.Error(), "--jql is required") {
+			t.Errorf("err = %q, want --jql is required", err.Error())
 		}
 	})
 }

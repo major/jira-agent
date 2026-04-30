@@ -898,24 +898,33 @@ jira-agent issue rank --issues PROJ-5 --after PROJ-3`,
 func issueCountCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
 	return &cli.Command{
 		Name:  "count",
-		Usage: "Get approximate count of issues matching a JQL query",
+		Usage: "Count issues matching a JQL query",
 		UsageText: `jira-agent issue count --jql "project = PROJ AND status = Open"
 jira-agent issue count --jql "assignee = currentUser() AND resolution = Unresolved"`,
+		Metadata: requiredFlagMetadata("jql"),
 		Flags: []cli.Flag{
 			&cli.StringFlag{
-				Name:     "jql",
-				Usage:    "JQL query to count results for",
-				Required: true,
+				Name:  "jql",
+				Usage: "JQL query to count results for (required)",
 			},
 		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
-			body := map[string]string{
-				"jql": cmd.String("jql"),
+			jql, err := requireFlag(cmd, "jql")
+			if err != nil {
+				return err
 			}
 
-			return writeAPIResult(w, *format, func(result any) error {
-				return apiClient.Post(ctx, "/search/approximate-count", body, result)
-			})
+			body := map[string]any{
+				"jql":        jql,
+				"maxResults": 0,
+			}
+
+			var result any
+			if err := apiClient.Post(ctx, "/search/jql", body, &result); err != nil {
+				return err
+			}
+			meta := extractPaginationMeta(result)
+			return output.WriteSuccess(w, map[string]any{"total": meta.Total}, meta, *format)
 		},
 	}
 }

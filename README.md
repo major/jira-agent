@@ -106,7 +106,7 @@ Default JSON removes noisy Jira metadata such as `self`, `expand`, `avatarUrls`,
 
 | Area | Commands | Detailed docs |
 | --- | --- | --- |
-| Issues | `issue get`, `issue search`, `issue create`, `issue edit`, `issue bulk` | [`skills/jira-agent/issues.md`](./skills/jira-agent/issues.md) |
+| Issues | `issue get`, `issue search`, `issue count`, `issue create`, `issue edit`, `issue bulk` | [`skills/jira-agent/issues.md`](./skills/jira-agent/issues.md) |
 | Issue workflows | transitions, assignment, comments, worklogs, watchers, votes, links, attachments | [`skills/jira-agent/issue-workflows.md`](./skills/jira-agent/issue-workflows.md) |
 | Agile | boards, sprints, epics, backlog | [`skills/jira-agent/agile.md`](./skills/jira-agent/agile.md) |
 | Projects | projects, components, versions | [`skills/jira-agent/project-management.md`](./skills/jira-agent/project-management.md) |
