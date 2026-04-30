@@ -108,14 +108,14 @@ Flat rows with header, no envelope. Nested values become inline JSON in cells.
 
 ## Gotchas
 
-- **Description**: `--description` defaults to auto mode: plain text auto-converts to ADF and valid ADF JSON passes through. Use `--description-format wiki` for Jira wiki markup like `h4.` headings and `*` bullet lists.
+- **Description**: `--description` defaults to auto mode on writes: plain text auto-converts to ADF and valid ADF JSON passes through. Use `--description-format wiki` for Jira wiki markup like `h4.` headings and `*` bullet lists. `issue get` and `issue search` default description output to plain text; use `--description-output-format markdown` for headings/lists, `adf` for compact ADF, or `--raw` for Jira's unmodified response.
 - **Custom fields**: `--field key=value` parses value as JSON if valid, else raw string. Quote carefully in shell.
 - **Project flag**: Command-level `--project` overrides root `-p`.
 - **Type resolution**: Issue type matching is case-insensitive.
 - **Transition resolution**: `issue transition --to` matches status/transition name case-insensitively. Use `--transition-id` when you already know Jira's numeric transition ID.
 - **Schema output**: Raw JSON, not wrapped in success envelope.
 - **Pagination**: `issue search` uses `--next-page-token` (cursor). Most other list commands use `--start-at` (offset).
-- **JSON shape**: Default JSON removes common Jira metadata noise, including `self`, `expand`, `avatarUrls`, `iconUrl`, and nested `statusCategory` objects. `issue search` additionally flattens common objects to useful scalar values, for example `status` to its name and `assignee` to display name. `issue get --raw` and `issue search --raw` restore Jira's nested response; use schema discovery to check future command support.
+- **JSON shape**: Default JSON removes common Jira metadata noise, including `self`, `expand`, `avatarUrls`, `iconUrl`, and nested `statusCategory` objects. `issue search` additionally flattens common objects to useful scalar values, for example `status` to its name and `assignee` to display name. `issue get --raw` and `issue search --raw` restore Jira's nested response and bypass description conversion; use schema discovery to check future command support.
 - **Assignment**: `issue assign` accepts account ID, not email. `--unassign` clears, `--default` uses project default.
 - **Visibility**: Both `--visibility-type` and `--visibility-value` must be set together.
 - **Write protection**: All writes blocked unless `JIRA_ALLOW_WRITES=true` or config set. Exit 5 with remediation.

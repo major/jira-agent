@@ -35,7 +35,7 @@ Module: `github.com/major/jira-agent`. Go version: `1.26`. CLI framework: `githu
 - Prefer canonical paths in docs and examples, not legacy aliases. Examples: `issue bulk <action>`, `issue remote-link`.
 - Output must be organized so an LLM can parse it without scraping help text or human prose.
 - Bounded output matters. Prefer commands and examples that request only needed fields, for example `--fields key,summary,status`.
-- Default JSON removes noisy Jira API metadata such as `self`, `expand`, `avatarUrls`, `iconUrl`, and nested `statusCategory` objects. `issue search` is additionally compact by default: `.data.issues[]` contains flattened issue rows and common Jira wrapper objects collapse to useful scalar values. Use `--raw` on commands that expose it only when an agent needs Jira's unmodified nested response.
+- Default JSON removes noisy Jira API metadata such as `self`, `expand`, `avatarUrls`, `iconUrl`, and nested `statusCategory` objects. `issue get` and `issue search` convert ADF descriptions to text by default unless `--description-output-format markdown|adf` or `--raw` is used. `issue search` is additionally compact by default: `.data.issues[]` contains flattened issue rows and common Jira wrapper objects collapse to useful scalar values. Use `--raw` on commands that expose it only when an agent needs Jira's unmodified nested response.
 - Use CSV/TSV only for simple flat tables. Use JSON for nested Jira data, updates, errors, and partial success.
 - `--pretty` is for humans only. It must never appear in `skills/jira-agent` files or LLM-facing examples.
 
@@ -74,7 +74,7 @@ Module: `github.com/major/jira-agent`. Go version: `1.26`. CLI framework: `githu
 - Map 401/403 to auth errors, 404 to not found, and 400+ to API errors with useful response details.
 - Use Jira search POST `/rest/api/3/search/jql`; GET can hit URL limits.
 - Jira transitions need transition IDs. If a workflow helper accepts status names, resolve them explicitly and keep matching case-insensitive.
-- Jira Cloud REST v3 requires ADF for issue descriptions. `--description` defaults to auto mode for plain text or ADF JSON; `--description-format wiki` converts common Jira wiki headings and bullet lists before sending.
+- Jira Cloud REST v3 requires ADF for issue descriptions. `--description` defaults to auto mode for plain text or ADF JSON; `--description-format wiki` converts common Jira wiki headings and bullet lists before sending. Read commands default to text descriptions with `--description-output-format text|markdown|adf` on `issue get` and `issue search`.
 
 ## Error handling style
 

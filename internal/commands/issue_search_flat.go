@@ -31,6 +31,10 @@ func issueSearchFields(fields string) []string {
 }
 
 func flattenIssueSearchResult(result any) any {
+	return flattenIssueSearchResultWithDescriptionFormat(result, descriptionOutputFormatText)
+}
+
+func flattenIssueSearchResultWithDescriptionFormat(result any, descriptionFormat string) any {
 	response, ok := result.(map[string]any)
 	if !ok {
 		return result
@@ -38,7 +42,7 @@ func flattenIssueSearchResult(result any) any {
 
 	flat := map[string]any{}
 	if issues, ok := response["issues"].([]any); ok {
-		flat["issues"] = flattenIssues(issues)
+		flat["issues"] = flattenIssues(issues, descriptionFormat)
 	}
 
 	for _, key := range []string{"nextPageToken", "isLast"} {
@@ -50,19 +54,19 @@ func flattenIssueSearchResult(result any) any {
 	return flat
 }
 
-func flattenIssues(issues []any) []map[string]any {
+func flattenIssues(issues []any, descriptionFormat string) []map[string]any {
 	flat := make([]map[string]any, 0, len(issues))
 	for _, issue := range issues {
 		issueMap, ok := issue.(map[string]any)
 		if !ok {
 			continue
 		}
-		flat = append(flat, flattenIssue(issueMap))
+		flat = append(flat, flattenIssue(issueMap, descriptionFormat))
 	}
 	return flat
 }
 
-func flattenIssue(issue map[string]any) map[string]any {
+func flattenIssue(issue map[string]any, descriptionFormat string) map[string]any {
 	row := map[string]any{}
 	if key, ok := issue["key"]; ok {
 		row["key"] = key
@@ -73,6 +77,10 @@ func flattenIssue(issue map[string]any) map[string]any {
 		return row
 	}
 	for name, value := range fields {
+		if name == "description" {
+			row[name] = convertDescriptionOutputValue(value, descriptionFormat)
+			continue
+		}
 		row[name] = flattenIssueFieldValue(value)
 	}
 	return row

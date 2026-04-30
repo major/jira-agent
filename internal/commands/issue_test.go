@@ -123,6 +123,88 @@ func TestDescriptionToADF(t *testing.T) {
 	})
 }
 
+func TestDescriptionOutputFormat(t *testing.T) {
+	t.Parallel()
+
+	doc := map[string]any{
+		"type":    "doc",
+		"version": float64(1),
+		"content": []any{
+			map[string]any{
+				"type":  "heading",
+				"attrs": map[string]any{"level": float64(2)},
+				"content": []any{
+					map[string]any{"type": "text", "text": "Goal"},
+				},
+			},
+			map[string]any{
+				"type": "paragraph",
+				"content": []any{
+					map[string]any{"type": "text", "text": "Fix the "},
+					map[string]any{"type": "text", "text": "login", "marks": []any{map[string]any{"type": "strong"}}},
+					map[string]any{"type": "text", "text": " bug"},
+				},
+			},
+			map[string]any{
+				"type": "bulletList",
+				"content": []any{
+					map[string]any{"type": "listItem", "content": []any{paragraphADF("First bullet")}},
+					map[string]any{"type": "listItem", "content": []any{paragraphADF("Second bullet")}},
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		name   string
+		format string
+		want   any
+	}{
+		{
+			name:   "text",
+			format: "text",
+			want:   "Goal\nFix the login bug\nFirst bullet\nSecond bullet",
+		},
+		{
+			name:   "markdown",
+			format: "markdown",
+			want:   "## Goal\nFix the **login** bug\n- First bullet\n- Second bullet",
+		},
+		{
+			name:   "adf",
+			format: "adf",
+			want:   doc,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			format, err := parseDescriptionOutputFormat(tt.format)
+			if err != nil {
+				t.Fatalf("parseDescriptionOutputFormat() error = %v, want nil", err)
+			}
+			got := convertDescriptionOutputValue(doc, format)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("convertDescriptionOutputValue() = %#v, want %#v", got, tt.want)
+			}
+		})
+	}
+
+	t.Run("invalid format", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := parseDescriptionOutputFormat("wiki")
+		if err == nil {
+			t.Fatal("parseDescriptionOutputFormat() error = nil, want error")
+		}
+		if !strings.Contains(err.Error(), "invalid --description-output-format") {
+			t.Errorf("error = %q, want invalid --description-output-format", err.Error())
+		}
+	})
+}
+
 func TestSplitTrimmed(t *testing.T) {
 	t.Parallel()
 

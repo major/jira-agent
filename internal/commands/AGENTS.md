@@ -68,7 +68,7 @@ Return typed validation errors rather than generic `fmt.Errorf` for user-correct
 
 - Use `writeAPIResult(w, format, call)` for single-result API calls.
 - Use `writePaginatedAPIResult(w, format, call)` for list/search calls with pagination metadata.
-- Default JSON removes noisy Jira API metadata such as `self`, `expand`, `avatarUrls`, `iconUrl`, and nested `statusCategory` objects. `issue search` additionally reshapes Jira's response into flattened `.data.issues[]` rows, while `--raw` uses the unmodified paginated API response.
+- Default JSON removes noisy Jira API metadata such as `self`, `expand`, `avatarUrls`, `iconUrl`, and nested `statusCategory` objects. `issue get` and `issue search` convert ADF descriptions to plain text by default via `--description-output-format text|markdown|adf`, while `--raw` preserves Jira's original ADF. `issue search` additionally reshapes Jira's response into flattened `.data.issues[]` rows, while `--raw` uses the unmodified paginated API response.
 - Do not write JSON, CSV, TSV, or errors directly from commands unless the command is `schema`.
 - Preserve pagination metadata extraction for arrays named `issues`, `values`, `comments`, and `worklogs`.
 
@@ -97,7 +97,7 @@ Return typed validation errors rather than generic `fmt.Errorf` for user-correct
 
 ## Gotchas agents depend on
 
-- Issue descriptions default to auto mode: plain text auto-converts to ADF and structured ADF JSON passes through. Use `--description-format wiki` when the input uses Jira wiki markup such as `h4.` headings or `*` bullet lists.
+- Issue descriptions default to auto mode on writes: plain text auto-converts to ADF and structured ADF JSON passes through. Use `--description-format wiki` when the input uses Jira wiki markup such as `h4.` headings or `*` bullet lists. On reads, `issue get` and `issue search` default to `--description-output-format text`; use `markdown`, `adf`, or `--raw` when callers need richer formatting or Jira's unmodified payload.
 - Assignments use account IDs, not email addresses.
 - Transitions ultimately require transition IDs, even when helpers resolve case-insensitive names.
 - Bulk create is limited by Jira API constraints; keep examples small and schema-backed.

@@ -166,6 +166,80 @@ func TestIssueSearchCommand_FlattensJSONByDefault(t *testing.T) {
 	}
 }
 
+func TestIssueSearchCommand_ConvertsDescriptionOutput(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body := testhelpers.DecodeJSONBody(t, r)
+		assertRequestedFields(t, body, []string{"description"})
+		testhelpers.WriteJSONResponse(t, w, issueSearchDescriptionResponseJSON())
+	}))
+	defer server.Close()
+
+	var buf bytes.Buffer
+	runCommandAction(
+		t,
+		issueSearchCommand(testCommandClient(server.URL), &buf, testCommandFormat()),
+		"--jql", "project = RSPEED",
+		"--fields", "key,description",
+		"--description-output-format", "markdown",
+	)
+
+	issue := decodeFirstSearchIssueWithoutMetadataCheck(t, buf.Bytes())
+	if issue["description"] != "## Goal\nFix the login bug\n- First bullet" {
+		t.Errorf("description = %#v, want markdown text", issue["description"])
+	}
+	if strings.Contains(buf.String(), `"type":"doc"`) {
+		t.Fatalf("description output contains ADF JSON: %s", buf.String())
+	}
+}
+
+func TestIssueSearchCommand_RawJSONPreservesDescriptionADF(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		testhelpers.WriteJSONResponse(t, w, issueSearchDescriptionResponseJSON())
+	}))
+	defer server.Close()
+
+	var buf bytes.Buffer
+	runCommandAction(
+		t,
+		issueSearchCommand(testCommandClient(server.URL), &buf, testCommandFormat()),
+		"--jql", "project = RSPEED",
+		"--fields", "key,description",
+		"--description-output-format", "markdown",
+		"--raw",
+	)
+
+	if !strings.Contains(buf.String(), `"type":"doc"`) {
+		t.Fatalf("raw description output missing ADF JSON: %s", buf.String())
+	}
+}
+
+func TestIssueSearchCommand_RawJSONIgnoresDescriptionOutputFormat(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		testhelpers.WriteJSONResponse(t, w, issueSearchDescriptionResponseJSON())
+	}))
+	defer server.Close()
+
+	var buf bytes.Buffer
+	runCommandAction(
+		t,
+		issueSearchCommand(testCommandClient(server.URL), &buf, testCommandFormat()),
+		"--jql", "project = RSPEED",
+		"--fields", "key,description",
+		"--description-output-format", "wiki",
+		"--raw",
+	)
+
+	if !strings.Contains(buf.String(), `"type":"doc"`) {
+		t.Fatalf("raw description output missing ADF JSON: %s", buf.String())
+	}
+}
+
 func TestIssueSearchCommand_SendsEmptyFieldsForKeyOnly(t *testing.T) {
 	t.Parallel()
 
@@ -322,6 +396,96 @@ func TestIssueGetCommand_CompactsJSONByDefault(t *testing.T) {
 	}
 }
 
+func TestIssueGetCommand_ConvertsDescriptionOutputByDefault(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		testhelpers.WriteJSONResponse(t, w, issueGetDescriptionResponseJSON())
+	}))
+	defer server.Close()
+
+	var buf bytes.Buffer
+	runCommandAction(t, issueGetCommand(testCommandClient(server.URL), &buf, testCommandFormat()), "RSPEED-2911")
+
+	issue := decodeIssueData(t, buf.Bytes())
+	fields, ok := issue["fields"].(map[string]any)
+	if !ok {
+		t.Fatalf("fields type = %T, want map[string]any", issue["fields"])
+	}
+	if fields["description"] != "Goal\nFix the login bug\nFirst bullet" {
+		t.Errorf("description = %#v, want plain text", fields["description"])
+	}
+}
+
+func TestIssueGetCommand_ADFDescriptionOutputPreservesADF(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		testhelpers.WriteJSONResponse(t, w, issueGetDescriptionResponseJSON())
+	}))
+	defer server.Close()
+
+	var buf bytes.Buffer
+	runCommandAction(
+		t,
+		issueGetCommand(testCommandClient(server.URL), &buf, testCommandFormat()),
+		"RSPEED-2911",
+		"--description-output-format", "adf",
+	)
+
+	if !strings.Contains(buf.String(), `"type":"doc"`) {
+		t.Fatalf("ADF description output missing ADF JSON: %s", buf.String())
+	}
+}
+
+func TestIssueGetCommand_RawJSONIgnoresDescriptionOutputFormat(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		testhelpers.WriteJSONResponse(t, w, issueGetDescriptionResponseJSON())
+	}))
+	defer server.Close()
+
+	var buf bytes.Buffer
+	runCommandAction(
+		t,
+		issueGetCommand(testCommandClient(server.URL), &buf, testCommandFormat()),
+		"RSPEED-2911",
+		"--description-output-format", "wiki",
+		"--raw",
+	)
+
+	if !strings.Contains(buf.String(), `"type":"doc"`) {
+		t.Fatalf("raw description output missing ADF JSON: %s", buf.String())
+	}
+}
+
+func TestIssueGetCommand_RawCSVPreservesDescriptionADF(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		testhelpers.WriteJSONResponse(t, w, issueGetDescriptionResponseJSON())
+	}))
+	defer server.Close()
+
+	format := output.FormatCSV
+	var buf bytes.Buffer
+	runCommandAction(
+		t,
+		issueGetCommand(testCommandClient(server.URL), &buf, &format),
+		"RSPEED-2911",
+		"--raw",
+	)
+
+	got := buf.String()
+	if !strings.Contains(got, `""type"":""doc""`) {
+		t.Fatalf("raw CSV description output missing ADF JSON: %s", got)
+	}
+	if strings.Contains(got, "Goal\nFix the login bug\nFirst bullet") {
+		t.Fatalf("raw CSV description output was converted to text: %s", got)
+	}
+}
+
 func TestIssueGetCommand_RawJSONPreservesAPIResponse(t *testing.T) {
 	t.Parallel()
 
@@ -447,6 +611,29 @@ func issueSearchResponseJSON() string {
 	}`
 }
 
+func issueSearchDescriptionResponseJSON() string {
+	return `{
+		"maxResults": 50,
+		"total": 1,
+		"issues": [
+			{
+				"key": "RSPEED-2911",
+				"fields": {
+					"description": {
+						"type":"doc",
+						"version":1,
+						"content":[
+							{"type":"heading","attrs":{"level":2},"content":[{"type":"text","text":"Goal"}]},
+							{"type":"paragraph","content":[{"type":"text","text":"Fix the login bug"}]},
+							{"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"First bullet"}]}]}]}
+						]
+					}
+				}
+			}
+		]
+	}`
+}
+
 func decodeIssueData(t *testing.T, outputBytes []byte) map[string]any {
 	t.Helper()
 
@@ -492,6 +679,24 @@ func issueGetResponseJSON() string {
 				"timeZone": "America/Chicago"
 			},
 			"priority": {"id":"1","self":"https://example/priority/1","iconUrl":"https://example/icon.svg","name":"Blocker"}
+		}
+	}`
+}
+
+func issueGetDescriptionResponseJSON() string {
+	return `{
+		"id": "10001",
+		"key": "RSPEED-2911",
+		"fields": {
+			"description": {
+				"type":"doc",
+				"version":1,
+				"content":[
+					{"type":"heading","attrs":{"level":2},"content":[{"type":"text","text":"Goal"}]},
+					{"type":"paragraph","content":[{"type":"text","text":"Fix the login bug"}]},
+					{"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"First bullet"}]}]}]}
+				]
+			}
 		}
 	}`
 }
