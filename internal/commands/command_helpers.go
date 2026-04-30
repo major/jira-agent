@@ -99,6 +99,16 @@ func writeAPIResult(w io.Writer, format output.Format, call apiResultFunc) error
 	return output.WriteResult(w, result, format)
 }
 
+// writeRawAPIResult preserves Jira's original JSON shape for single-result
+// commands that expose an explicit raw-output flag.
+func writeRawAPIResult(w io.Writer, format output.Format, call apiResultFunc) error {
+	var result any
+	if err := call(&result); err != nil {
+		return err
+	}
+	return output.WriteRawSuccess(w, result, output.NewMetadata(), format)
+}
+
 // writePaginatedAPIResult runs an API call that writes into result, extracts
 // Jira pagination metadata, then emits the standard success envelope.
 func writePaginatedAPIResult(w io.Writer, format output.Format, call apiResultFunc) error {
@@ -108,6 +118,17 @@ func writePaginatedAPIResult(w io.Writer, format output.Format, call apiResultFu
 	}
 	meta := extractPaginationMeta(result)
 	return output.WriteSuccess(w, result, meta, format)
+}
+
+// writeRawPaginatedAPIResult preserves Jira's original JSON shape for commands
+// with an explicit raw-output flag while still extracting envelope metadata.
+func writeRawPaginatedAPIResult(w io.Writer, format output.Format, call apiResultFunc) error {
+	var result any
+	if err := call(&result); err != nil {
+		return err
+	}
+	meta := extractPaginationMeta(result)
+	return output.WriteRawSuccess(w, result, meta, format)
 }
 
 // splitTrimmed splits s by comma and trims whitespace from each element,

@@ -68,7 +68,7 @@ Return typed validation errors rather than generic `fmt.Errorf` for user-correct
 
 - Use `writeAPIResult(w, format, call)` for single-result API calls.
 - Use `writePaginatedAPIResult(w, format, call)` for list/search calls with pagination metadata.
-- `issue search` is the compact-output exception: default JSON reshapes Jira's response into flattened `.data.issues[]` rows, while `--raw` uses the unmodified paginated API response.
+- Default JSON removes noisy Jira API metadata such as `self`, `expand`, `avatarUrls`, `iconUrl`, and nested `statusCategory` objects. `issue search` additionally reshapes Jira's response into flattened `.data.issues[]` rows, while `--raw` uses the unmodified paginated API response.
 - Do not write JSON, CSV, TSV, or errors directly from commands unless the command is `schema`.
 - Preserve pagination metadata extraction for arrays named `issues`, `values`, `comments`, and `worklogs`.
 

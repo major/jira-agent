@@ -342,6 +342,100 @@ func TestWriteSuccess_JSONPreservesReadableText(t *testing.T) {
 	}
 }
 
+func TestWriteSuccess_JSONCompactsJiraNoise(t *testing.T) {
+	t.Parallel()
+
+	data := map[string]any{
+		"expand": "renderedFields,names",
+		"key":    "PROJ-1",
+		"self":   "https://example.atlassian.net/rest/api/3/issue/10001",
+		"fields": map[string]any{
+			"summary": "Reduce noisy output",
+			"status": map[string]any{
+				"iconUrl": "https://example.atlassian.net/images/icons/statuses/open.png",
+				"name":    "In Progress",
+				"self":    "https://example.atlassian.net/rest/api/3/status/3",
+				"statusCategory": map[string]any{
+					"colorName": "yellow",
+					"id":        float64(4),
+					"key":       "indeterminate",
+					"name":      "In Progress",
+					"self":      "https://example.atlassian.net/rest/api/3/statuscategory/4",
+				},
+			},
+			"assignee": map[string]any{
+				"accountId":    "abc123",
+				"accountType":  "atlassian",
+				"active":       true,
+				"avatarUrls":   map[string]any{"48x48": "https://avatar.example/48"},
+				"displayName":  "Jane Smith",
+				"emailAddress": "jsmith@example.com",
+				"self":         "https://example.atlassian.net/rest/api/3/user?accountId=abc123",
+				"timeZone":     "Etc/GMT",
+			},
+			"watchers": []any{
+				map[string]any{"displayName": "Alex Lee", "self": "https://example.atlassian.net/rest/api/3/user?accountId=watcher"},
+			},
+		},
+	}
+
+	var buf bytes.Buffer
+	if err := WriteSuccess(&buf, data, Metadata{}, FormatJSON); err != nil {
+		t.Fatalf("WriteSuccess() error = %v, want nil", err)
+	}
+
+	for _, noisy := range []string{"avatarUrls", "accountType", "active", "timeZone", "iconUrl", "\"self\"", "\"expand\"", "colorName"} {
+		if strings.Contains(buf.String(), noisy) {
+			t.Errorf("JSON output contains noisy field %q in %s", noisy, buf.String())
+		}
+	}
+
+	var env Envelope
+	if err := json.Unmarshal(buf.Bytes(), &env); err != nil {
+		t.Fatalf("unmarshal envelope: %v", err)
+	}
+	issue := env.Data.(map[string]any)
+	fields := issue["fields"].(map[string]any)
+	assignee := fields["assignee"].(map[string]any)
+	if assignee["accountId"] != "abc123" {
+		t.Errorf("assignee accountId = %v, want abc123", assignee["accountId"])
+	}
+	if assignee["displayName"] != "Jane Smith" {
+		t.Errorf("assignee displayName = %v, want Jane Smith", assignee["displayName"])
+	}
+	status := fields["status"].(map[string]any)
+	if status["statusCategory"] != "In Progress" {
+		t.Errorf("statusCategory = %v, want In Progress", status["statusCategory"])
+	}
+}
+
+func TestWriteRawSuccess_JSONPreservesJiraResponse(t *testing.T) {
+	t.Parallel()
+
+	data := map[string]any{
+		"expand": "names",
+		"self":   "https://example.atlassian.net/rest/api/3/issue/10001",
+		"fields": map[string]any{
+			"priority": map[string]any{
+				"iconUrl": "https://example.atlassian.net/images/icons/priorities/high.svg",
+				"name":    "High",
+				"self":    "https://example.atlassian.net/rest/api/3/priority/2",
+			},
+		},
+	}
+
+	var buf bytes.Buffer
+	if err := WriteRawSuccess(&buf, data, Metadata{}, FormatJSON); err != nil {
+		t.Fatalf("WriteRawSuccess() error = %v, want nil", err)
+	}
+
+	for _, rawField := range []string{"\"expand\"", "\"self\"", "iconUrl"} {
+		if !strings.Contains(buf.String(), rawField) {
+			t.Errorf("JSON output = %s, want raw field %q", buf.String(), rawField)
+		}
+	}
+}
+
 func TestWritePartial_JSON(t *testing.T) {
 	t.Parallel()
 

@@ -8,9 +8,10 @@ Issue CRUD, search, bulk operations, metadata, and count.
 jira-agent issue get KEY-123
 jira-agent issue get KEY-123 --fields summary,status,assignee --expand changelog
 jira-agent issue get KEY-123 --properties request --fields-by-keys --update-history
+jira-agent issue get KEY-123 --raw
 ```
 
-Useful flags: `--properties`, `--fields-by-keys`, `--update-history`, and `--fail-fast=false` for partial field-resolution failures.
+Default JSON removes common Jira metadata noise such as `self`, `expand`, `avatarUrls`, `iconUrl`, and nested `statusCategory` objects. Useful flags: `--properties`, `--fields-by-keys`, `--update-history`, `--fail-fast=false` for partial field-resolution failures, and `--raw` when you need Jira's unmodified nested response.
 
 ## issue picker
 

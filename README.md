@@ -100,7 +100,7 @@ JSON is the default output format. CSV and TSV are available for flat tables:
 jira-agent issue search --jql "project = PROJ" --fields key,summary,status --output tsv
 ```
 
-`issue search` returns compact JSON rows by default to keep LLM context small. Add `--raw` when you need Jira's full nested API response.
+Default JSON removes noisy Jira metadata such as `self`, `expand`, `avatarUrls`, `iconUrl`, and nested `statusCategory` objects to keep LLM context small. `issue search` also returns compact rows by default. Add `--raw` on commands that expose it when you need Jira's full nested API response.
 
 ## Command areas
 
