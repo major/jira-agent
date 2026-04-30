@@ -7,11 +7,12 @@ Issue CRUD, search, bulk operations, metadata, and count.
 ```bash
 jira-agent issue get KEY-123
 jira-agent issue get KEY-123 --fields summary,status,assignee --expand changelog
+jira-agent issue get KEY-123 --fields description --description-output-format markdown
 jira-agent issue get KEY-123 --properties request --fields-by-keys --update-history
 jira-agent issue get KEY-123 --raw
 ```
 
-Default JSON removes common Jira metadata noise such as `self`, `expand`, `avatarUrls`, `iconUrl`, and nested `statusCategory` objects. Useful flags: `--properties`, `--fields-by-keys`, `--update-history`, `--fail-fast=false` for partial field-resolution failures, and `--raw` when you need Jira's unmodified nested response.
+Default JSON removes common Jira metadata noise such as `self`, `expand`, `avatarUrls`, `iconUrl`, and nested `statusCategory` objects. Description fields default to plain text to avoid token-heavy ADF JSON; use `--description-output-format markdown` for headings/lists or `--description-output-format adf` to keep ADF in compact output. Useful flags: `--properties`, `--fields-by-keys`, `--update-history`, `--fail-fast=false` for partial field-resolution failures, and `--raw` when you need Jira's unmodified nested response.
 
 ## issue picker
 
@@ -27,6 +28,7 @@ Find issues using Jira's picker endpoint. Useful when the user provides partial 
 ```bash
 jira-agent issue search --jql "project = PROJ AND status = 'In Progress'"
 jira-agent issue search --jql "assignee = currentUser()" --fields key,summary,status --max-results 20
+jira-agent issue search --jql "project = PROJ" --fields key,description --description-output-format markdown
 jira-agent issue search --jql "..." --next-page-token TOKEN
 jira-agent issue search --jql "project = PROJ" --properties request --fields-by-keys --fail-fast=false
 jira-agent issue search --jql "project = PROJ" --raw
@@ -38,6 +40,7 @@ Default JSON output is flattened for LLM efficiency: `.data.issues[]` contains c
 |------|---------|-------|
 | `--jql` | (required) | JQL query string |
 | `--fields` | key,summary,status,assignee,priority | Comma-separated; `key` is returned from the issue object and not sent as a Jira field |
+| `--description-output-format` | text | `text`, `markdown`, or `adf`; ignored by `--raw` |
 | `--max-results` | 50 | Page size |
 | `--next-page-token` | | Cursor from previous `.data.nextPageToken` |
 | `--expand` | | e.g., `changelog,renderedFields` |

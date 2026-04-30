@@ -173,6 +173,7 @@ func issueGetCommand(apiClient *client.Ref, w io.Writer, format *output.Format) 
 		Usage: "Get issue by key or ID",
 		UsageText: `jira-agent issue get PROJ-123
 jira-agent issue get PROJ-123 --fields key,summary,status,assignee
+jira-agent issue get PROJ-123 --fields description --description-output-format markdown
 jira-agent issue get PROJ-123 --expand changelog
 jira-agent issue get PROJ-123 --raw`,
 		ArgsUsage: "<issue-key>",
@@ -188,6 +189,11 @@ jira-agent issue get PROJ-123 --raw`,
 			&cli.StringFlag{
 				Name:  "properties",
 				Usage: "Comma-separated issue properties to include",
+			},
+			&cli.StringFlag{
+				Name:  "description-output-format",
+				Usage: "Description output format: text, markdown, or adf",
+				Value: descriptionOutputFormatText,
 			},
 			&cli.BoolFlag{
 				Name:  "fields-by-keys",
@@ -212,7 +218,6 @@ jira-agent issue get PROJ-123 --raw`,
 			if err != nil {
 				return err
 			}
-
 			params := map[string]string{}
 			addOptionalParams(cmd, params, map[string]string{
 				"fields":     "fields",
@@ -225,15 +230,22 @@ jira-agent issue get PROJ-123 --raw`,
 				params["failFast"] = fmt.Sprintf("%t", cmd.Bool("fail-fast"))
 			}
 
-			if cmd.Bool("raw") && isJSONOutputFormat(*format) {
+			if cmd.Bool("raw") {
 				return writeRawAPIResult(w, *format, func(result any) error {
 					return apiClient.Get(ctx, "/issue/"+key, params, result)
 				})
 			}
 
-			return writeAPIResult(w, *format, func(result any) error {
-				return apiClient.Get(ctx, "/issue/"+key, params, result)
-			})
+			descriptionFormat, err := parseDescriptionOutputFormat(cmd.String("description-output-format"))
+			if err != nil {
+				return err
+			}
+
+			var result any
+			if err := apiClient.Get(ctx, "/issue/"+key, params, &result); err != nil {
+				return err
+			}
+			return output.WriteResult(w, convertDescriptionOutputFields(result, descriptionFormat), *format)
 		},
 	}
 }
@@ -280,6 +292,7 @@ func issueSearchCommand(apiClient *client.Ref, w io.Writer, format *output.Forma
 		Usage: "Search issues via JQL",
 		UsageText: `jira-agent issue search --jql "project = PROJ AND status = Open"
 jira-agent issue search --jql "assignee = currentUser()" --fields key,summary,status
+jira-agent issue search --jql "project = PROJ" --fields key,description --description-output-format markdown
 jira-agent issue search --jql "project = PROJ" --max-results 10 --order-by created --order desc
 jira-agent issue search --jql "project = PROJ" --raw`,
 		Metadata: requiredFlagMetadata("jql"),
@@ -309,6 +322,11 @@ jira-agent issue search --jql "project = PROJ" --raw`,
 			&cli.StringFlag{
 				Name:  "properties",
 				Usage: "Comma-separated issue properties to include",
+			},
+			&cli.StringFlag{
+				Name:  "description-output-format",
+				Usage: "Description output format: text, markdown, or adf",
+				Value: descriptionOutputFormatText,
 			},
 			&cli.BoolFlag{
 				Name:  "fields-by-keys",
@@ -341,7 +359,6 @@ jira-agent issue search --jql "project = PROJ" --raw`,
 			if err != nil {
 				return err
 			}
-
 			// Append ORDER BY clause from flags if provided.
 			if orderBy := cmd.String("order-by"); orderBy != "" {
 				direction := strings.ToUpper(cmd.String("order"))
@@ -378,10 +395,15 @@ jira-agent issue search --jql "project = PROJ" --raw`,
 				body["reconcileIssues"] = reconcile
 			}
 
-			if cmd.Bool("raw") || !isJSONOutputFormat(*format) {
+			if cmd.Bool("raw") {
 				return writeRawPaginatedAPIResult(w, *format, func(result any) error {
 					return apiClient.Post(ctx, "/search/jql", body, result)
 				})
+			}
+
+			descriptionFormat, err := parseDescriptionOutputFormat(cmd.String("description-output-format"))
+			if err != nil {
+				return err
 			}
 
 			var result any
@@ -389,7 +411,10 @@ jira-agent issue search --jql "project = PROJ" --raw`,
 				return err
 			}
 			meta := extractPaginationMeta(result)
-			return output.WriteSuccess(w, flattenIssueSearchResult(result), meta, *format)
+			if !isJSONOutputFormat(*format) {
+				return output.WriteSuccess(w, convertDescriptionOutputFields(result, descriptionFormat), meta, *format)
+			}
+			return output.WriteSuccess(w, flattenIssueSearchResultWithDescriptionFormat(result, descriptionFormat), meta, *format)
 		},
 	}
 }
