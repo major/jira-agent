@@ -173,7 +173,8 @@ func issueGetCommand(apiClient *client.Ref, w io.Writer, format *output.Format) 
 		Usage: "Get issue by key or ID",
 		UsageText: `jira-agent issue get PROJ-123
 jira-agent issue get PROJ-123 --fields key,summary,status,assignee
-jira-agent issue get PROJ-123 --expand changelog`,
+jira-agent issue get PROJ-123 --expand changelog
+jira-agent issue get PROJ-123 --raw`,
 		ArgsUsage: "<issue-key>",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
@@ -201,6 +202,10 @@ jira-agent issue get PROJ-123 --expand changelog`,
 				Usage: "Fail immediately if a requested field cannot be resolved",
 				Value: true,
 			},
+			&cli.BoolFlag{
+				Name:  "raw",
+				Usage: "Return the unmodified Jira API response for JSON output",
+			},
 		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			key, err := requireArg(cmd, "issue key")
@@ -218,6 +223,12 @@ jira-agent issue get PROJ-123 --expand changelog`,
 			addBoolParam(cmd, params, "update-history", "updateHistory")
 			if cmd.IsSet("fail-fast") {
 				params["failFast"] = fmt.Sprintf("%t", cmd.Bool("fail-fast"))
+			}
+
+			if cmd.Bool("raw") && isJSONOutputFormat(*format) {
+				return writeRawAPIResult(w, *format, func(result any) error {
+					return apiClient.Get(ctx, "/issue/"+key, params, result)
+				})
 			}
 
 			return writeAPIResult(w, *format, func(result any) error {
@@ -368,7 +379,7 @@ jira-agent issue search --jql "project = PROJ" --raw`,
 			}
 
 			if cmd.Bool("raw") || !isJSONOutputFormat(*format) {
-				return writePaginatedAPIResult(w, *format, func(result any) error {
+				return writeRawPaginatedAPIResult(w, *format, func(result any) error {
 					return apiClient.Post(ctx, "/search/jql", body, result)
 				})
 			}

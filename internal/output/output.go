@@ -59,6 +59,19 @@ type ErrorDetail struct {
 	Details string `json:"details,omitempty"`
 }
 
+var jiraJSONNoiseFields = map[string]struct{}{
+	"avatarUrls": {},
+	"expand":     {},
+	"iconUrl":    {},
+	"self":       {},
+}
+
+var jiraUserNoiseFields = map[string]struct{}{
+	"accountType": {},
+	"active":      {},
+	"timeZone":    {},
+}
+
 // encodeJSON writes v as JSON to w with HTML escaping disabled.
 func encodeJSON(w io.Writer, v any, pretty bool) error {
 	encoder := json.NewEncoder(w)
@@ -78,16 +91,26 @@ func WriteResult(w io.Writer, data any, format Format) error {
 // WriteSuccess writes a successful response with data and metadata to the writer.
 // For CSV/TSV formats, only the data is emitted as delimited rows (no envelope).
 func WriteSuccess(w io.Writer, data any, metadata Metadata, format Format) error {
-	return writeEnvelope(w, data, nil, metadata, format)
+	return writeEnvelope(w, data, nil, metadata, format, false)
 }
 
-func writeEnvelope(w io.Writer, data any, errs []string, metadata Metadata, format Format) error {
+// WriteRawSuccess writes a successful response without compacting Jira's JSON
+// response shape. Use it only for commands that explicitly expose raw Jira API
+// payloads as part of their public contract.
+func WriteRawSuccess(w io.Writer, data any, metadata Metadata, format Format) error {
+	return writeEnvelope(w, data, nil, metadata, format, true)
+}
+
+func writeEnvelope(w io.Writer, data any, errs []string, metadata Metadata, format Format, raw bool) error {
 	switch format {
 	case FormatCSV:
 		return writeDelimited(w, data, ',')
 	case FormatTSV:
 		return writeDelimited(w, data, '\t')
 	default:
+		if !raw {
+			data = compactJiraJSON(data)
+		}
 		envelope := Envelope{
 			Data:     data,
 			Errors:   errs,
@@ -133,5 +156,60 @@ func WriteError(w io.Writer, err error) error {
 // For CSV/TSV formats, only the data rows are emitted; error details require
 // the JSON format.
 func WritePartial(w io.Writer, data any, errs []string, metadata Metadata, format Format) error {
-	return writeEnvelope(w, data, errs, metadata, format)
+	return writeEnvelope(w, data, errs, metadata, format, false)
+}
+
+func compactJiraJSON(value any) any {
+	switch v := value.(type) {
+	case map[string]any:
+		return compactJiraJSONMap(v)
+	case []any:
+		items := make([]any, 0, len(v))
+		for _, item := range v {
+			items = append(items, compactJiraJSON(item))
+		}
+		return items
+	default:
+		return value
+	}
+}
+
+func compactJiraJSONMap(value map[string]any) map[string]any {
+	compacted := make(map[string]any, len(value))
+	userObject := isJiraUserObject(value)
+	for key, nested := range value {
+		if _, skip := jiraJSONNoiseFields[key]; skip {
+			continue
+		}
+		if userObject {
+			if _, skip := jiraUserNoiseFields[key]; skip {
+				continue
+			}
+		}
+		if key == "statusCategory" {
+			if name, ok := jiraStatusCategoryName(nested); ok {
+				compacted[key] = name
+				continue
+			}
+		}
+		compacted[key] = compactJiraJSON(nested)
+	}
+	return compacted
+}
+
+func isJiraUserObject(value map[string]any) bool {
+	_, hasAccountID := value["accountId"]
+	_, hasDisplayName := value["displayName"]
+	_, hasEmailAddress := value["emailAddress"]
+	_, hasAvatarURLs := value["avatarUrls"]
+	return hasAccountID || hasDisplayName || hasEmailAddress || hasAvatarURLs
+}
+
+func jiraStatusCategoryName(value any) (string, bool) {
+	category, ok := value.(map[string]any)
+	if !ok {
+		return "", false
+	}
+	name, ok := category["name"].(string)
+	return name, ok
 }

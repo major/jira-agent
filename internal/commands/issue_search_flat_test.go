@@ -214,6 +214,11 @@ func TestIssueSearchCommand_RawJSONPreservesAPIResponse(t *testing.T) {
 	if err := json.Unmarshal(buf.Bytes(), &env); err != nil {
 		t.Fatalf("unmarshal envelope: %v", err)
 	}
+	for _, rawField := range []string{"avatarUrls", "accountType", "timeZone", "iconUrl", "\"self\"", "\"expand\"", "statusCategory"} {
+		if !strings.Contains(buf.String(), rawField) {
+			t.Fatalf("raw issue search output missing field %q: %s", rawField, buf.String())
+		}
+	}
 	data, ok := env.Data.(map[string]any)
 	if !ok {
 		t.Fatalf("data type = %T, want map[string]any", env.Data)
@@ -267,6 +272,62 @@ func TestIssueSearchCommand_CSVPreservesAPIResponse(t *testing.T) {
 	}
 	if strings.Contains(got, "Sam Doran,Blocker,Review") {
 		t.Fatalf("CSV output unexpectedly used flattened issue row shape: %s", got)
+	}
+}
+
+func TestIssueGetCommand_CompactsJSONByDefault(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("method = %s, want %s", r.Method, http.MethodGet)
+		}
+		if r.URL.Path != "/issue/RSPEED-2911" {
+			t.Errorf("path = %s, want /issue/RSPEED-2911", r.URL.Path)
+		}
+		testhelpers.WriteJSONResponse(t, w, issueGetResponseJSON())
+	}))
+	defer server.Close()
+
+	var buf bytes.Buffer
+	runCommandAction(t, issueGetCommand(testCommandClient(server.URL), &buf, testCommandFormat()), "RSPEED-2911")
+
+	for _, noisy := range []string{"avatarUrls", "accountType", "timeZone", "iconUrl", "\"self\"", "\"expand\"", "colorName"} {
+		if strings.Contains(buf.String(), noisy) {
+			t.Fatalf("compact issue get output contains noisy field %q: %s", noisy, buf.String())
+		}
+	}
+
+	issue := decodeIssueData(t, buf.Bytes())
+	fields := issue["fields"].(map[string]any)
+	assignee := fields["assignee"].(map[string]any)
+	if assignee["accountId"] != "abc123" {
+		t.Errorf("assignee accountId = %v, want abc123", assignee["accountId"])
+	}
+	if assignee["displayName"] != "Sam Doran" {
+		t.Errorf("assignee displayName = %v, want Sam Doran", assignee["displayName"])
+	}
+	status := fields["status"].(map[string]any)
+	if status["statusCategory"] != "In Progress" {
+		t.Errorf("statusCategory = %v, want In Progress", status["statusCategory"])
+	}
+}
+
+func TestIssueGetCommand_RawJSONPreservesAPIResponse(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		testhelpers.WriteJSONResponse(t, w, issueGetResponseJSON())
+	}))
+	defer server.Close()
+
+	var buf bytes.Buffer
+	runCommandAction(t, issueGetCommand(testCommandClient(server.URL), &buf, testCommandFormat()), "RSPEED-2911", "--raw")
+
+	for _, rawField := range []string{"avatarUrls", "accountType", "timeZone", "iconUrl", "\"self\"", "\"expand\"", "colorName"} {
+		if !strings.Contains(buf.String(), rawField) {
+			t.Fatalf("raw issue get output missing field %q: %s", rawField, buf.String())
+		}
 	}
 }
 
@@ -374,5 +435,54 @@ func issueSearchResponseJSON() string {
 				}
 			}
 		]
+	}`
+}
+
+func decodeIssueData(t *testing.T, outputBytes []byte) map[string]any {
+	t.Helper()
+
+	var env output.Envelope
+	if err := json.Unmarshal(outputBytes, &env); err != nil {
+		t.Fatalf("unmarshal envelope: %v", err)
+	}
+	issue, ok := env.Data.(map[string]any)
+	if !ok {
+		t.Fatalf("data type = %T, want map[string]any", env.Data)
+	}
+	return issue
+}
+
+func issueGetResponseJSON() string {
+	return `{
+		"expand": "renderedFields,names",
+		"id": "10001",
+		"key": "RSPEED-2911",
+		"self": "https://example.atlassian.net/rest/api/3/issue/10001",
+		"fields": {
+			"summary": "Akamai WAF blocks requests",
+			"status": {
+				"self": "https://example/status/3",
+				"iconUrl": "https://example/status.svg",
+				"name": "Review",
+				"statusCategory": {
+					"colorName": "yellow",
+					"id": 4,
+					"key": "indeterminate",
+					"name": "In Progress",
+					"self": "https://example/statuscategory/4"
+				}
+			},
+			"assignee": {
+				"accountId": "abc123",
+				"accountType": "atlassian",
+				"active": true,
+				"avatarUrls": {"48x48": "https://avatar.example/48"},
+				"displayName": "Sam Doran",
+				"emailAddress": "sdoran@example.com",
+				"self": "https://example/user",
+				"timeZone": "America/Chicago"
+			},
+			"priority": {"id":"1","self":"https://example/priority/1","iconUrl":"https://example/icon.svg","name":"Blocker"}
+		}
 	}`
 }
