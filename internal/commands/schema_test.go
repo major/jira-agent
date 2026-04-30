@@ -509,6 +509,26 @@ func TestSchemaCommand_RequiredOnly(t *testing.T) {
 	}
 }
 
+func TestSchemaCommand_IssueCountRequiresJQL(t *testing.T) {
+	t.Parallel()
+	schema := runSchema(t, testFullSchemaApp(), "--command", "issue count", "--required-only")
+
+	count, ok := schema.Commands["issue count"]
+	if !ok {
+		t.Fatal("missing issue count command")
+	}
+	if got := len(count.Flags); got != 1 {
+		t.Fatalf("issue count required flag count = %d, want 1", got)
+	}
+	jql, ok := count.Flags["--jql"]
+	if !ok {
+		t.Fatal("missing required --jql flag")
+	}
+	if !jql.Required {
+		t.Error("--jql required = false, want true")
+	}
+}
+
 func TestSchemaCommand_CompactOutput(t *testing.T) {
 	t.Parallel()
 	raw := runSchemaRaw(t, testSchemaApp(), "--compact")

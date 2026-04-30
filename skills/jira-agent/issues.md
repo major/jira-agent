@@ -121,7 +121,7 @@ Discover required/available fields before creating or editing.
 jira-agent issue count --jql "project = PROJ AND status = 'To Do'"
 ```
 
-Returns issue count without fetching full results. `--jql` is required.
+Returns `data.total` without fetching issue rows. The command sends the JQL to Jira search with `maxResults: 0`, then copies Jira's `total` into both `data.total` and response metadata. `--jql` is required.
 
 ## Bulk Operations
 
