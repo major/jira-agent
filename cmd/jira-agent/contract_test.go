@@ -121,8 +121,9 @@ func collectCommandContracts(root *cobra.Command) []commandContract {
 // collectCommandPathSet returns every command path exposed by the Cobra tree.
 func collectCommandPathSet(root *cobra.Command) map[string]struct{} {
 	paths := map[string]struct{}{}
-	for _, contract := range collectCommandContracts(root) {
-		paths[contract.Path] = struct{}{}
+	contracts := collectCommandContracts(root)
+	for index := range contracts {
+		paths[contracts[index].Path] = struct{}{}
 	}
 	return paths
 }
@@ -274,7 +275,7 @@ func sortedStrings(values []string) []string {
 }
 
 // compareStrings compares a and b for use with slices.SortFunc.
-func compareStrings(a string, b string) int {
+func compareStrings(a, b string) int {
 	if a < b {
 		return -1
 	}
