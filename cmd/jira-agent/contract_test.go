@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -74,6 +75,39 @@ func TestCLIContractSnapshot(t *testing.T) {
 	}
 }
 
+// TestSkillCommandExamplesMatchCLIContract catches stale command paths in the
+// embedded LLM skill docs before agents learn commands that no longer exist.
+func TestSkillCommandExamplesMatchCLIContract(t *testing.T) {
+	t.Parallel()
+
+	app := buildApp(&bytes.Buffer{})
+	validPaths := collectCommandPathSet(app)
+	skillPaths, err := filepath.Glob(filepath.Join("..", "..", "skills", "jira-agent", "*.md"))
+	if err != nil {
+		t.Fatalf("glob skill docs: %v", err)
+	}
+	if len(skillPaths) == 0 {
+		t.Fatal("glob skill docs found no markdown files")
+	}
+
+	examples := 0
+	for _, skillPath := range skillPaths {
+		data, err := os.ReadFile(skillPath)
+		if err != nil {
+			t.Fatalf("read skill doc %s: %v", skillPath, err)
+		}
+		for lineNumber, commandLine := range skillCommandLines(string(data)) {
+			examples++
+			if _, ok := longestCommandPath(commandLine, validPaths); !ok {
+				t.Errorf("%s:%d: command example %q does not match any CLI command path", skillPath, lineNumber, commandLine)
+			}
+		}
+	}
+	if examples == 0 {
+		t.Fatal("skill docs contain no jira-agent command examples")
+	}
+}
+
 // collectCommandContracts walks the command tree and returns sorted contracts.
 func collectCommandContracts(root *cobra.Command) []commandContract {
 	var contracts []commandContract
@@ -82,6 +116,15 @@ func collectCommandContracts(root *cobra.Command) []commandContract {
 		return compareStrings(a.Path, b.Path)
 	})
 	return contracts
+}
+
+// collectCommandPathSet returns every command path exposed by the Cobra tree.
+func collectCommandPathSet(root *cobra.Command) map[string]struct{} {
+	paths := map[string]struct{}{}
+	for _, contract := range collectCommandContracts(root) {
+		paths[contract.Path] = struct{}{}
+	}
+	return paths
 }
 
 // collectCommandContract appends metadata for cmd and all of its children.
@@ -109,6 +152,49 @@ func collectCommandContract(cmd *cobra.Command, contracts *[]commandContract) {
 	for _, child := range children {
 		collectCommandContract(child, contracts)
 	}
+}
+
+// skillCommandLines extracts jira-agent invocations from bash fences in skill docs.
+func skillCommandLines(markdown string) map[int]string {
+	commands := map[int]string{}
+	inBashFence := false
+	for index, line := range strings.Split(markdown, "\n") {
+		lineNumber := index + 1
+		trimmed := strings.TrimSpace(line)
+		switch {
+		case strings.HasPrefix(trimmed, "```"):
+			inBashFence = trimmed == "```bash"
+		case inBashFence:
+			commandLine, ok := normalizeSkillCommandLine(trimmed)
+			if ok {
+				commands[lineNumber] = commandLine
+			}
+		}
+	}
+	return commands
+}
+
+// normalizeSkillCommandLine returns a single-line jira-agent invocation.
+func normalizeSkillCommandLine(line string) (string, bool) {
+	line = strings.TrimSuffix(line, " \\")
+	line = strings.TrimSpace(line)
+	line = strings.TrimPrefix(line, "$ ")
+	if !strings.HasPrefix(line, "jira-agent") {
+		return "", false
+	}
+	return line, true
+}
+
+// longestCommandPath returns the deepest CLI command path used by commandLine.
+func longestCommandPath(commandLine string, validPaths map[string]struct{}) (string, bool) {
+	fields := strings.Fields(commandLine)
+	for end := len(fields); end > 0; end-- {
+		candidate := strings.Join(fields[:end], " ")
+		if _, ok := validPaths[candidate]; ok {
+			return candidate, true
+		}
+	}
+	return "", false
 }
 
 // collectFlagContracts returns stable metadata for all flags in a flag set.
