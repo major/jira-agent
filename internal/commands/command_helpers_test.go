@@ -571,6 +571,27 @@ func TestCommandAnnotations(t *testing.T) {
 			t.Errorf("write protection annotation = %q, want true", got)
 		}
 	})
+
+	t.Run("records write protection from command tree", func(t *testing.T) {
+		t.Parallel()
+
+		root := &cobra.Command{Use: "jira-agent"}
+		issue := &cobra.Command{Use: "issue"}
+		create := &cobra.Command{Use: "create"}
+		get := &cobra.Command{Use: "get"}
+		issue.AddCommand(create, get)
+		root.AddCommand(issue)
+
+		MarkWriteProtectedCommands(root)
+
+		got := create.Annotations[commandAnnotationWriteProtected]
+		if got != "true" {
+			t.Errorf("write protection annotation = %q, want true", got)
+		}
+		if _, ok := get.Annotations[commandAnnotationWriteProtected]; ok {
+			t.Error("read command was marked write-protected")
+		}
+	})
 }
 
 func TestAppendQueryParams(t *testing.T) {

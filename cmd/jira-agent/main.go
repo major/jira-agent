@@ -194,6 +194,7 @@ jira-agent project list --output csv`,
 		commands.ServerInfoCommand(apiClient, w, outputFormat),
 		commands.JQLCommand(apiClient, w, outputFormat),
 	)
+	commands.MarkWriteProtectedCommands(rootCmd)
 
 	return rootCmd
 }

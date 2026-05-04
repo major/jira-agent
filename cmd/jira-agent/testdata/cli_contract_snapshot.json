@@ -208,6 +208,9 @@
     "use": "move",
     "short": "Move issues to the backlog",
     "example": "jira-agent backlog move --issues PROJ-1,PROJ-2",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "issues",
@@ -254,6 +257,9 @@
     "use": "create",
     "short": "Create a Jira Software board",
     "example": "jira-agent board create --name \"Team board\" --type scrum --filter 10000\njira-agent board create --name \"Team board\" --type kanban --filter 10000 --location-project PROJ",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "filter",
@@ -282,7 +288,10 @@
     "path": "jira-agent board delete",
     "use": "delete",
     "short": "Delete a Jira Software board",
-    "example": "jira-agent board delete 42"
+    "example": "jira-agent board delete 42",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    }
   },
   {
     "path": "jira-agent board epics",
@@ -445,7 +454,10 @@
     "path": "jira-agent board property delete",
     "use": "delete \u003cboard ID\u003e \u003cproperty-key\u003e",
     "short": "Delete a board property",
-    "example": "jira-agent board property delete 42 com.example.flag"
+    "example": "jira-agent board property delete 42 com.example.flag",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    }
   },
   {
     "path": "jira-agent board property get",
@@ -464,6 +476,9 @@
     "use": "set \u003cboard ID\u003e \u003cproperty-key\u003e",
     "short": "Set a board property",
     "example": "jira-agent board property set 42 com.example.flag --value-json '{\"enabled\":true}'",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "value-json",
@@ -519,6 +534,9 @@
     "use": "create",
     "short": "Create a project component",
     "example": "jira-agent component create --project PROJ --name \"Backend\"\njira-agent component create --project PROJ --name \"Frontend\" --lead-account-id 5b10a284",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "assignee-type",
@@ -552,6 +570,9 @@
     "use": "delete \u003ccomponent-id\u003e",
     "short": "Delete a project component",
     "example": "jira-agent component delete 10100",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "move-issues-to",
@@ -607,6 +628,9 @@
     "use": "update \u003ccomponent-id\u003e",
     "short": "Update a project component",
     "example": "jira-agent component update 10100 --name \"Backend Services\"",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "assignee-type",
@@ -653,6 +677,9 @@
     "use": "copy \u003cdashboard-id\u003e",
     "short": "Copy a dashboard",
     "example": "jira-agent dashboard copy 10001 --name \"Team dashboard copy\"\njira-agent dashboard copy 10001 --name \"Team dashboard copy\" --extend-admin-permissions",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "body-json",
@@ -694,6 +721,9 @@
     "use": "create",
     "short": "Create a dashboard",
     "example": "jira-agent dashboard create --name \"Team dashboard\"\njira-agent dashboard create --name \"Team dashboard\" --share-permissions-json '[{\"type\":\"authenticated\"}]'\njira-agent dashboard create --body-json '{\"name\":\"Team dashboard\",\"sharePermissions\":[],\"editPermissions\":[]}'",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "body-json",
@@ -734,7 +764,10 @@
     "path": "jira-agent dashboard delete",
     "use": "delete \u003cdashboard-id\u003e",
     "short": "Delete a dashboard",
-    "example": "jira-agent dashboard delete 10001"
+    "example": "jira-agent dashboard delete 10001",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    }
   },
   {
     "path": "jira-agent dashboard gadgets",
@@ -800,6 +833,9 @@
     "use": "update \u003cdashboard-id\u003e",
     "short": "Update a dashboard",
     "example": "jira-agent dashboard update 10001 --name \"Team dashboard\"\njira-agent dashboard update 10001 --name \"Team dashboard\" --description \"Team metrics\"\njira-agent dashboard update 10001 --body-json '{\"name\":\"Team dashboard\",\"sharePermissions\":[],\"editPermissions\":[]}'",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "body-json",
@@ -894,6 +930,9 @@
     "use": "move-issues",
     "short": "Move issues to an epic",
     "example": "jira-agent epic move-issues PROJ-50 --issues PROJ-1,PROJ-2",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "issues",
@@ -942,6 +981,9 @@
     "use": "rank",
     "short": "Rank an epic before or after another epic",
     "example": "jira-agent epic rank PROJ-50 --before PROJ-49\njira-agent epic rank PROJ-50 --after PROJ-51",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "rank-after",
@@ -960,6 +1002,9 @@
     "use": "remove-issues",
     "short": "Remove issues from their epic",
     "example": "jira-agent epic remove-issues --issues PROJ-1,PROJ-2",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "issues",
@@ -1011,6 +1056,9 @@
     "use": "create \u003cfield-id\u003e",
     "short": "Create a context for a custom field",
     "example": "jira-agent field context create customfield_10001 --name \"Global context\"",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "description",
@@ -1043,7 +1091,10 @@
     "path": "jira-agent field context delete",
     "use": "delete \u003cfield-id\u003e \u003ccontext-id\u003e",
     "short": "Delete a custom field context",
-    "example": "jira-agent field context delete customfield_10001 10200"
+    "example": "jira-agent field context delete customfield_10001 10200",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    }
   },
   {
     "path": "jira-agent field context list",
@@ -1070,6 +1121,9 @@
     "use": "update \u003cfield-id\u003e \u003ccontext-id\u003e",
     "short": "Update a custom field context",
     "example": "jira-agent field context update customfield_10001 10200 --name \"Updated context\"",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "description",
@@ -1110,6 +1164,9 @@
     "use": "create \u003cfield-id\u003e \u003ccontext-id\u003e",
     "short": "Create options for a custom field context",
     "example": "jira-agent field option create customfield_10001 10200 --options-json '[{\"value\":\"Option A\"},{\"value\":\"Option B\"}]'",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "values",
@@ -1127,7 +1184,10 @@
     "path": "jira-agent field option delete",
     "use": "delete \u003cfield-id\u003e \u003ccontext-id\u003e \u003coption-id\u003e",
     "short": "Delete a custom field option",
-    "example": "jira-agent field option delete customfield_10001 10200 10300"
+    "example": "jira-agent field option delete customfield_10001 10200 10300",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    }
   },
   {
     "path": "jira-agent field option list",
@@ -1154,6 +1214,9 @@
     "use": "reorder \u003cfield-id\u003e \u003ccontext-id\u003e",
     "short": "Reorder custom field options",
     "example": "jira-agent field option reorder customfield_10001 10200 --option-ids 10300,10301,10302\njira-agent field option reorder customfield_10001 10200 --option-ids 10301 --after 10300",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "anchor",
@@ -1187,6 +1250,9 @@
     "use": "update \u003cfield-id\u003e \u003ccontext-id\u003e",
     "short": "Update options for a custom field context",
     "example": "jira-agent field option update customfield_10001 10200 --options-json '[{\"id\":\"10300\",\"value\":\"Updated option\"}]'",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "disabled",
@@ -1272,6 +1338,9 @@
     "use": "create",
     "short": "Create a filter",
     "example": "jira-agent filter create --name \"My open bugs\" --jql \"project = PROJ AND type = Bug AND status = Open\"",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "body-json",
@@ -1330,6 +1399,9 @@
     "use": "set",
     "short": "Set the default filter share scope",
     "example": "jira-agent filter default-share-scope set --scope PRIVATE",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "scope",
@@ -1347,7 +1419,10 @@
     "path": "jira-agent filter delete",
     "use": "delete \u003cfilter-id\u003e",
     "short": "Delete a filter",
-    "example": "jira-agent filter delete 10001"
+    "example": "jira-agent filter delete 10001",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    }
   },
   {
     "path": "jira-agent filter favorites",
@@ -1455,6 +1530,9 @@
     "use": "share \u003cfilter-id\u003e",
     "short": "Add a filter share permission",
     "example": "jira-agent filter share 10001 --with user:5b10a2844c20165700ede21g\njira-agent filter share 10001 --with group:team-group-id\njira-agent filter share 10001 --type project --project-id 10000",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "account-id",
@@ -1509,6 +1587,9 @@
     "use": "unshare \u003cfilter-id\u003e",
     "short": "Remove a filter share permission",
     "example": "jira-agent filter unshare 10001 --permission-id 10002",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "permission-id",
@@ -1527,6 +1608,9 @@
     "use": "update \u003cfilter-id\u003e",
     "short": "Update a filter",
     "example": "jira-agent filter update 10001 --name \"Updated filter\" --jql \"project = PROJ AND status != Done\"",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "body-json",
@@ -1585,6 +1669,9 @@
     "use": "add-member",
     "short": "Add a user to a group",
     "example": "jira-agent group add-member --groupname \"dev-team\" --account-id 5b10a2844c20165700ede21g",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "account-id",
@@ -1612,13 +1699,19 @@
     "path": "jira-agent group create",
     "use": "create \u003cgroup-name\u003e",
     "short": "Create a group",
-    "example": "jira-agent group create \"new-team\""
+    "example": "jira-agent group create \"new-team\"",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    }
   },
   {
     "path": "jira-agent group delete",
     "use": "delete",
     "short": "Delete a group",
     "example": "jira-agent group delete --groupname \"old-team\"",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "group-id",
@@ -1760,6 +1853,9 @@
     "use": "remove-member",
     "short": "Remove a user from a group",
     "example": "jira-agent group remove-member --groupname \"dev-team\" --account-id 5b10a2844c20165700ede21g",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "account-id",
@@ -1827,6 +1923,9 @@
     "use": "assign \u003cissue-key\u003e [account-id]",
     "short": "Assign issue to a user",
     "example": "jira-agent issue assign PROJ-123 5b10a2844c20165700ede21g\njira-agent issue assign PROJ-123 --unassign\njira-agent issue assign PROJ-123 --default",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "default",
@@ -1862,6 +1961,9 @@
     "use": "add \u003cissue-key\u003e",
     "short": "Add an attachment to an issue",
     "example": "jira-agent issue attachment add PROJ-123 --file report.pdf\njira-agent issue attachment add PROJ-123 --file doc.pdf --file image.png",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "file",
@@ -1880,7 +1982,10 @@
     "path": "jira-agent issue attachment delete",
     "use": "delete \u003cattachment-id\u003e",
     "short": "Delete an attachment",
-    "example": "jira-agent issue attachment delete 10001"
+    "example": "jira-agent issue attachment delete 10001",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    }
   },
   {
     "path": "jira-agent issue attachment get",
@@ -1916,6 +2021,9 @@
     "use": "create",
     "short": "Create multiple issues from Jira issueUpdates JSON",
     "example": "jira-agent issue bulk create --issues-json '[{\"fields\":{\"project\":{\"key\":\"PROJ\"},\"issuetype\":{\"name\":\"Task\"},\"summary\":\"Task 1\"}}]'",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "issues-json",
@@ -1929,6 +2037,9 @@
     "use": "delete",
     "short": "Bulk delete issues (up to 1000)",
     "example": "jira-agent issue bulk delete --issues PROJ-1,PROJ-2,PROJ-3\njira-agent issue bulk delete --issues PROJ-1,PROJ-2 --send-notification=false",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "issues",
@@ -1948,6 +2059,9 @@
     "use": "edit",
     "short": "Bulk edit issues (up to 1000 issues, 200 fields)",
     "example": "jira-agent issue bulk edit --payload-json '{\"selectedIssueIdsOrKeys\":[\"PROJ-1\",\"PROJ-2\"],\"selectedActions\":[\"priority\"],\"editedFieldsInput\":{\"priority\":{\"name\":\"High\"}}}'",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "payload-json",
@@ -2023,6 +2137,9 @@
     "use": "move",
     "short": "Bulk move issues to a target project and issue type (up to 1000)",
     "example": "jira-agent issue bulk move --payload-json '{\"targetToSourcesMapping\":{\"DEST\":{\"issueIdsOrKeys\":[\"PROJ-1\"],\"targetIssueType\":\"Task\"}}}'",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "payload-json",
@@ -2042,6 +2159,9 @@
     "use": "transition",
     "short": "Bulk transition issue statuses (up to 1000)",
     "example": "jira-agent issue bulk transition --transitions-json '[{\"selectedIssueIdsOrKeys\":[\"PROJ-1\"],\"transitionId\":\"11\"}]'\njira-agent issue bulk transition --transitions-json '[{\"selectedIssueIdsOrKeys\":[\"PROJ-1\"],\"transitionId\":\"11\"}]' --send-notification=false",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "send-notification",
@@ -2085,6 +2205,9 @@
     "short": "Create multiple issues from Jira issueUpdates JSON",
     "example": "jira-agent issue bulk-create --issues-json '[{\"fields\":{\"project\":{\"key\":\"PROJ\"},\"issuetype\":{\"name\":\"Task\"},\"summary\":\"Task 1\"}}]'",
     "hidden": true,
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "issues-json",
@@ -2099,6 +2222,9 @@
     "short": "Bulk delete issues (up to 1000)",
     "example": "jira-agent issue bulk-delete --issues PROJ-1,PROJ-2,PROJ-3\njira-agent issue bulk-delete --issues PROJ-1,PROJ-2 --send-notification=false",
     "hidden": true,
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "issues",
@@ -2119,6 +2245,9 @@
     "short": "Bulk edit issues (up to 1000 issues, 200 fields)",
     "example": "jira-agent issue bulk-edit --payload-json '{\"selectedIssueIdsOrKeys\":[\"PROJ-1\",\"PROJ-2\"],\"selectedActions\":[\"priority\"],\"editedFieldsInput\":{\"priority\":{\"name\":\"High\"}}}'",
     "hidden": true,
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "payload-json",
@@ -2197,6 +2326,9 @@
     "short": "Bulk move issues to a target project and issue type (up to 1000)",
     "example": "jira-agent issue bulk-move --payload-json '{\"targetToSourcesMapping\":{\"DEST\":{\"issueIdsOrKeys\":[\"PROJ-1\"],\"targetIssueType\":\"Task\"}}}'",
     "hidden": true,
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "payload-json",
@@ -2218,6 +2350,9 @@
     "short": "Bulk transition issue statuses (up to 1000)",
     "example": "jira-agent issue bulk-transition --transitions-json '[{\"selectedIssueIdsOrKeys\":[\"PROJ-1\"],\"transitionId\":\"11\"}]'\njira-agent issue bulk-transition --transitions-json '[{\"selectedIssueIdsOrKeys\":[\"PROJ-1\"],\"transitionId\":\"11\"}]' --send-notification=false",
     "hidden": true,
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "send-notification",
@@ -2344,6 +2479,9 @@
     "use": "add \u003cissue-key\u003e",
     "short": "Add a comment to an issue",
     "example": "jira-agent issue comment add PROJ-123 --body \"This is a comment\"\njira-agent issue comment add PROJ-123 --body \"Internal note\" --visibility-type role --visibility-value Developers",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "body",
@@ -2377,13 +2515,19 @@
     "path": "jira-agent issue comment delete",
     "use": "delete \u003cissue-key\u003e \u003ccomment-id\u003e",
     "short": "Delete a comment",
-    "example": "jira-agent issue comment delete PROJ-123 10001"
+    "example": "jira-agent issue comment delete PROJ-123 10001",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    }
   },
   {
     "path": "jira-agent issue comment edit",
     "use": "edit \u003cissue-key\u003e \u003ccomment-id\u003e",
     "short": "Edit an existing comment",
     "example": "jira-agent issue comment edit PROJ-123 10001 --body \"Updated comment\"\njira-agent issue comment edit PROJ-123 10001 --body \"Updated\" --notify=false",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "body",
@@ -2480,6 +2624,9 @@
     "use": "create",
     "short": "Create a new issue",
     "example": "jira-agent issue create --project PROJ --type Story --summary \"New feature\"\njira-agent issue create --project PROJ --type Bug --summary \"Fix login\" --priority High --labels bug,urgent\njira-agent issue create --project PROJ --type Task --summary \"Subtask\" --parent PROJ-100",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "assignee",
@@ -2550,6 +2697,9 @@
     "use": "delete \u003cissue-key\u003e",
     "short": "Delete an issue",
     "example": "jira-agent issue delete PROJ-123\njira-agent issue delete PROJ-123 --delete-subtasks",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "delete-subtasks",
@@ -2564,6 +2714,9 @@
     "use": "edit \u003cissue-key\u003e",
     "short": "Update issue fields",
     "example": "jira-agent issue edit PROJ-123 --summary \"Updated summary\"\njira-agent issue edit PROJ-123 --priority High --labels bug,critical\njira-agent issue edit PROJ-123 --fields-json '{\"customfield_10001\":\"value\"}'",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "assignee",
@@ -2704,6 +2857,9 @@
     "use": "add",
     "short": "Add a link between two issues",
     "example": "jira-agent issue link add --type Blocks --inward PROJ-1 --outward PROJ-2\njira-agent issue link add --type-id 10001 --inward PROJ-1 --outward PROJ-2",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "comment",
@@ -2746,7 +2902,10 @@
     "path": "jira-agent issue link delete",
     "use": "delete \u003clink-id\u003e",
     "short": "Delete an issue link",
-    "example": "jira-agent issue link delete 12345"
+    "example": "jira-agent issue link delete 12345",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    }
   },
   {
     "path": "jira-agent issue link get",
@@ -2795,6 +2954,9 @@
     "use": "notify \u003cissue-key\u003e",
     "short": "Send an email notification for an issue",
     "example": "jira-agent issue notify PROJ-123 --subject \"Action needed\" --text-body \"Please review\"\njira-agent issue notify PROJ-123 --subject \"Update\" --to-watchers --to-assignee",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "html-body",
@@ -2907,7 +3069,10 @@
     "path": "jira-agent issue property delete",
     "use": "delete \u003cissue key\u003e \u003cproperty-key\u003e",
     "short": "Delete a issue property",
-    "example": "jira-agent issue property delete PROJ-123 com.example.flag"
+    "example": "jira-agent issue property delete PROJ-123 com.example.flag",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    }
   },
   {
     "path": "jira-agent issue property get",
@@ -2926,6 +3091,9 @@
     "use": "set \u003cissue key\u003e \u003cproperty-key\u003e",
     "short": "Set a issue property",
     "example": "jira-agent issue property set PROJ-123 com.example.flag --value-json '{\"enabled\":true}'",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "value-json",
@@ -2944,6 +3112,9 @@
     "use": "rank",
     "short": "Rank issues before or after a target issue",
     "example": "jira-agent issue rank --issues PROJ-1,PROJ-2 --before PROJ-10\njira-agent issue rank --issues PROJ-5 --after PROJ-3",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "after",
@@ -2991,6 +3162,9 @@
     "use": "add \u003cissue-key\u003e",
     "short": "Add a remote link to an issue",
     "example": "jira-agent issue remote-link add PROJ-123 --url \"https://example.com\" --title \"Related doc\"",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "global-id",
@@ -3029,6 +3203,9 @@
     "use": "delete \u003cissue-key\u003e [remote-link-id]",
     "short": "Delete a remote link from an issue",
     "example": "jira-agent issue remote-link delete PROJ-123 10001\njira-agent issue remote-link delete PROJ-123 --global-id system=https://example.com\u0026id=123",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "global-id",
@@ -3042,6 +3219,9 @@
     "use": "edit \u003cissue-key\u003e \u003cremote-link-id\u003e",
     "short": "Edit a remote link on an issue",
     "example": "jira-agent issue remote-link edit PROJ-123 10001 --url \"https://example.com/updated\" --title \"Updated doc\"",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "global-id",
@@ -3178,6 +3358,9 @@
     "use": "transition \u003cissue-key\u003e",
     "short": "Transition issue to a new status",
     "example": "jira-agent issue transition PROJ-123 --list\njira-agent issue transition PROJ-123 --to \"In Progress\"\njira-agent issue transition PROJ-123 --to Done --comment \"Completed\"",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "comment",
@@ -3256,7 +3439,10 @@
     "path": "jira-agent issue vote add",
     "use": "add \u003cissue-key\u003e",
     "short": "Add your vote to an issue",
-    "example": "jira-agent issue vote add PROJ-123"
+    "example": "jira-agent issue vote add PROJ-123",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    }
   },
   {
     "path": "jira-agent issue vote get",
@@ -3268,7 +3454,10 @@
     "path": "jira-agent issue vote remove",
     "use": "remove \u003cissue-key\u003e",
     "short": "Remove your vote from an issue",
-    "example": "jira-agent issue vote remove PROJ-123"
+    "example": "jira-agent issue vote remove PROJ-123",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    }
   },
   {
     "path": "jira-agent issue watcher",
@@ -3289,6 +3478,9 @@
     "use": "add \u003cissue-key\u003e",
     "short": "Add a watcher to an issue",
     "example": "jira-agent issue watcher add PROJ-123 --account-id 5b10a2844c20165700ede21g",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "account-id",
@@ -3313,6 +3505,9 @@
     "use": "remove \u003cissue-key\u003e",
     "short": "Remove a watcher from an issue",
     "example": "jira-agent issue watcher remove PROJ-123 --account-id 5b10a2844c20165700ede21g",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "account-id",
@@ -3350,6 +3545,9 @@
     "use": "add \u003cissue-key\u003e",
     "short": "Add a worklog to an issue",
     "example": "jira-agent issue worklog add PROJ-123 --time-spent 2h\njira-agent issue worklog add PROJ-123 --time-spent 30m --started \"2025-01-15T09:00:00.000+0000\"",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "adjust-estimate",
@@ -3426,6 +3624,9 @@
     "use": "delete \u003cissue-key\u003e \u003cworklog-id\u003e",
     "short": "Delete a worklog",
     "example": "jira-agent issue worklog delete PROJ-123 12345",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "adjust-estimate",
@@ -3474,6 +3675,9 @@
     "use": "edit \u003cissue-key\u003e \u003cworklog-id\u003e",
     "short": "Edit an existing worklog",
     "example": "jira-agent issue worklog edit PROJ-123 12345 --time-spent 3h",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "adjust-estimate",
@@ -4069,6 +4273,9 @@
     "use": "add-actor \u003cproject-key\u003e \u003crole-id\u003e",
     "short": "Add actors to a project role",
     "example": "jira-agent project roles add-actor PROJ 10000 --user 5b10ac8d82e05b22cc7d4ef5\njira-agent project roles add-actor PROJ 10000 --group-id 952d12c3-5b5b-4d04-bb32-44d383afc4b2\njira-agent project roles add-actor PROJ 10000 --group \"jira-developers\"",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "group",
@@ -4115,6 +4322,9 @@
     "use": "remove-actor \u003cproject-key\u003e \u003crole-id\u003e",
     "short": "Remove an actor from a project role",
     "example": "jira-agent project roles remove-actor PROJ 10000 --user 5b10ac8d82e05b22cc7d4ef5\njira-agent project roles remove-actor PROJ 10000 --group-id 952d12c3-5b5b-4d04-bb32-44d383afc4b2\njira-agent project roles remove-actor PROJ 10000 --group \"jira-developers\"",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "group",
@@ -4207,6 +4417,9 @@
     "use": "create",
     "short": "Create a new sprint",
     "example": "jira-agent sprint create --board-id 42 --name \"Sprint 5\" --start-date 2025-01-01 --end-date 2025-01-14",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "board-id",
@@ -4249,7 +4462,10 @@
     "path": "jira-agent sprint delete",
     "use": "delete",
     "short": "Delete a sprint",
-    "example": "jira-agent sprint delete 100"
+    "example": "jira-agent sprint delete 100",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    }
   },
   {
     "path": "jira-agent sprint get",
@@ -4332,6 +4548,9 @@
     "use": "move-issues",
     "short": "Move issues to a sprint",
     "example": "jira-agent sprint move-issues 100 --issues PROJ-1,PROJ-2",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "issues",
@@ -4374,7 +4593,10 @@
     "path": "jira-agent sprint property delete",
     "use": "delete \u003csprint ID\u003e \u003cproperty-key\u003e",
     "short": "Delete a sprint property",
-    "example": "jira-agent sprint property delete 100 com.example.flag"
+    "example": "jira-agent sprint property delete 100 com.example.flag",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    }
   },
   {
     "path": "jira-agent sprint property get",
@@ -4393,6 +4615,9 @@
     "use": "set \u003csprint ID\u003e \u003cproperty-key\u003e",
     "short": "Set a sprint property",
     "example": "jira-agent sprint property set 100 com.example.flag --value-json '{\"enabled\":true}'",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "value-json",
@@ -4410,13 +4635,19 @@
     "path": "jira-agent sprint swap",
     "use": "swap",
     "short": "Swap two sprint positions",
-    "example": "jira-agent sprint swap 100 101"
+    "example": "jira-agent sprint swap 100 101",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    }
   },
   {
     "path": "jira-agent sprint update",
     "use": "update",
     "short": "Update a sprint",
     "example": "jira-agent sprint update 100 --name \"Sprint 5 (revised)\"\njira-agent sprint update 100 --state closed",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "end-date",
@@ -4494,7 +4725,10 @@
     "path": "jira-agent task cancel",
     "use": "cancel \u003ctask-id\u003e",
     "short": "Cancel an async task",
-    "example": "jira-agent task cancel 10641"
+    "example": "jira-agent task cancel 10641",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    }
   },
   {
     "path": "jira-agent task get",
@@ -4547,6 +4781,9 @@
     "use": "set",
     "short": "Set time tracking settings",
     "example": "jira-agent time-tracking options set --working-hours-per-day 8 --working-days-per-week 5 --time-format pretty --default-unit minute",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "default-unit",
@@ -4603,6 +4840,9 @@
     "use": "select",
     "short": "Select time tracking provider",
     "example": "jira-agent time-tracking select --key JIRA",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "key",
@@ -4731,6 +4971,9 @@
     "use": "create",
     "short": "Create a project version",
     "example": "jira-agent version create --project PROJ --name \"v1.0\"\njira-agent version create --project PROJ --name \"v2.0\" --start-date 2025-01-01 --release-date 2025-06-01",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "archived",
@@ -4776,6 +5019,9 @@
     "use": "delete \u003cversion-id\u003e",
     "short": "Delete a project version",
     "example": "jira-agent version delete 10001",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "move-affected-issues-to",
@@ -4852,13 +5098,19 @@
     "path": "jira-agent version merge",
     "use": "merge \u003csource-version-id\u003e \u003ctarget-version-id\u003e",
     "short": "Merge a version into another (deletes the source version)",
-    "example": "jira-agent version merge 10001 10002"
+    "example": "jira-agent version merge 10001 10002",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    }
   },
   {
     "path": "jira-agent version move",
     "use": "move \u003cversion-id\u003e",
     "short": "Move a version's position within the project",
     "example": "jira-agent version move 10001 --after 10002\njira-agent version move 10001 --position Earlier",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "after",
@@ -4883,6 +5135,9 @@
     "use": "update \u003cversion-id\u003e",
     "short": "Update a project version",
     "example": "jira-agent version update 10001 --name \"v1.1\"\njira-agent version update 10001 --released",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
     "local_flags": [
       {
         "name": "archived",
