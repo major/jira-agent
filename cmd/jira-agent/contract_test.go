@@ -138,7 +138,7 @@ func TestWriteProtectedCommandsAnnotated(t *testing.T) {
 		}
 	}
 	for path := range annotatedPaths {
-		if _, ok := slices.BinarySearch(wantPaths, path); !ok {
+		if !slices.Contains(wantPaths, path) {
 			t.Errorf("command %q has unexpected %s=true", path, writeProtectedAnnotation)
 		}
 	}

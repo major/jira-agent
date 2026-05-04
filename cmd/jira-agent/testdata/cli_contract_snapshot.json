@@ -3068,7 +3068,7 @@
   {
     "path": "jira-agent issue property delete",
     "use": "delete \u003cissue key\u003e \u003cproperty-key\u003e",
-    "short": "Delete a issue property",
+    "short": "Delete an issue property",
     "example": "jira-agent issue property delete PROJ-123 com.example.flag",
     "annotations": {
       "jira-agent/write-protected": "true"
@@ -3077,7 +3077,7 @@
   {
     "path": "jira-agent issue property get",
     "use": "get \u003cissue key\u003e \u003cproperty-key\u003e",
-    "short": "Get a issue property",
+    "short": "Get an issue property",
     "example": "jira-agent issue property get PROJ-123 com.example.flag"
   },
   {
@@ -3089,7 +3089,7 @@
   {
     "path": "jira-agent issue property set",
     "use": "set \u003cissue key\u003e \u003cproperty-key\u003e",
-    "short": "Set a issue property",
+    "short": "Set an issue property",
     "example": "jira-agent issue property set PROJ-123 com.example.flag --value-json '{\"enabled\":true}'",
     "annotations": {
       "jira-agent/write-protected": "true"
