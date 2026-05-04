@@ -16,8 +16,8 @@ import (
 func FieldCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "field",
-		Short:   "Work with Jira fields",
 		Aliases: []string{"f"},
+		Short:   "Work with Jira fields",
 		Example: `jira-agent field list
 jira-agent field search --type custom --query "story points"`,
 	}

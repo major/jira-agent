@@ -4,6 +4,7 @@
     "use": "jira-agent",
     "short": "CLI tool for LLMs to interact with Jira Cloud REST API",
     "long": "Project repository: https://github.com/major/jira-agent\nFile new bugs and RFEs there.",
+    "example": "jira-agent issue get PROJ-123 --fields key,summary,status\njira-agent issue search --jql \"assignee = currentUser()\"\njira-agent project list --output csv",
     "local_flags": [
       {
         "name": "config",
@@ -3585,12 +3586,14 @@
   {
     "path": "jira-agent issuetype get",
     "use": "get \u003cissue-type-id\u003e",
-    "short": "Get issue type details by ID"
+    "short": "Get issue type details by ID",
+    "example": "jira-agent issuetype get 10001"
   },
   {
     "path": "jira-agent issuetype list",
     "use": "list",
-    "short": "List all issue types"
+    "short": "List all issue types",
+    "example": "jira-agent issuetype list"
   },
   {
     "path": "jira-agent issuetype project",
@@ -3687,6 +3690,7 @@
     "path": "jira-agent label list",
     "use": "list",
     "short": "List labels",
+    "example": "jira-agent label list",
     "local_flags": [
       {
         "name": "max-results",
@@ -3824,7 +3828,8 @@
   {
     "path": "jira-agent priority list",
     "use": "list",
-    "short": "List all priorities"
+    "short": "List all priorities",
+    "example": "jira-agent priority list"
   },
   {
     "path": "jira-agent project",
@@ -4056,7 +4061,8 @@
   {
     "path": "jira-agent resolution list",
     "use": "list",
-    "short": "List all resolutions"
+    "short": "List all resolutions",
+    "example": "jira-agent resolution list"
   },
   {
     "path": "jira-agent role",
@@ -4363,12 +4369,14 @@
   {
     "path": "jira-agent status get",
     "use": "get \u003cstatus-id-or-name\u003e",
-    "short": "Get status details by ID or name"
+    "short": "Get status details by ID or name",
+    "example": "jira-agent status get \"In Progress\""
   },
   {
     "path": "jira-agent status list",
     "use": "list",
-    "short": "List all statuses"
+    "short": "List all statuses",
+    "example": "jira-agent status list"
   },
   {
     "path": "jira-agent task",
@@ -4799,7 +4807,8 @@
   {
     "path": "jira-agent whoami",
     "use": "whoami",
-    "short": "Display the authenticated Jira user"
+    "short": "Display the authenticated Jira user",
+    "example": "jira-agent whoami"
   },
   {
     "path": "jira-agent workflow",

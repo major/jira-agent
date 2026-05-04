@@ -98,9 +98,7 @@ func workflowGetCommand(apiClient *client.Ref, w io.Writer, format *output.Forma
 }
 
 func workflowStatusesCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
-	cmd := flatListCommand("statuses", "List Jira statuses used by workflows", "/status", apiClient, w, format)
-	cmd.Example = `jira-agent workflow statuses`
-	return cmd
+	return flatListCommand("statuses", "List Jira statuses used by workflows", "jira-agent workflow statuses", "/status", apiClient, w, format)
 }
 
 func workflowSchemeCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
