@@ -1,13 +1,12 @@
 package commands
 
 import (
-	"context"
 	"errors"
 	"reflect"
 	"strings"
 	"testing"
 
-	"github.com/urfave/cli/v3"
+	"github.com/spf13/cobra"
 
 	apperr "github.com/major/jira-agent/internal/errors"
 )
@@ -322,25 +321,22 @@ func TestApplyCommonFields(t *testing.T) {
 	t.Parallel()
 
 	var got map[string]any
-	cmd := &cli.Command{
-		Name: "test",
-		Flags: []cli.Flag{
-			&cli.StringFlag{Name: "description"},
-			&cli.StringFlag{Name: "description-format", Value: "auto"},
-			&cli.StringFlag{Name: "assignee"},
-			&cli.StringFlag{Name: "priority"},
-			&cli.StringFlag{Name: "labels"},
-			&cli.StringFlag{Name: "components"},
-			&cli.StringFlag{Name: "parent"},
-		},
-		Action: func(_ context.Context, cmd *cli.Command) error {
+	cmd := &cobra.Command{
+		Use: "test",
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			got = map[string]any{"summary": "Keep existing summary"}
 			return applyCommonFields(got, cmd)
 		},
 	}
+	cmd.Flags().String("description", "", "")
+	cmd.Flags().String("description-format", "auto", "")
+	cmd.Flags().String("assignee", "", "")
+	cmd.Flags().String("priority", "", "")
+	cmd.Flags().String("labels", "", "")
+	cmd.Flags().String("components", "", "")
+	cmd.Flags().String("parent", "", "")
 
 	args := []string{
-		"test",
 		"--description", "Plain description",
 		"--assignee", "account-123",
 		"--priority", "High",
@@ -348,7 +344,8 @@ func TestApplyCommonFields(t *testing.T) {
 		"--components", " API , CLI ",
 		"--parent", "PROJ-1",
 	}
-	if err := cmd.Run(context.Background(), args); err != nil {
+	cmd.SetArgs(args)
+	if err := cmd.Execute(); err != nil {
 		t.Fatalf("command failed: %v", err)
 	}
 

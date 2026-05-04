@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/urfave/cli/v3"
+	"github.com/spf13/cobra"
 
 	"github.com/major/jira-agent/internal/client"
 	"github.com/major/jira-agent/internal/testhelpers"
@@ -19,7 +19,7 @@ func TestPropertyCommands(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		cmd        func(*client.Ref, *bytes.Buffer) *cli.Command
+		cmd        func(*client.Ref, *bytes.Buffer) *cobra.Command
 		args       []string
 		method     string
 		path       string
@@ -29,7 +29,7 @@ func TestPropertyCommands(t *testing.T) {
 	}{
 		{
 			name: "issue list uses REST properties endpoint",
-			cmd: func(apiClient *client.Ref, buf *bytes.Buffer) *cli.Command {
+			cmd: func(apiClient *client.Ref, buf *bytes.Buffer) *cobra.Command {
 				return propertyListCommand(issuePropertyTarget(apiClient), buf, testCommandFormat())
 			},
 			args:       []string{"PROJ-1"},
@@ -40,7 +40,7 @@ func TestPropertyCommands(t *testing.T) {
 		},
 		{
 			name: "issue get uses REST property endpoint",
-			cmd: func(apiClient *client.Ref, buf *bytes.Buffer) *cli.Command {
+			cmd: func(apiClient *client.Ref, buf *bytes.Buffer) *cobra.Command {
 				return propertyGetCommand(issuePropertyTarget(apiClient), buf, testCommandFormat())
 			},
 			args:       []string{"PROJ-1", "com.example.flag"},
@@ -51,7 +51,7 @@ func TestPropertyCommands(t *testing.T) {
 		},
 		{
 			name: "issue set sends raw JSON value",
-			cmd: func(apiClient *client.Ref, buf *bytes.Buffer) *cli.Command {
+			cmd: func(apiClient *client.Ref, buf *bytes.Buffer) *cobra.Command {
 				return propertySetCommand(issuePropertyTarget(apiClient), buf, testCommandFormat(), testAllowWrites())
 			},
 			args:   []string{"--value-json", `{"enabled":true}`, "PROJ-1", "com.example.flag"},
@@ -65,7 +65,7 @@ func TestPropertyCommands(t *testing.T) {
 		},
 		{
 			name: "issue delete emits confirmation",
-			cmd: func(apiClient *client.Ref, buf *bytes.Buffer) *cli.Command {
+			cmd: func(apiClient *client.Ref, buf *bytes.Buffer) *cobra.Command {
 				return propertyDeleteCommand(issuePropertyTarget(apiClient), buf, testCommandFormat(), testAllowWrites())
 			},
 			args:       []string{"PROJ-1", "com.example.flag"},
@@ -76,7 +76,7 @@ func TestPropertyCommands(t *testing.T) {
 		},
 		{
 			name: "project list uses REST properties endpoint",
-			cmd: func(apiClient *client.Ref, buf *bytes.Buffer) *cli.Command {
+			cmd: func(apiClient *client.Ref, buf *bytes.Buffer) *cobra.Command {
 				return propertyListCommand(projectPropertyTarget(apiClient), buf, testCommandFormat())
 			},
 			args:       []string{"PROJ"},
@@ -87,7 +87,7 @@ func TestPropertyCommands(t *testing.T) {
 		},
 		{
 			name: "project get uses REST property endpoint",
-			cmd: func(apiClient *client.Ref, buf *bytes.Buffer) *cli.Command {
+			cmd: func(apiClient *client.Ref, buf *bytes.Buffer) *cobra.Command {
 				return propertyGetCommand(projectPropertyTarget(apiClient), buf, testCommandFormat())
 			},
 			args:       []string{"PROJ", "com.example.flag"},
@@ -98,7 +98,7 @@ func TestPropertyCommands(t *testing.T) {
 		},
 		{
 			name: "project set sends raw JSON value",
-			cmd: func(apiClient *client.Ref, buf *bytes.Buffer) *cli.Command {
+			cmd: func(apiClient *client.Ref, buf *bytes.Buffer) *cobra.Command {
 				return propertySetCommand(projectPropertyTarget(apiClient), buf, testCommandFormat(), testAllowWrites())
 			},
 			args:   []string{"--value-json", `{"enabled":true}`, "PROJ", "com.example.flag"},
@@ -112,7 +112,7 @@ func TestPropertyCommands(t *testing.T) {
 		},
 		{
 			name: "project delete emits confirmation",
-			cmd: func(apiClient *client.Ref, buf *bytes.Buffer) *cli.Command {
+			cmd: func(apiClient *client.Ref, buf *bytes.Buffer) *cobra.Command {
 				return propertyDeleteCommand(projectPropertyTarget(apiClient), buf, testCommandFormat(), testAllowWrites())
 			},
 			args:       []string{"PROJ", "com.example.flag"},
@@ -123,7 +123,7 @@ func TestPropertyCommands(t *testing.T) {
 		},
 		{
 			name: "sprint list uses Agile properties endpoint",
-			cmd: func(apiClient *client.Ref, buf *bytes.Buffer) *cli.Command {
+			cmd: func(apiClient *client.Ref, buf *bytes.Buffer) *cobra.Command {
 				return propertyListCommand(sprintPropertyTarget(apiClient), buf, testCommandFormat())
 			},
 			args:       []string{"100"},
@@ -134,7 +134,7 @@ func TestPropertyCommands(t *testing.T) {
 		},
 		{
 			name: "sprint get uses Agile property endpoint",
-			cmd: func(apiClient *client.Ref, buf *bytes.Buffer) *cli.Command {
+			cmd: func(apiClient *client.Ref, buf *bytes.Buffer) *cobra.Command {
 				return propertyGetCommand(sprintPropertyTarget(apiClient), buf, testCommandFormat())
 			},
 			args:       []string{"100", "com.example.flag"},
@@ -145,7 +145,7 @@ func TestPropertyCommands(t *testing.T) {
 		},
 		{
 			name: "sprint set sends raw JSON value",
-			cmd: func(apiClient *client.Ref, buf *bytes.Buffer) *cli.Command {
+			cmd: func(apiClient *client.Ref, buf *bytes.Buffer) *cobra.Command {
 				return propertySetCommand(sprintPropertyTarget(apiClient), buf, testCommandFormat(), testAllowWrites())
 			},
 			args:   []string{"--value-json", `{"enabled":true}`, "100", "com.example.flag"},
@@ -159,7 +159,7 @@ func TestPropertyCommands(t *testing.T) {
 		},
 		{
 			name: "sprint delete emits confirmation",
-			cmd: func(apiClient *client.Ref, buf *bytes.Buffer) *cli.Command {
+			cmd: func(apiClient *client.Ref, buf *bytes.Buffer) *cobra.Command {
 				return propertyDeleteCommand(sprintPropertyTarget(apiClient), buf, testCommandFormat(), testAllowWrites())
 			},
 			args:       []string{"100", "com.example.flag"},
@@ -170,7 +170,7 @@ func TestPropertyCommands(t *testing.T) {
 		},
 		{
 			name: "board list uses Agile properties endpoint",
-			cmd: func(apiClient *client.Ref, buf *bytes.Buffer) *cli.Command {
+			cmd: func(apiClient *client.Ref, buf *bytes.Buffer) *cobra.Command {
 				return propertyListCommand(boardPropertyTarget(apiClient), buf, testCommandFormat())
 			},
 			args:       []string{"42"},
@@ -181,7 +181,7 @@ func TestPropertyCommands(t *testing.T) {
 		},
 		{
 			name: "board get uses Agile property endpoint",
-			cmd: func(apiClient *client.Ref, buf *bytes.Buffer) *cli.Command {
+			cmd: func(apiClient *client.Ref, buf *bytes.Buffer) *cobra.Command {
 				return propertyGetCommand(boardPropertyTarget(apiClient), buf, testCommandFormat())
 			},
 			args:       []string{"42", "com.example.flag"},
@@ -192,7 +192,7 @@ func TestPropertyCommands(t *testing.T) {
 		},
 		{
 			name: "board set sends raw JSON value",
-			cmd: func(apiClient *client.Ref, buf *bytes.Buffer) *cli.Command {
+			cmd: func(apiClient *client.Ref, buf *bytes.Buffer) *cobra.Command {
 				return propertySetCommand(boardPropertyTarget(apiClient), buf, testCommandFormat(), testAllowWrites())
 			},
 			args:   []string{"--value-json", `{"enabled":true}`, "42", "com.example.flag"},
@@ -206,7 +206,7 @@ func TestPropertyCommands(t *testing.T) {
 		},
 		{
 			name: "board delete emits confirmation",
-			cmd: func(apiClient *client.Ref, buf *bytes.Buffer) *cli.Command {
+			cmd: func(apiClient *client.Ref, buf *bytes.Buffer) *cobra.Command {
 				return propertyDeleteCommand(boardPropertyTarget(apiClient), buf, testCommandFormat(), testAllowWrites())
 			},
 			args:       []string{"42", "com.example.flag"},

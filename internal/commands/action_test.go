@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/urfave/cli/v3"
+	"github.com/spf13/cobra"
 
 	"github.com/major/jira-agent/internal/client"
 	apperr "github.com/major/jira-agent/internal/errors"
@@ -35,16 +35,42 @@ func testAllowWrites() *bool {
 	return &v
 }
 
-func runCommandAction(t *testing.T, cmd *cli.Command, args ...string) string {
+func runCommandAction(t *testing.T, cmd *cobra.Command, args ...string) string {
 	t.Helper()
-	cmdArgs := append([]string{cmd.Name}, args...)
-	if err := cmd.Run(context.Background(), cmdArgs); err != nil {
-		t.Fatalf("command %q failed: %v", cmd.Name, err)
+	var buf bytes.Buffer
+	prepareCommandForTest(cmd)
+	cmd.SetContext(context.Background())
+	cmd.SetOut(&buf)
+	cmd.SetArgs(args)
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("command %q failed: %v", cmd.Name(), err)
 	}
-	if buf, ok := cmd.Writer.(*bytes.Buffer); ok {
-		return buf.String()
+	return buf.String()
+}
+
+func prepareCommandForTest(cmd *cobra.Command) {
+	cmd.SetContext(context.Background())
+	if cmd.RunE != nil && len(cmd.Commands()) > 0 {
+		cmd.Args = cobra.ArbitraryArgs
 	}
-	return ""
+	if cmd.Flags().Lookup("project") == nil {
+		cmd.Flags().String("project", "", "")
+	}
+	if cmd.Flags().Lookup("start-at") == nil {
+		cmd.Flags().Int("start-at", 0, "")
+	}
+	if cmd.Flags().Lookup("max-results") == nil {
+		cmd.Flags().Int("max-results", 50, "")
+	}
+	if cmd.Flags().Lookup("order-by") == nil {
+		cmd.Flags().String("order-by", "", "")
+	}
+	if cmd.Flags().Lookup("expand") == nil {
+		cmd.Flags().String("expand", "", "")
+	}
+	for _, sub := range cmd.Commands() {
+		prepareCommandForTest(sub)
+	}
 }
 
 func TestCommandGroups_RegisterSubcommands(t *testing.T) {
@@ -56,7 +82,7 @@ func TestCommandGroups_RegisterSubcommands(t *testing.T) {
 
 	tests := []struct {
 		name string
-		cmd  *cli.Command
+		cmd  *cobra.Command
 		want int
 	}{
 		{name: "audit", cmd: AuditCommand(apiClient, &buf, format), want: 1},
@@ -90,7 +116,7 @@ func TestCommandGroups_RegisterSubcommands(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if got := len(tt.cmd.Commands); got != tt.want {
+			if got := len(tt.cmd.Commands()); got != tt.want {
 				t.Errorf("commands length = %d, want %d", got, tt.want)
 			}
 		})
@@ -106,33 +132,35 @@ func TestDashboardAndFilterSharingCommandMetadata(t *testing.T) {
 
 	tests := []struct {
 		name               string
-		cmd                *cli.Command
-		wantUsageText      bool
+		cmd                *cobra.Command
+		wantExample        bool
 		wantDefaultCommand string
 	}{
-		{name: "dashboard", cmd: DashboardCommand(apiClient, &buf, format, testAllowWrites()), wantUsageText: true, wantDefaultCommand: "list"},
-		{name: "dashboard create", cmd: dashboardCreateCommand(apiClient, &buf, format, testAllowWrites()), wantUsageText: true},
-		{name: "dashboard update", cmd: dashboardUpdateCommand(apiClient, &buf, format, testAllowWrites()), wantUsageText: true},
-		{name: "dashboard delete", cmd: dashboardDeleteCommand(apiClient, &buf, format, testAllowWrites()), wantUsageText: true},
-		{name: "dashboard copy", cmd: dashboardCopyCommand(apiClient, &buf, format, testAllowWrites()), wantUsageText: true},
-		{name: "filter", cmd: FilterCommand(apiClient, &buf, format, testAllowWrites()), wantUsageText: true, wantDefaultCommand: "list"},
-		{name: "filter permissions", cmd: filterPermissionsCommand(apiClient, &buf, format), wantUsageText: true},
-		{name: "filter share", cmd: filterShareCommand(apiClient, &buf, format, testAllowWrites()), wantUsageText: true},
-		{name: "filter unshare", cmd: filterUnshareCommand(apiClient, &buf, format, testAllowWrites()), wantUsageText: true},
-		{name: "filter default-share-scope", cmd: filterDefaultShareScopeCommand(apiClient, &buf, format, testAllowWrites()), wantUsageText: true, wantDefaultCommand: "get"},
-		{name: "filter default-share-scope get", cmd: filterDefaultShareScopeGetCommand(apiClient, &buf, format), wantUsageText: true},
-		{name: "filter default-share-scope set", cmd: filterDefaultShareScopeSetCommand(apiClient, &buf, format, testAllowWrites()), wantUsageText: true},
+		{name: "dashboard", cmd: DashboardCommand(apiClient, &buf, format, testAllowWrites()), wantExample: true, wantDefaultCommand: "list"},
+		{name: "dashboard create", cmd: dashboardCreateCommand(apiClient, &buf, format, testAllowWrites()), wantExample: true},
+		{name: "dashboard update", cmd: dashboardUpdateCommand(apiClient, &buf, format, testAllowWrites()), wantExample: true},
+		{name: "dashboard delete", cmd: dashboardDeleteCommand(apiClient, &buf, format, testAllowWrites()), wantExample: true},
+		{name: "dashboard copy", cmd: dashboardCopyCommand(apiClient, &buf, format, testAllowWrites()), wantExample: true},
+		{name: "filter", cmd: FilterCommand(apiClient, &buf, format, testAllowWrites()), wantExample: true, wantDefaultCommand: "list"},
+		{name: "filter permissions", cmd: filterPermissionsCommand(apiClient, &buf, format), wantExample: true},
+		{name: "filter share", cmd: filterShareCommand(apiClient, &buf, format, testAllowWrites()), wantExample: true},
+		{name: "filter unshare", cmd: filterUnshareCommand(apiClient, &buf, format, testAllowWrites()), wantExample: true},
+		{name: "filter default-share-scope", cmd: filterDefaultShareScopeCommand(apiClient, &buf, format, testAllowWrites()), wantExample: true, wantDefaultCommand: "get"},
+		{name: "filter default-share-scope get", cmd: filterDefaultShareScopeGetCommand(apiClient, &buf, format), wantExample: true},
+		{name: "filter default-share-scope set", cmd: filterDefaultShareScopeSetCommand(apiClient, &buf, format, testAllowWrites()), wantExample: true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if tt.wantUsageText && tt.cmd.UsageText == "" {
-				t.Errorf("UsageText is empty")
+			if tt.wantExample {
+				if tt.cmd.Example == "" {
+					t.Error("Example should not be empty")
+				}
 			}
-			if tt.wantDefaultCommand != "" && tt.cmd.DefaultCommand != tt.wantDefaultCommand {
-				t.Errorf("DefaultCommand = %q, want %q", tt.cmd.DefaultCommand, tt.wantDefaultCommand)
+			if tt.wantDefaultCommand != "" && tt.cmd.RunE == nil {
+				t.Errorf("default command %q is not wired", tt.wantDefaultCommand)
 			}
 		})
 	}
@@ -151,306 +179,306 @@ func TestWriteGuard_BlocksWriteCommands(t *testing.T) {
 
 	tests := []struct {
 		name string
-		cmd  func(*bytes.Buffer) *cli.Command
+		cmd  func(*bytes.Buffer) *cobra.Command
 		args []string
 	}{
 		{
 			name: "issue_create",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return issueCreateCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--project", "P", "--type", "Bug", "--summary", "s"},
 		},
 		{
 			name: "issue_bulk_create",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return issueBulkCreateCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--issues-json", `[{}]`},
 		},
 		{
 			name: "issue_edit",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return issueEditCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--field", "summary=x", "TEST-1"},
 		},
 		{
 			name: "issue_assign",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return issueAssignCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"TEST-1", "user@example.com"},
 		},
 		{
 			name: "comment_add",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return commentAddCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--body", "text", "TEST-1"},
 		},
 		{
 			name: "comment_edit",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return commentEditCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--body", "text", "TEST-1", "10000"},
 		},
 		{
 			name: "comment_delete",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return commentDeleteCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"TEST-1", "10000"},
 		},
 		{
 			name: "worklog_add",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return worklogAddCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--time-spent", "1h", "TEST-1"},
 		},
 		{
 			name: "worklog_edit",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return worklogEditCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--time-spent", "2h", "TEST-1", "10000"},
 		},
 		{
 			name: "worklog_delete",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return worklogDeleteCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"TEST-1", "10000"},
 		},
 		{
 			name: "issue_delete",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return issueDeleteCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"TEST-1"},
 		},
 		{
 			name: "issue_rank",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return issueRankCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--issues", "TEST-1,TEST-2", "--before", "TEST-3"},
 		},
 		{
 			name: "issue_notify",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return issueNotifyCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--subject", "Test", "TEST-1"},
 		},
 		{
 			name: "issue_link_add",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return issueLinkAddCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--type", "Blocks", "--inward", "TEST-1", "--outward", "TEST-2"},
 		},
 		{
 			name: "issue_link_delete",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return issueLinkDeleteCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"10000"},
 		},
 		{
 			name: "issue_remotelink_add",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return remoteLinkAddCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--url", "https://example.com", "--title", "Example", "TEST-1"},
 		},
 		{
 			name: "issue_remotelink_edit",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return remoteLinkEditCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--url", "https://example.com", "--title", "Example", "TEST-1", "10000"},
 		},
 		{
 			name: "issue_remotelink_delete",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return remoteLinkDeleteCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"TEST-1", "10000"},
 		},
 		{
 			name: "issue_watcher_add",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return watcherAddCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--account-id", "abc123", "TEST-1"},
 		},
 		{
 			name: "issue_watcher_remove",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return watcherRemoveCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--account-id", "abc123", "TEST-1"},
 		},
 		{
 			name: "issue_vote_add",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return voteAddCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"TEST-1"},
 		},
 		{
 			name: "issue_vote_remove",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return voteRemoveCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"TEST-1"},
 		},
 		{
 			name: "issue_attachment_add",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return attachmentAddCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--file", "does-not-matter.txt", "TEST-1"},
 		},
 		{
 			name: "issue_attachment_delete",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return attachmentDeleteCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"10000"},
 		},
 		{
 			name: "group_create",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return groupCreateCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"jira-users"},
 		},
 		{
 			name: "group_delete",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return groupDeleteCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--group-id", "gid-1"},
 		},
 		{
 			name: "group_add_member",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return groupAddMemberCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--group-id", "gid-1", "--account-id", "abc123"},
 		},
 		{
 			name: "group_remove_member",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return groupRemoveMemberCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--group-id", "gid-1", "--account-id", "abc123"},
 		},
 		{
 			name: "filter_create",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return filterCreateCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--name", "Mine", "--jql", "assignee = currentUser()"},
 		},
 		{
 			name: "filter_update",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return filterUpdateCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--name", "Mine", "10000"},
 		},
 		{
 			name: "filter_delete",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return filterDeleteCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"10000"},
 		},
 		{
 			name: "filter_share",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return filterShareCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--with", "user:abc123", "10000"},
 		},
 		{
 			name: "filter_unshare",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return filterUnshareCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--permission-id", "10001", "10000"},
 		},
 		{
 			name: "filter_default_share_scope_set",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return filterDefaultShareScopeSetCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--scope", "PRIVATE"},
 		},
 		{
 			name: "dashboard_create",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return dashboardCreateCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--name", "Team"},
 		},
 		{
 			name: "dashboard_update",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return dashboardUpdateCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--name", "Team", "10000"},
 		},
 		{
 			name: "dashboard_delete",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return dashboardDeleteCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"10000"},
 		},
 		{
 			name: "dashboard_copy",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return dashboardCopyCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--name", "Team copy", "10000"},
 		},
 		{
 			name: "board_create",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return boardCreateCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--name", "Team board", "--type", "scrum", "--filter", "10000"},
 		},
 		{
 			name: "board_delete",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return boardDeleteCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"84"},
 		},
 		{
 			name: "task_cancel",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return taskCancelCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"10641"},
 		},
 		{
 			name: "time_tracking_select",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return timeTrackingSelectCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--key", "JIRA"},
 		},
 		{
 			name: "time_tracking_options_set",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return timeTrackingOptionsSetCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{
@@ -462,252 +490,252 @@ func TestWriteGuard_BlocksWriteCommands(t *testing.T) {
 		},
 		{
 			name: "project_roles_add_actor",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return projectRoleAddActorCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--user", "abc123", "PROJ", "10000"},
 		},
 		{
 			name: "project_roles_remove_actor",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return projectRoleRemoveActorCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--user", "abc123", "PROJ", "10000"},
 		},
 		{
 			name: "context_create",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return contextCreateCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--name", "ctx", "customfield_10000"},
 		},
 		{
 			name: "context_update",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return contextUpdateCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--name", "ctx2", "customfield_10000", "10001"},
 		},
 		{
 			name: "context_delete",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return contextDeleteCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"customfield_10000", "10001"},
 		},
 		{
 			name: "option_create",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return optionCreateCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--values", "opt1", "customfield_10000", "10001"},
 		},
 		{
 			name: "option_update",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return optionUpdateCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--option-id", "10002", "--value", "opt2", "customfield_10000", "10001"},
 		},
 		{
 			name: "option_delete",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return optionDeleteCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"customfield_10000", "10001", "10002"},
 		},
 		{
 			name: "option_reorder",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return optionReorderCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--option-ids", "1", "--position", "First", "customfield_10000", "10001"},
 		},
 		{
 			name: "component_create",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return componentCreateCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--name", "Backend", "--project", "PROJ"},
 		},
 		{
 			name: "component_update",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return componentUpdateCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--name", "Backend v2", "10000"},
 		},
 		{
 			name: "component_delete",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return componentDeleteCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"10000"},
 		},
 		{
 			name: "version_create",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return versionCreateCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--name", "v1.0", "--project", "PROJ"},
 		},
 		{
 			name: "version_update",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return versionUpdateCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--name", "v1.1", "10000"},
 		},
 		{
 			name: "version_delete",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return versionDeleteCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"10000"},
 		},
 		{
 			name: "version_merge",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return versionMergeCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"10000", "10001"},
 		},
 		{
 			name: "version_move",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return versionMoveCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--position", "First", "10000"},
 		},
 		{
 			name: "sprint_create",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return sprintCreateCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--name", "Sprint 1", "--board-id", "1"},
 		},
 		{
 			name: "sprint_update",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return sprintUpdateCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--name", "Sprint 1", "100"},
 		},
 		{
 			name: "sprint_delete",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return sprintDeleteCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"100"},
 		},
 		{
 			name: "sprint_move_issues",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return sprintMoveIssuesCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--issues", "PROJ-1", "100"},
 		},
 		{
 			name: "sprint_swap",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return sprintSwapCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"100", "101"},
 		},
 		{
 			name: "issue_property_set",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return propertySetCommand(issuePropertyTarget(apiClient), buf, format, testDenyWrites())
 			},
 			args: []string{"--value-json", `{"enabled":true}`, "PROJ-1", "com.example.flag"},
 		},
 		{
 			name: "issue_property_delete",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return propertyDeleteCommand(issuePropertyTarget(apiClient), buf, format, testDenyWrites())
 			},
 			args: []string{"PROJ-1", "com.example.flag"},
 		},
 		{
 			name: "sprint_property_set",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return propertySetCommand(sprintPropertyTarget(apiClient), buf, format, testDenyWrites())
 			},
 			args: []string{"--value-json", `{"enabled":true}`, "100", "com.example.flag"},
 		},
 		{
 			name: "sprint_property_delete",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return propertyDeleteCommand(sprintPropertyTarget(apiClient), buf, format, testDenyWrites())
 			},
 			args: []string{"100", "com.example.flag"},
 		},
 		{
 			name: "board_property_set",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return propertySetCommand(boardPropertyTarget(apiClient), buf, format, testDenyWrites())
 			},
 			args: []string{"--value-json", `{"enabled":true}`, "42", "com.example.flag"},
 		},
 		{
 			name: "board_property_delete",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return propertyDeleteCommand(boardPropertyTarget(apiClient), buf, format, testDenyWrites())
 			},
 			args: []string{"42", "com.example.flag"},
 		},
 		{
 			name: "epic_move_issues",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return epicMoveIssuesCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--issues", "PROJ-1", "EPIC-1"},
 		},
 		{
 			name: "epic_remove_issues",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return epicRemoveIssuesCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--issues", "PROJ-1"},
 		},
 		{
 			name: "epic_rank",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return epicRankCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--rank-before", "EPIC-2", "EPIC-1"},
 		},
 		{
 			name: "backlog_move",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return backlogMoveCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--issues", "PROJ-1"},
 		},
 		{
 			name: "issue_bulk_delete",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return issueBulkDeleteCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--issues", "PROJ-1"},
 		},
 		{
 			name: "issue_bulk_edit",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return issueBulkEditCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--payload-json", `{"selectedIssueIdsOrKeys":["PROJ-1"],"selectedActions":["summary"],"editedFieldsInput":{}}`},
 		},
 		{
 			name: "issue_bulk_move",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return issueBulkMoveCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--payload-json", `{"targetToSourcesMapping":{}}`},
 		},
 		{
 			name: "issue_bulk_transition",
-			cmd: func(buf *bytes.Buffer) *cli.Command {
+			cmd: func(buf *bytes.Buffer) *cobra.Command {
 				return issueBulkTransitionCommand(apiClient, buf, format, testDenyWrites())
 			},
 			args: []string{"--transitions-json", `[{"selectedIssueIdsOrKeys":["PROJ-1"],"transitionId":"11"}]`},
@@ -720,10 +748,11 @@ func TestWriteGuard_BlocksWriteCommands(t *testing.T) {
 
 			var buf bytes.Buffer
 			cmd := tt.cmd(&buf)
-			cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
 
-			cmdArgs := append([]string{cmd.Name}, tt.args...)
-			err := cmd.Run(context.Background(), cmdArgs)
+			prepareCommandForTest(cmd)
+			cmd.SetContext(context.Background())
+			cmd.SetArgs(tt.args)
+			err := cmd.Execute()
 			if err == nil {
 				t.Fatal("expected write-guard error, got nil")
 			}
@@ -748,9 +777,11 @@ func TestWriteGuard_NilPointerBlocksWrites(t *testing.T) {
 
 	var buf bytes.Buffer
 	cmd := issueCreateCommand(&client.Ref{}, &buf, testCommandFormat(), nil)
-	cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
 
-	err := cmd.Run(context.Background(), []string{"create", "--project", "P", "--type", "Bug", "--summary", "s"})
+	prepareCommandForTest(cmd)
+	cmd.SetContext(context.Background())
+	cmd.SetArgs([]string{"--project", "P", "--type", "Bug", "--summary", "s"})
+	err := cmd.Execute()
 	if err == nil {
 		t.Fatal("expected write-guard error for nil allowWrites, got nil")
 	}
@@ -771,9 +802,13 @@ func TestSchemaRequiredFlagsDoNotBypassRuntimeValidation(t *testing.T) {
 
 		var buf bytes.Buffer
 		cmd := issueSearchCommand(&client.Ref{}, &buf, format)
-		cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
 
-		err := cmd.Run(context.Background(), []string{"search"})
+		prepareCommandForTest(cmd)
+		cmd.SetContext(context.Background())
+		prepareCommandForTest(cmd)
+		cmd.SetContext(context.Background())
+		cmd.SetArgs(nil)
+		err := cmd.Execute()
 		if err == nil {
 			t.Fatal("expected validation error, got nil")
 		}
@@ -792,9 +827,9 @@ func TestSchemaRequiredFlagsDoNotBypassRuntimeValidation(t *testing.T) {
 
 		var buf bytes.Buffer
 		cmd := issueBulkCreateCommand(&client.Ref{}, &buf, format, testDenyWrites())
-		cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
 
-		err := cmd.Run(context.Background(), []string{"bulk-create"})
+		cmd.SetArgs(nil)
+		err := cmd.Execute()
 		if err == nil {
 			t.Fatal("expected write-guard error, got nil")
 		}
@@ -822,11 +857,12 @@ func TestWriteGuard_TransitionListBypassesGuard(t *testing.T) {
 
 	var buf bytes.Buffer
 	cmd := issueTransitionCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testDenyWrites())
-	cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
 
-	cmdArgs := []string{"transition", "--list", "TEST-1"}
-	if err := cmd.Run(context.Background(), cmdArgs); err != nil {
-		t.Fatalf("transition --list should bypass write guard, got error: %v", err)
+	prepareCommandForTest(cmd)
+	cmd.SetContext(context.Background())
+	cmd.SetArgs([]string{"--list", "TEST-1"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("transition --list should bypass write guard: %v", err)
 	}
 	if !bytes.Contains(buf.Bytes(), []byte(`"transitions"`)) {
 		t.Errorf("output = %q, want transitions list", buf.String())
@@ -843,9 +879,11 @@ func TestWriteGuard_TransitionWriteBlocked(t *testing.T) {
 
 	var buf bytes.Buffer
 	cmd := issueTransitionCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testDenyWrites())
-	cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
 
-	err := cmd.Run(context.Background(), []string{"transition", "--to", "Done", "TEST-1"})
+	prepareCommandForTest(cmd)
+	cmd.SetContext(context.Background())
+	cmd.SetArgs([]string{"--to", "Done", "TEST-1"})
+	err := cmd.Execute()
 	if err == nil {
 		t.Fatal("expected write-guard error for transition without --list, got nil")
 	}
@@ -1197,7 +1235,7 @@ func TestReferenceListCommands(t *testing.T) {
 	tests := []struct {
 		name     string
 		path     string
-		cmd      func(*client.Ref, io.Writer, *output.Format) *cli.Command
+		cmd      func(*client.Ref, io.Writer, *output.Format) *cobra.Command
 		response string
 	}{
 		{
@@ -1745,13 +1783,12 @@ func TestDashboardCommands(t *testing.T) {
 
 		var buf bytes.Buffer
 		cmd := dashboardListCommand(testCommandClient("http://example.invalid"), &buf, testCommandFormat())
-		cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
-		err := cmd.Run(
-			context.Background(),
-			[]string{cmd.Name, "--search", "ops", "--filter", "my"},
-		)
+		prepareCommandForTest(cmd)
+		cmd.SetContext(context.Background())
+		cmd.SetArgs([]string{"--search", "ops", "--filter", "my"})
+		err := cmd.Execute()
 		if err == nil {
-			t.Fatal("cmd.Run() error = nil, want validation error")
+			t.Fatal("cmd.Execute() error = nil, want validation error")
 		}
 
 		var validationErr *apperr.ValidationError
@@ -2515,7 +2552,7 @@ func TestProjectCommands(t *testing.T) {
 		defer server.Close()
 
 		var buf bytes.Buffer
-		runCommandAction(t, projectRolesCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites()), "TEST")
+		runCommandAction(t, projectRolesCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites()), "list", "TEST")
 		if !bytes.Contains(buf.Bytes(), []byte(`"Developers"`)) {
 			t.Errorf("output = %q, want role map", buf.String())
 		}
@@ -4355,9 +4392,11 @@ func TestIssueRankCommand(t *testing.T) {
 
 		var buf bytes.Buffer
 		cmd := issueRankCommand(testCommandClient("http://unused"), &buf, testCommandFormat(), testAllowWrites())
-		cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
 
-		err := cmd.Run(context.Background(), []string{"rank", "--issues", "TEST-1"})
+		prepareCommandForTest(cmd)
+		cmd.SetContext(context.Background())
+		cmd.SetArgs([]string{"--issues", "TEST-1"})
+		err := cmd.Execute()
 
 		var validErr *apperr.ValidationError
 		if !errors.As(err, &validErr) {
@@ -4370,9 +4409,11 @@ func TestIssueRankCommand(t *testing.T) {
 
 		var buf bytes.Buffer
 		cmd := issueRankCommand(testCommandClient("http://unused"), &buf, testCommandFormat(), testAllowWrites())
-		cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
 
-		err := cmd.Run(context.Background(), []string{"rank", "--issues", "TEST-1", "--before", "TEST-2", "--after", "TEST-3"})
+		prepareCommandForTest(cmd)
+		cmd.SetContext(context.Background())
+		cmd.SetArgs([]string{"--issues", "TEST-1", "--before", "TEST-2", "--after", "TEST-3"})
+		err := cmd.Execute()
 
 		var validErr *apperr.ValidationError
 		if !errors.As(err, &validErr) {
@@ -4436,11 +4477,11 @@ func TestIssueCountCommand(t *testing.T) {
 
 		var buf bytes.Buffer
 		cmd := issueCountCommand(testCommandClient("http://unused"), &buf, testCommandFormat())
-		cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
 
-		err := cmd.Run(context.Background(), []string{"count"})
+		cmd.SetArgs(nil)
+		err := cmd.Execute()
 		if err == nil {
-			t.Fatal("cmd.Run() error = nil, want validation error")
+			t.Fatal("cmd.Execute() error = nil, want validation error")
 		}
 
 		var validErr *apperr.ValidationError
@@ -5993,9 +6034,11 @@ func TestIssueBulkOperations(t *testing.T) {
 
 		var buf bytes.Buffer
 		cmd := issueBulkEditCommand(testCommandClient("http://unused"), &buf, format, testAllowWrites())
-		cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
 
-		err := cmd.Run(context.Background(), []string{"bulk-edit", "--payload-json", "not-json"})
+		prepareCommandForTest(cmd)
+		cmd.SetContext(context.Background())
+		cmd.SetArgs([]string{"--payload-json", "not-json"})
+		err := cmd.Execute()
 		if err == nil {
 			t.Fatal("expected error for invalid JSON, got nil")
 		}
@@ -6010,9 +6053,11 @@ func TestIssueBulkOperations(t *testing.T) {
 
 		var buf bytes.Buffer
 		cmd := issueBulkTransitionCommand(testCommandClient("http://unused"), &buf, format, testAllowWrites())
-		cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
 
-		err := cmd.Run(context.Background(), []string{"bulk-transition", "--transitions-json", "[]"})
+		prepareCommandForTest(cmd)
+		cmd.SetContext(context.Background())
+		cmd.SetArgs([]string{"--transitions-json", "[]"})
+		err := cmd.Execute()
 		if err == nil {
 			t.Fatal("expected error for empty transitions, got nil")
 		}

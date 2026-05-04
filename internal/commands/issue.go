@@ -7,7 +7,6 @@
 package commands
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,7 +14,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/urfave/cli/v3"
+	"github.com/spf13/cobra"
 
 	"github.com/major/jira-agent/internal/client"
 	apperr "github.com/major/jira-agent/internal/errors"
@@ -23,97 +22,97 @@ import (
 )
 
 // IssueCommand returns the "issue" parent command with all subcommands.
-func IssueCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:  "issue",
-		Usage: "Issue operations (get, search, create, edit, delete, transition, assign, comment, changelog, rank, count, notify, meta, bulk, property)",
-		UsageText: `jira-agent issue get PROJ-123
+func IssueCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "issue",
+		Short: "Issue operations (get, search, create, edit, delete, transition, assign, comment, changelog, rank, count, notify, meta, bulk, property)",
+		Example: `jira-agent issue get PROJ-123
 jira-agent issue search --jql "project = PROJ AND status = Open"
 jira-agent issue create --project PROJ --type Story --summary "New feature"
 jira-agent issue transition PROJ-123 --to "In Progress"`,
-		Commands: []*cli.Command{
-			issueGetCommand(apiClient, w, format),
-			issuePickerCommand(apiClient, w, format),
-			issueSearchCommand(apiClient, w, format),
-			issueCreateCommand(apiClient, w, format, allowWrites),
-			issueBulkCommand(apiClient, w, format, allowWrites),
-			legacyIssueBulkCommand(issueBulkCreateCommand(apiClient, w, format, allowWrites)),
-			legacyIssueBulkCommand(issueBulkFetchCommand(apiClient, w, format)),
-			legacyIssueBulkCommand(issueBulkDeleteCommand(apiClient, w, format, allowWrites)),
-			legacyIssueBulkCommand(issueBulkEditFieldsCommand(apiClient, w, format)),
-			legacyIssueBulkCommand(issueBulkEditCommand(apiClient, w, format, allowWrites)),
-			legacyIssueBulkCommand(issueBulkMoveCommand(apiClient, w, format, allowWrites)),
-			legacyIssueBulkCommand(issueBulkTransitionsCommand(apiClient, w, format)),
-			legacyIssueBulkCommand(issueBulkTransitionCommand(apiClient, w, format, allowWrites)),
-			legacyIssueBulkCommand(issueBulkStatusCommand(apiClient, w, format)),
-			issueEditCommand(apiClient, w, format, allowWrites),
-			issueTransitionCommand(apiClient, w, format, allowWrites),
-			issueAssignCommand(apiClient, w, format, allowWrites),
-			issueCommentCommand(apiClient, w, format, allowWrites),
-			issueWatcherCommand(apiClient, w, format, allowWrites),
-			issueVoteCommand(apiClient, w, format, allowWrites),
-			issueAttachmentCommand(apiClient, w, format, allowWrites),
-			issueLinkCommand(apiClient, w, format, allowWrites),
-			issueRemoteLinkCommand(apiClient, w, format, allowWrites),
-			issueWorklogCommand(apiClient, w, format, allowWrites),
-			issueDeleteCommand(apiClient, w, format, allowWrites),
-			issueChangelogCommand(apiClient, w, format),
-			issueRankCommand(apiClient, w, format, allowWrites),
-			issueCountCommand(apiClient, w, format),
-			issueNotifyCommand(apiClient, w, format, allowWrites),
-			issueMetaCommand(apiClient, w, format),
-			issuePropertyCommand(apiClient, w, format, allowWrites),
-		},
 	}
-}
-
-func issueBulkCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:  "bulk",
-		Usage: "Bulk issue operations",
-		UsageText: `jira-agent issue bulk fetch --issues PROJ-1,PROJ-2 --fields key,summary,status
-jira-agent issue bulk create --issues-json '[{"fields":{"project":{"key":"PROJ"},"issuetype":{"name":"Task"},"summary":"Task 1"}}]'
-jira-agent issue bulk transition --transitions-json '[{"selectedIssueIdsOrKeys":["PROJ-1"],"transitionId":"11"}]'`,
-		Commands: []*cli.Command{
-			canonicalIssueBulkCommand(issueBulkCreateCommand(apiClient, w, format, allowWrites), "create"),
-			canonicalIssueBulkCommand(issueBulkFetchCommand(apiClient, w, format), "fetch"),
-			canonicalIssueBulkCommand(issueBulkDeleteCommand(apiClient, w, format, allowWrites), "delete"),
-			canonicalIssueBulkCommand(issueBulkEditFieldsCommand(apiClient, w, format), "edit-fields"),
-			canonicalIssueBulkCommand(issueBulkEditCommand(apiClient, w, format, allowWrites), "edit"),
-			canonicalIssueBulkCommand(issueBulkMoveCommand(apiClient, w, format, allowWrites), "move"),
-			canonicalIssueBulkCommand(issueBulkTransitionsCommand(apiClient, w, format), "transitions"),
-			canonicalIssueBulkCommand(issueBulkTransitionCommand(apiClient, w, format, allowWrites), "transition"),
-			canonicalIssueBulkCommand(issueBulkStatusCommand(apiClient, w, format), "status"),
-		},
-	}
-}
-
-func canonicalIssueBulkCommand(cmd *cli.Command, name string) *cli.Command {
-	legacyInvocation := "jira-agent issue " + cmd.Name
-	cmd.Name = name
-	cmd.UsageText = strings.ReplaceAll(cmd.UsageText, legacyInvocation, "jira-agent issue bulk "+name)
+	cmd.AddCommand(
+		issueGetCommand(apiClient, w, format),
+		issuePickerCommand(apiClient, w, format),
+		issueSearchCommand(apiClient, w, format),
+		issueCreateCommand(apiClient, w, format, allowWrites),
+		issueBulkCommand(apiClient, w, format, allowWrites),
+		legacyIssueBulkCommand(issueBulkCreateCommand(apiClient, w, format, allowWrites)),
+		legacyIssueBulkCommand(issueBulkFetchCommand(apiClient, w, format)),
+		legacyIssueBulkCommand(issueBulkDeleteCommand(apiClient, w, format, allowWrites)),
+		legacyIssueBulkCommand(issueBulkEditFieldsCommand(apiClient, w, format)),
+		legacyIssueBulkCommand(issueBulkEditCommand(apiClient, w, format, allowWrites)),
+		legacyIssueBulkCommand(issueBulkMoveCommand(apiClient, w, format, allowWrites)),
+		legacyIssueBulkCommand(issueBulkTransitionsCommand(apiClient, w, format)),
+		legacyIssueBulkCommand(issueBulkTransitionCommand(apiClient, w, format, allowWrites)),
+		legacyIssueBulkCommand(issueBulkStatusCommand(apiClient, w, format)),
+		issueEditCommand(apiClient, w, format, allowWrites),
+		issueTransitionCommand(apiClient, w, format, allowWrites),
+		issueAssignCommand(apiClient, w, format, allowWrites),
+		issueCommentCommand(apiClient, w, format, allowWrites),
+		issueWatcherCommand(apiClient, w, format, allowWrites),
+		issueVoteCommand(apiClient, w, format, allowWrites),
+		issueAttachmentCommand(apiClient, w, format, allowWrites),
+		issueLinkCommand(apiClient, w, format, allowWrites),
+		issueRemoteLinkCommand(apiClient, w, format, allowWrites),
+		issueWorklogCommand(apiClient, w, format, allowWrites),
+		issueDeleteCommand(apiClient, w, format, allowWrites),
+		issueChangelogCommand(apiClient, w, format),
+		issueRankCommand(apiClient, w, format, allowWrites),
+		issueCountCommand(apiClient, w, format),
+		issueNotifyCommand(apiClient, w, format, allowWrites),
+		issueMetaCommand(apiClient, w, format),
+		issuePropertyCommand(apiClient, w, format, allowWrites),
+	)
 	return cmd
 }
 
-func legacyIssueBulkCommand(cmd *cli.Command) *cli.Command {
+func issueBulkCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "bulk",
+		Short: "Bulk issue operations",
+		Example: `jira-agent issue bulk fetch --issues PROJ-1,PROJ-2 --fields key,summary,status
+jira-agent issue bulk create --issues-json '[{"fields":{"project":{"key":"PROJ"},"issuetype":{"name":"Task"},"summary":"Task 1"}}]'
+jira-agent issue bulk transition --transitions-json '[{"selectedIssueIdsOrKeys":["PROJ-1"],"transitionId":"11"}]'`,
+	}
+	cmd.AddCommand(
+		canonicalIssueBulkCommand(issueBulkCreateCommand(apiClient, w, format, allowWrites), "create"),
+		canonicalIssueBulkCommand(issueBulkFetchCommand(apiClient, w, format), "fetch"),
+		canonicalIssueBulkCommand(issueBulkDeleteCommand(apiClient, w, format, allowWrites), "delete"),
+		canonicalIssueBulkCommand(issueBulkEditFieldsCommand(apiClient, w, format), "edit-fields"),
+		canonicalIssueBulkCommand(issueBulkEditCommand(apiClient, w, format, allowWrites), "edit"),
+		canonicalIssueBulkCommand(issueBulkMoveCommand(apiClient, w, format, allowWrites), "move"),
+		canonicalIssueBulkCommand(issueBulkTransitionsCommand(apiClient, w, format), "transitions"),
+		canonicalIssueBulkCommand(issueBulkTransitionCommand(apiClient, w, format, allowWrites), "transition"),
+		canonicalIssueBulkCommand(issueBulkStatusCommand(apiClient, w, format), "status"),
+	)
+	return cmd
+}
+
+func canonicalIssueBulkCommand(cmd *cobra.Command, name string) *cobra.Command {
+	legacyInvocation := "jira-agent issue " + cmd.Name()
+	parts := strings.SplitN(cmd.Use, " ", 2)
+	cmd.Use = name
+	if len(parts) == 2 {
+		cmd.Use += " " + parts[1]
+	}
+	cmd.Example = strings.ReplaceAll(cmd.Example, legacyInvocation, "jira-agent issue bulk "+name)
+	return cmd
+}
+
+func legacyIssueBulkCommand(cmd *cobra.Command) *cobra.Command {
 	cmd.Hidden = true
 	return cmd
 }
 
-func issueBulkCreateCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:      "bulk-create",
-		Usage:     "Create multiple issues from Jira issueUpdates JSON",
-		UsageText: `jira-agent issue bulk-create --issues-json '[{"fields":{"project":{"key":"PROJ"},"issuetype":{"name":"Task"},"summary":"Task 1"}}]'`,
-		Metadata:  commandMetadata(writeCommandMetadata(), requiredFlagMetadata("issues-json")),
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:  "issues-json",
-				Usage: "JSON array of issueUpdates or object with issueUpdates (required, max 50 issues)",
-			},
-		},
-		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
-			body, err := parseBulkCreateBody(cmd.String("issues-json"))
+func issueBulkCreateCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "bulk-create",
+		Short:   "Create multiple issues from Jira issueUpdates JSON",
+		Example: `jira-agent issue bulk-create --issues-json '[{"fields":{"project":{"key":"PROJ"},"issuetype":{"name":"Task"},"summary":"Task 1"}}]'`,
+		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			body, err := parseBulkCreateBody(mustGetString(cmd, "issues-json"))
 			if err != nil {
 				return err
 			}
@@ -123,38 +122,18 @@ func issueBulkCreateCommand(apiClient *client.Ref, w io.Writer, format *output.F
 			})
 		}),
 	}
+	cmd.Flags().String("issues-json", "", "JSON array of issueUpdates or object with issueUpdates (required, max 50 issues)")
+	return cmd
 }
 
-func issueBulkFetchCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:  "bulk-fetch",
-		Usage: "Fetch multiple issues by key or ID",
-		UsageText: `jira-agent issue bulk-fetch --issues PROJ-1,PROJ-2,PROJ-3
+func issueBulkFetchCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "bulk-fetch",
+		Short: "Fetch multiple issues by key or ID",
+		Example: `jira-agent issue bulk-fetch --issues PROJ-1,PROJ-2,PROJ-3
 jira-agent issue bulk-fetch --issues PROJ-1,PROJ-2 --fields key,summary,status`,
-		Metadata: requiredFlagMetadata("issues"),
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:  "issues",
-				Usage: "Comma-separated issue keys or IDs (required, max 100 issues)",
-			},
-			&cli.StringFlag{
-				Name:  "fields",
-				Usage: "Comma-separated field list",
-			},
-			&cli.StringFlag{
-				Name:  "expand",
-				Usage: "Comma-separated expansions (names, schema, changelog, operations)",
-			},
-			&cli.StringFlag{
-				Name:  "properties",
-				Usage: "Comma-separated issue properties to include (max 5)",
-			},
-			&cli.BoolFlag{
-				Name:  "fields-by-keys",
-				Usage: "Treat field identifiers as field keys instead of field IDs",
-			},
-		},
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			body, err := buildBulkFetchBody(cmd)
 			if err != nil {
 				return err
@@ -165,56 +144,26 @@ jira-agent issue bulk-fetch --issues PROJ-1,PROJ-2 --fields key,summary,status`,
 			})
 		},
 	}
+	cmd.Flags().String("issues", "", "Comma-separated issue keys or IDs (required, max 100 issues)")
+	cmd.Flags().String("fields", "", "Comma-separated field list")
+	cmd.Flags().String("expand", "", "Comma-separated expansions (names, schema, changelog, operations)")
+	cmd.Flags().String("properties", "", "Comma-separated issue properties to include (max 5)")
+	cmd.Flags().Bool("fields-by-keys", false, "Treat field identifiers as field keys instead of field IDs")
+	return cmd
 }
 
-func issueGetCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:  "get",
-		Usage: "Get issue by key or ID",
-		UsageText: `jira-agent issue get PROJ-123
+func issueGetCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get <issue-key>",
+		Short: "Get issue by key or ID",
+		Example: `jira-agent issue get PROJ-123
 jira-agent issue get PROJ-123 --fields key,summary,status,assignee
 jira-agent issue get PROJ-123 --fields description --description-output-format markdown
 jira-agent issue get PROJ-123 --expand changelog
 jira-agent issue get PROJ-123 --raw`,
-		ArgsUsage: "<issue-key>",
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:  "fields",
-				Usage: "Comma-separated field list (default: all navigable)",
-			},
-			&cli.StringFlag{
-				Name:  "expand",
-				Usage: "Comma-separated expansions (names, schema, changelog, operations)",
-			},
-			&cli.StringFlag{
-				Name:  "properties",
-				Usage: "Comma-separated issue properties to include",
-			},
-			&cli.StringFlag{
-				Name:  "description-output-format",
-				Usage: "Description output format: text, markdown, or adf",
-				Value: descriptionOutputFormatText,
-			},
-			&cli.BoolFlag{
-				Name:  "fields-by-keys",
-				Usage: "Treat field identifiers as field keys instead of field IDs",
-			},
-			&cli.BoolFlag{
-				Name:  "update-history",
-				Usage: "Add the issue to the user's recently viewed history",
-			},
-			&cli.BoolFlag{
-				Name:  "fail-fast",
-				Usage: "Fail immediately if a requested field cannot be resolved",
-				Value: true,
-			},
-			&cli.BoolFlag{
-				Name:  "raw",
-				Usage: "Return the unmodified Jira API response for JSON output",
-			},
-		},
-		Action: func(ctx context.Context, cmd *cli.Command) error {
-			key, err := requireArg(cmd, "issue key")
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			key, err := requireArg(args, "issue key")
 			if err != nil {
 				return err
 			}
@@ -226,17 +175,17 @@ jira-agent issue get PROJ-123 --raw`,
 			})
 			addBoolParam(cmd, params, "fields-by-keys", "fieldsByKeys")
 			addBoolParam(cmd, params, "update-history", "updateHistory")
-			if cmd.IsSet("fail-fast") {
-				params["failFast"] = fmt.Sprintf("%t", cmd.Bool("fail-fast"))
+			if cmd.Flags().Changed("fail-fast") {
+				params["failFast"] = fmt.Sprintf("%t", mustGetBool(cmd, "fail-fast"))
 			}
 
-			if cmd.Bool("raw") {
+			if mustGetBool(cmd, "raw") {
 				return writeRawAPIResult(w, *format, func(result any) error {
 					return apiClient.Get(ctx, "/issue/"+key, params, result)
 				})
 			}
 
-			descriptionFormat, err := parseDescriptionOutputFormat(cmd.String("description-output-format"))
+			descriptionFormat, err := parseDescriptionOutputFormat(mustGetString(cmd, "description-output-format"))
 			if err != nil {
 				return err
 			}
@@ -248,23 +197,25 @@ jira-agent issue get PROJ-123 --raw`,
 			return output.WriteResult(w, convertDescriptionOutputFields(result, descriptionFormat), *format)
 		},
 	}
+	cmd.Flags().String("fields", "", "Comma-separated field list (default: all navigable)")
+	cmd.Flags().String("expand", "", "Comma-separated expansions (names, schema, changelog, operations)")
+	cmd.Flags().String("properties", "", "Comma-separated issue properties to include")
+	cmd.Flags().String("description-output-format", descriptionOutputFormatText, "Description output format: text, markdown, or adf")
+	cmd.Flags().Bool("fields-by-keys", false, "Treat field identifiers as field keys instead of field IDs")
+	cmd.Flags().Bool("update-history", false, "Add the issue to the user's recently viewed history")
+	cmd.Flags().Bool("fail-fast", true, "Fail immediately if a requested field cannot be resolved")
+	cmd.Flags().Bool("raw", false, "Return the unmodified Jira API response for JSON output")
+	return cmd
 }
 
-func issuePickerCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:  "picker",
-		Usage: "Find issues for picker UI",
-		UsageText: `jira-agent issue picker --query PROJ-123
+func issuePickerCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "picker",
+		Short: "Find issues for picker UI",
+		Example: `jira-agent issue picker --query PROJ-123
 jira-agent issue picker --query login --current-jql "project = PROJ" --show-subtasks=false`,
-		Flags: []cli.Flag{
-			&cli.StringFlag{Name: "query", Usage: "Issue key, summary text, or search text"},
-			&cli.StringFlag{Name: "current-jql", Usage: "JQL context for current search results"},
-			&cli.StringFlag{Name: "current-issue-key", Usage: "Current issue key for context"},
-			&cli.StringFlag{Name: "current-project-id", Usage: "Current project ID for context"},
-			&cli.BoolFlag{Name: "show-subtasks", Usage: "Include subtasks in picker results", Value: true},
-			&cli.BoolFlag{Name: "show-subtask-parent", Usage: "Show parent summaries for subtasks", Value: true},
-		},
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			params := map[string]string{}
 			addOptionalParams(cmd, params, map[string]string{
 				"query":              "query",
@@ -272,11 +223,11 @@ jira-agent issue picker --query login --current-jql "project = PROJ" --show-subt
 				"current-issue-key":  "currentIssueKey",
 				"current-project-id": "currentProjectId",
 			})
-			if cmd.IsSet("show-subtasks") {
-				params["showSubTasks"] = fmt.Sprintf("%t", cmd.Bool("show-subtasks"))
+			if cmd.Flags().Changed("show-subtasks") {
+				params["showSubTasks"] = fmt.Sprintf("%t", mustGetBool(cmd, "show-subtasks"))
 			}
-			if cmd.IsSet("show-subtask-parent") {
-				params["showSubTaskParent"] = fmt.Sprintf("%t", cmd.Bool("show-subtask-parent"))
+			if cmd.Flags().Changed("show-subtask-parent") {
+				params["showSubTaskParent"] = fmt.Sprintf("%t", mustGetBool(cmd, "show-subtask-parent"))
 			}
 
 			return writeAPIResult(w, *format, func(result any) error {
@@ -284,84 +235,33 @@ jira-agent issue picker --query login --current-jql "project = PROJ" --show-subt
 			})
 		},
 	}
+	cmd.Flags().String("query", "", "Issue key, summary text, or search text")
+	cmd.Flags().String("current-jql", "", "JQL context for current search results")
+	cmd.Flags().String("current-issue-key", "", "Current issue key for context")
+	cmd.Flags().String("current-project-id", "", "Current project ID for context")
+	cmd.Flags().Bool("show-subtasks", true, "Include subtasks in picker results")
+	cmd.Flags().Bool("show-subtask-parent", true, "Show parent summaries for subtasks")
+	return cmd
 }
 
-func issueSearchCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:  "search",
-		Usage: "Search issues via JQL",
-		UsageText: `jira-agent issue search --jql "project = PROJ AND status = Open"
+func issueSearchCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "search",
+		Short: "Search issues via JQL",
+		Example: `jira-agent issue search --jql "project = PROJ AND status = Open"
 jira-agent issue search --jql "assignee = currentUser()" --fields key,summary,status
 jira-agent issue search --jql "project = PROJ" --fields key,description --description-output-format markdown
 jira-agent issue search --jql "project = PROJ" --max-results 10 --order-by created --order desc
 jira-agent issue search --jql "project = PROJ" --raw`,
-		Metadata: requiredFlagMetadata("jql"),
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:  "jql",
-				Usage: "JQL query string (required)",
-			},
-			&cli.StringFlag{
-				Name:  "fields",
-				Usage: "Comma-separated field list",
-				Value: "key,summary,status,assignee,priority",
-			},
-			&cli.IntFlag{
-				Name:  "max-results",
-				Usage: "Page size",
-				Value: 50,
-			},
-			&cli.StringFlag{
-				Name:  "next-page-token",
-				Usage: "Token for fetching next page of results",
-			},
-			&cli.StringFlag{
-				Name:  "expand",
-				Usage: "Comma-separated expansions (names, schema, changelog, operations)",
-			},
-			&cli.StringFlag{
-				Name:  "properties",
-				Usage: "Comma-separated issue properties to include",
-			},
-			&cli.StringFlag{
-				Name:  "description-output-format",
-				Usage: "Description output format: text, markdown, or adf",
-				Value: descriptionOutputFormatText,
-			},
-			&cli.BoolFlag{
-				Name:  "fields-by-keys",
-				Usage: "Treat field identifiers as field keys instead of field IDs",
-			},
-			&cli.BoolFlag{
-				Name:  "fail-fast",
-				Usage: "Fail immediately if a requested field cannot be resolved",
-				Value: true,
-			},
-			&cli.StringFlag{
-				Name:  "reconcile-issues",
-				Usage: "Comma-separated issue IDs to reconcile for approximate-count drift",
-			},
-			&cli.StringFlag{
-				Name:  "order-by",
-				Usage: "Sort field (appended to JQL as ORDER BY clause)",
-			},
-			&cli.StringFlag{
-				Name:  "order",
-				Usage: "Sort direction: asc or desc (used with --order-by)",
-			},
-			&cli.BoolFlag{
-				Name:  "raw",
-				Usage: "Return the unmodified Jira API response for JSON output",
-			},
-		},
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			jql, err := requireFlag(cmd, "jql")
 			if err != nil {
 				return err
 			}
 			// Append ORDER BY clause from flags if provided.
-			if orderBy := cmd.String("order-by"); orderBy != "" {
-				direction := strings.ToUpper(cmd.String("order"))
+			if orderBy := mustGetString(cmd, "order-by"); orderBy != "" {
+				direction := strings.ToUpper(mustGetString(cmd, "order"))
 				if direction == "" {
 					direction = "ASC"
 				}
@@ -370,38 +270,38 @@ jira-agent issue search --jql "project = PROJ" --raw`,
 
 			body := map[string]any{
 				"jql":        jql,
-				"maxResults": cmd.Int("max-results"),
+				"maxResults": mustGetInt(cmd, "max-results"),
 			}
 
-			if t := cmd.String("next-page-token"); t != "" {
+			if t := mustGetString(cmd, "next-page-token"); t != "" {
 				body["nextPageToken"] = t
 			}
-			if f := issueSearchFields(cmd.String("fields")); cmd.IsSet("fields") || len(f) > 0 {
+			if f := issueSearchFields(mustGetString(cmd, "fields")); cmd.Flags().Changed("fields") || len(f) > 0 {
 				body["fields"] = f
 			}
-			if e := cmd.String("expand"); e != "" {
+			if e := mustGetString(cmd, "expand"); e != "" {
 				body["expand"] = e
 			}
-			if properties := splitTrimmed(cmd.String("properties")); len(properties) > 0 {
+			if properties := splitTrimmed(mustGetString(cmd, "properties")); len(properties) > 0 {
 				body["properties"] = properties
 			}
-			if cmd.Bool("fields-by-keys") {
+			if mustGetBool(cmd, "fields-by-keys") {
 				body["fieldsByKeys"] = true
 			}
-			if cmd.IsSet("fail-fast") {
-				body["failFast"] = cmd.Bool("fail-fast")
+			if cmd.Flags().Changed("fail-fast") {
+				body["failFast"] = mustGetBool(cmd, "fail-fast")
 			}
-			if reconcile := splitTrimmed(cmd.String("reconcile-issues")); len(reconcile) > 0 {
+			if reconcile := splitTrimmed(mustGetString(cmd, "reconcile-issues")); len(reconcile) > 0 {
 				body["reconcileIssues"] = reconcile
 			}
 
-			if cmd.Bool("raw") {
+			if mustGetBool(cmd, "raw") {
 				return writeRawPaginatedAPIResult(w, *format, func(result any) error {
 					return apiClient.Post(ctx, "/search/jql", body, result)
 				})
 			}
 
-			descriptionFormat, err := parseDescriptionOutputFormat(cmd.String("description-output-format"))
+			descriptionFormat, err := parseDescriptionOutputFormat(mustGetString(cmd, "description-output-format"))
 			if err != nil {
 				return err
 			}
@@ -417,73 +317,31 @@ jira-agent issue search --jql "project = PROJ" --raw`,
 			return output.WriteSuccess(w, flattenIssueSearchResultWithDescriptionFormat(result, descriptionFormat), meta, *format)
 		},
 	}
+	cmd.Flags().String("jql", "", "JQL query string (required)")
+	cmd.Flags().String("fields", "key,summary,status,assignee,priority", "Comma-separated field list")
+	cmd.Flags().Int("max-results", 50, "Page size")
+	cmd.Flags().String("next-page-token", "", "Token for fetching next page of results")
+	cmd.Flags().String("expand", "", "Comma-separated expansions (names, schema, changelog, operations)")
+	cmd.Flags().String("properties", "", "Comma-separated issue properties to include")
+	cmd.Flags().String("description-output-format", descriptionOutputFormatText, "Description output format: text, markdown, or adf")
+	cmd.Flags().Bool("fields-by-keys", false, "Treat field identifiers as field keys instead of field IDs")
+	cmd.Flags().Bool("fail-fast", true, "Fail immediately if a requested field cannot be resolved")
+	cmd.Flags().String("reconcile-issues", "", "Comma-separated issue IDs to reconcile for approximate-count drift")
+	cmd.Flags().String("order-by", "", "Sort field (appended to JQL as ORDER BY clause)")
+	cmd.Flags().String("order", "", "Sort direction: asc or desc (used with --order-by)")
+	cmd.Flags().Bool("raw", false, "Return the unmodified Jira API response for JSON output")
+	return cmd
 }
 
-func issueCreateCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:  "create",
-		Usage: "Create a new issue",
-		UsageText: `jira-agent issue create --project PROJ --type Story --summary "New feature"
+func issueCreateCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create a new issue",
+		Example: `jira-agent issue create --project PROJ --type Story --summary "New feature"
 jira-agent issue create --project PROJ --type Bug --summary "Fix login" --priority High --labels bug,urgent
 jira-agent issue create --project PROJ --type Task --summary "Subtask" --parent PROJ-100`,
-		Metadata: commandMetadata(writeCommandMetadata(), requiredFlagMetadata("type", "summary")),
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:    "project",
-				Usage:   "Project key",
-				Sources: cli.EnvVars("JIRA_PROJECT"),
-			},
-			&cli.StringFlag{
-				Name:  "type",
-				Usage: "Issue type name (e.g. Story, Bug, Task)",
-			},
-			&cli.StringFlag{
-				Name:  "summary",
-				Usage: "Issue summary",
-			},
-			&cli.StringFlag{
-				Name:  "description",
-				Usage: "Description text, ADF JSON, or wiki markup with --description-format",
-			},
-			&cli.StringFlag{
-				Name:  "description-format",
-				Value: "auto",
-				Usage: "Description input format: auto, plain, adf, or wiki",
-			},
-			&cli.StringFlag{
-				Name:  "assignee",
-				Usage: "Assignee account ID",
-			},
-			&cli.StringFlag{
-				Name:  "priority",
-				Usage: "Priority name (e.g. High, Medium, Low)",
-			},
-			&cli.StringFlag{
-				Name:  "labels",
-				Usage: "Comma-separated labels",
-			},
-			&cli.StringFlag{
-				Name:  "components",
-				Usage: "Comma-separated component names",
-			},
-			&cli.StringFlag{
-				Name:  "parent",
-				Usage: "Parent issue key (for subtasks/child issues)",
-			},
-			&cli.StringMapFlag{
-				Name:  "field",
-				Usage: "Custom field value (key=value, repeatable)",
-			},
-			&cli.StringFlag{
-				Name:  "fields-json",
-				Usage: "JSON object of fields (alternative to individual flags)",
-			},
-			&cli.StringFlag{
-				Name:  "payload-json",
-				Usage: "Full JSON issue create payload, merged after field flags",
-			},
-		},
-		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
+		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			project, err := requireProject(cmd)
 			if err != nil {
 				return err
@@ -514,7 +372,7 @@ jira-agent issue create --project PROJ --type Task --summary "Subtask" --parent 
 			}
 
 			body := map[string]any{"fields": fields}
-			if err := mergePayloadJSON(body, cmd.String("payload-json")); err != nil {
+			if err := mergePayloadJSON(body, mustGetString(cmd, "payload-json")); err != nil {
 				return err
 			}
 
@@ -523,40 +381,38 @@ jira-agent issue create --project PROJ --type Task --summary "Subtask" --parent 
 			})
 		}),
 	}
+	cmd.Flags().String("type", "", "Issue type name (e.g. Story, Bug, Task)")
+	cmd.Flags().String("summary", "", "Issue summary")
+	cmd.Flags().String("description", "", "Description text, ADF JSON, or wiki markup with --description-format")
+	cmd.Flags().String("description-format", "auto", "Description input format: auto, plain, adf, or wiki")
+	cmd.Flags().String("assignee", "", "Assignee account ID")
+	cmd.Flags().String("priority", "", "Priority name (e.g. High, Medium, Low)")
+	cmd.Flags().String("labels", "", "Comma-separated labels")
+	cmd.Flags().String("components", "", "Comma-separated component names")
+	cmd.Flags().String("parent", "", "Parent issue key (for subtasks/child issues)")
+	cmd.Flags().StringToString("field", map[string]string{}, "Custom field value (key=value, repeatable)")
+	cmd.Flags().String("fields-json", "", "JSON object of fields (alternative to individual flags)")
+	cmd.Flags().String("payload-json", "", "Full JSON issue create payload, merged after field flags")
+	return cmd
 }
 
-func issueEditCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:  "edit",
-		Usage: "Update issue fields",
-		UsageText: `jira-agent issue edit PROJ-123 --summary "Updated summary"
+func issueEditCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "edit <issue-key>",
+		Short: "Update issue fields",
+		Example: `jira-agent issue edit PROJ-123 --summary "Updated summary"
 jira-agent issue edit PROJ-123 --priority High --labels bug,critical
 jira-agent issue edit PROJ-123 --fields-json '{"customfield_10001":"value"}'`,
-		Metadata:  writeCommandMetadata(),
-		ArgsUsage: "<issue-key>",
-		Flags: []cli.Flag{
-			&cli.StringFlag{Name: "summary", Usage: "Issue summary"},
-			&cli.StringFlag{Name: "description", Usage: "Description text, ADF JSON, or wiki markup with --description-format"},
-			&cli.StringFlag{Name: "description-format", Value: "auto", Usage: "Description input format: auto, plain, adf, or wiki"},
-			&cli.StringFlag{Name: "assignee", Usage: "Assignee account ID"},
-			&cli.StringFlag{Name: "priority", Usage: "Priority name"},
-			&cli.StringFlag{Name: "labels", Usage: "Comma-separated labels"},
-			&cli.StringFlag{Name: "components", Usage: "Comma-separated component names"},
-			&cli.StringFlag{Name: "parent", Usage: "Parent issue key"},
-			&cli.StringMapFlag{Name: "field", Usage: "Custom field value (key=value, repeatable)"},
-			&cli.StringFlag{Name: "fields-json", Usage: "JSON object of fields"},
-			&cli.StringFlag{Name: "payload-json", Usage: "Full JSON issue edit payload, merged after field flags"},
-			&cli.BoolFlag{Name: "notify", Value: true, Usage: "Send notification to watchers"},
-		},
-		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
-			key, err := requireArg(cmd, "issue key")
+		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			key, err := requireArg(args, "issue key")
 			if err != nil {
 				return err
 			}
 
 			fields := map[string]any{}
 
-			if v := cmd.String("summary"); v != "" {
+			if v := mustGetString(cmd, "summary"); v != "" {
 				fields["summary"] = v
 			}
 
@@ -569,15 +425,15 @@ jira-agent issue edit PROJ-123 --fields-json '{"customfield_10001":"value"}'`,
 			}
 
 			body := map[string]any{"fields": fields}
-			if err := mergePayloadJSON(body, cmd.String("payload-json")); err != nil {
+			if err := mergePayloadJSON(body, mustGetString(cmd, "payload-json")); err != nil {
 				return err
 			}
-			if len(fields) == 0 && cmd.String("payload-json") == "" {
+			if len(fields) == 0 && mustGetString(cmd, "payload-json") == "" {
 				return apperr.NewValidationError("at least one field or --payload-json update is required", nil)
 			}
 
 			path := "/issue/" + key
-			if !cmd.Bool("notify") {
+			if !mustGetBool(cmd, "notify") {
 				path += "?notifyUsers=false"
 			}
 			if err := apiClient.Put(ctx, path, body, nil); err != nil {
@@ -590,31 +446,31 @@ jira-agent issue edit PROJ-123 --fields-json '{"customfield_10001":"value"}'`,
 			}, *format)
 		}),
 	}
+	cmd.Flags().String("summary", "", "Issue summary")
+	cmd.Flags().String("description", "", "Description text, ADF JSON, or wiki markup with --description-format")
+	cmd.Flags().String("description-format", "auto", "Description input format: auto, plain, adf, or wiki")
+	cmd.Flags().String("assignee", "", "Assignee account ID")
+	cmd.Flags().String("priority", "", "Priority name")
+	cmd.Flags().String("labels", "", "Comma-separated labels")
+	cmd.Flags().String("components", "", "Comma-separated component names")
+	cmd.Flags().String("parent", "", "Parent issue key")
+	cmd.Flags().StringToString("field", map[string]string{}, "Custom field value (key=value, repeatable)")
+	cmd.Flags().String("fields-json", "", "JSON object of fields")
+	cmd.Flags().String("payload-json", "", "Full JSON issue edit payload, merged after field flags")
+	cmd.Flags().Bool("notify", true, "Send notification to watchers")
+	return cmd
 }
 
-func issueTransitionCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:  "transition",
-		Usage: "Transition issue to a new status",
-		UsageText: `jira-agent issue transition PROJ-123 --list
+func issueTransitionCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "transition <issue-key>",
+		Short: "Transition issue to a new status",
+		Example: `jira-agent issue transition PROJ-123 --list
 jira-agent issue transition PROJ-123 --to "In Progress"
 jira-agent issue transition PROJ-123 --to Done --comment "Completed"`,
-		ArgsUsage: "<issue-key>",
-		Flags: []cli.Flag{
-			&cli.StringFlag{Name: "to", Usage: "Target status or transition name"},
-			&cli.StringFlag{Name: "transition-id", Usage: "Transition ID to apply directly"},
-			&cli.StringMapFlag{Name: "field", Usage: "Transition screen field (key=value, repeatable)"},
-			&cli.StringFlag{Name: "comment", Usage: "Comment to add during transition"},
-			&cli.StringFlag{Name: "payload-json", Usage: "Full JSON transition payload, merged after flags"},
-			&cli.StringFlag{Name: "expand", Usage: "Comma-separated transition expansions (transitions.fields)"},
-			&cli.StringFlag{Name: "list-transition-id", Usage: "Only return this transition ID when listing transitions"},
-			&cli.BoolFlag{Name: "include-unavailable-transitions", Usage: "Include transitions unavailable to the current user"},
-			&cli.BoolFlag{Name: "skip-remote-only-condition", Usage: "Skip remote-only workflow conditions"},
-			&cli.BoolFlag{Name: "sort-by-ops-bar-and-status", Usage: "Sort listed transitions by ops bar sequence and status"},
-			&cli.BoolFlag{Name: "list", Usage: "List available transitions instead of performing one"},
-		},
-		Action: func(ctx context.Context, cmd *cli.Command) error {
-			key, err := requireArg(cmd, "issue key")
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			key, err := requireArg(args, "issue key")
 			if err != nil {
 				return err
 			}
@@ -629,13 +485,13 @@ jira-agent issue transition PROJ-123 --to Done --comment "Completed"`,
 			addBoolParam(cmd, params, "sort-by-ops-bar-and-status", "sortByOpsBarAndStatus")
 
 			var transitions any
-			if cmd.Bool("list") || cmd.String("transition-id") == "" {
+			if mustGetBool(cmd, "list") || mustGetString(cmd, "transition-id") == "" {
 				if err := apiClient.Get(ctx, "/issue/"+key+"/transitions", params, &transitions); err != nil {
 					return err
 				}
 			}
 
-			if cmd.Bool("list") {
+			if mustGetBool(cmd, "list") {
 				return output.WriteResult(w, transitions, *format)
 			}
 
@@ -643,8 +499,8 @@ jira-agent issue transition PROJ-123 --to Done --comment "Completed"`,
 				return err
 			}
 
-			targetStatus := cmd.String("to")
-			transitionID := cmd.String("transition-id")
+			targetStatus := mustGetString(cmd, "to")
+			transitionID := mustGetString(cmd, "transition-id")
 			if transitionID == "" {
 				if targetStatus == "" {
 					return apperr.NewValidationError(
@@ -663,13 +519,13 @@ jira-agent issue transition PROJ-123 --to Done --comment "Completed"`,
 				"transition": map[string]any{"id": transitionID},
 			}
 
-			if fieldMap := cmd.StringMap("field"); len(fieldMap) > 0 {
+			if fieldMap := mustGetStringToString(cmd, "field"); len(fieldMap) > 0 {
 				transFields := map[string]any{}
 				applyFieldOverrides(transFields, fieldMap)
 				reqBody["fields"] = transFields
 			}
 
-			if comment := cmd.String("comment"); comment != "" {
+			if comment := mustGetString(cmd, "comment"); comment != "" {
 				reqBody["update"] = map[string]any{
 					"comment": []any{
 						map[string]any{
@@ -680,7 +536,7 @@ jira-agent issue transition PROJ-123 --to Done --comment "Completed"`,
 					},
 				}
 			}
-			if err := mergePayloadJSON(reqBody, cmd.String("payload-json")); err != nil {
+			if err := mergePayloadJSON(reqBody, mustGetString(cmd, "payload-json")); err != nil {
 				return err
 			}
 
@@ -695,28 +551,36 @@ jira-agent issue transition PROJ-123 --to Done --comment "Completed"`,
 			}, *format)
 		},
 	}
+	cmd.Flags().String("to", "", "Target status or transition name")
+	cmd.Flags().String("transition-id", "", "Transition ID to apply directly")
+	cmd.Flags().StringToString("field", map[string]string{}, "Transition screen field (key=value, repeatable)")
+	cmd.Flags().String("comment", "", "Comment to add during transition")
+	cmd.Flags().String("payload-json", "", "Full JSON transition payload, merged after flags")
+	cmd.Flags().String("expand", "", "Comma-separated transition expansions (transitions.fields)")
+	cmd.Flags().String("list-transition-id", "", "Only return this transition ID when listing transitions")
+	cmd.Flags().Bool("include-unavailable-transitions", false, "Include transitions unavailable to the current user")
+	cmd.Flags().Bool("skip-remote-only-condition", false, "Skip remote-only workflow conditions")
+	cmd.Flags().Bool("sort-by-ops-bar-and-status", false, "Sort listed transitions by ops bar sequence and status")
+	cmd.Flags().Bool("list", false, "List available transitions instead of performing one")
+	return cmd
 }
 
 // DELETE /rest/api/3/issue/{issueIdOrKey}
-func issueDeleteCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:  "delete",
-		Usage: "Delete an issue",
-		UsageText: `jira-agent issue delete PROJ-123
+func issueDeleteCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "delete <issue-key>",
+		Short: "Delete an issue",
+		Example: `jira-agent issue delete PROJ-123
 jira-agent issue delete PROJ-123 --delete-subtasks`,
-		Metadata:  writeCommandMetadata(),
-		ArgsUsage: "<issue-key>",
-		Flags: []cli.Flag{
-			&cli.BoolFlag{Name: "delete-subtasks", Usage: "Delete subtasks of the issue"},
-		},
-		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
-			key, err := requireArg(cmd, "issue key")
+		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			key, err := requireArg(args, "issue key")
 			if err != nil {
 				return err
 			}
 
 			path := "/issue/" + key
-			if cmd.Bool("delete-subtasks") {
+			if mustGetBool(cmd, "delete-subtasks") {
 				path = appendQueryParams(path, map[string]string{"deleteSubtasks": "true"})
 			}
 
@@ -730,24 +594,21 @@ jira-agent issue delete PROJ-123 --delete-subtasks`,
 			}, *format)
 		}),
 	}
+	cmd.Flags().Bool("delete-subtasks", false, "Delete subtasks of the issue")
+	return cmd
 }
 
-func issueChangelogCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:  "changelog",
-		Usage: "List changelog entries for an issue",
-		UsageText: `jira-agent issue changelog PROJ-123
+func issueChangelogCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "changelog <issue-key>",
+		Short: "List changelog entries for an issue",
+		Example: `jira-agent issue changelog PROJ-123
 jira-agent issue changelog PROJ-123 --max-results 10
 jira-agent issue changelog list-by-ids PROJ-123 --ids 10001,10002
 jira-agent issue changelog bulk-fetch --issues PROJ-1,PROJ-2`,
-		ArgsUsage: "<issue-key>",
-		Flags:     appendPaginationFlags(nil),
-		Commands: []*cli.Command{
-			issueChangelogListByIDsCommand(apiClient, w, format),
-			issueChangelogBulkFetchCommand(apiClient, w, format),
-		},
-		Action: func(ctx context.Context, cmd *cli.Command) error {
-			key, err := requireArg(cmd, "issue key")
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			key, err := requireArg(args, "issue key")
 			if err != nil {
 				return err
 			}
@@ -759,20 +620,22 @@ jira-agent issue changelog bulk-fetch --issues PROJ-1,PROJ-2`,
 			})
 		},
 	}
+	cmd.AddCommand(
+		issueChangelogListByIDsCommand(apiClient, w, format),
+		issueChangelogBulkFetchCommand(apiClient, w, format),
+	)
+	appendPaginationFlags(cmd)
+	return cmd
 }
 
-func issueChangelogListByIDsCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:      "list-by-ids",
-		Usage:     "Get issue changelogs by IDs",
-		UsageText: `jira-agent issue changelog list-by-ids PROJ-123 --ids 10001,10002`,
-		Metadata:  requiredFlagMetadata("ids"),
-		ArgsUsage: "<issue-key>",
-		Flags: []cli.Flag{
-			&cli.StringFlag{Name: "ids", Usage: "Comma-separated changelog IDs (required)"},
-		},
-		Action: func(ctx context.Context, cmd *cli.Command) error {
-			key, err := requireArg(cmd, "issue key")
+func issueChangelogListByIDsCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "list-by-ids <issue-key>",
+		Short:   "Get issue changelogs by IDs",
+		Example: `jira-agent issue changelog list-by-ids PROJ-123 --ids 10001,10002`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			key, err := requireArg(args, "issue key")
 			if err != nil {
 				return err
 			}
@@ -791,22 +654,18 @@ func issueChangelogListByIDsCommand(apiClient *client.Ref, w io.Writer, format *
 			})
 		},
 	}
+	cmd.Flags().String("ids", "", "Comma-separated changelog IDs (required)")
+	return cmd
 }
 
-func issueChangelogBulkFetchCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:  "bulk-fetch",
-		Usage: "Bulk fetch changelogs for issues",
-		UsageText: `jira-agent issue changelog bulk-fetch --issues PROJ-1,PROJ-2
+func issueChangelogBulkFetchCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "bulk-fetch",
+		Short: "Bulk fetch changelogs for issues",
+		Example: `jira-agent issue changelog bulk-fetch --issues PROJ-1,PROJ-2
 jira-agent issue changelog bulk-fetch --issues PROJ-1,PROJ-2 --field-ids status,assignee --max-results 100`,
-		Metadata: requiredFlagMetadata("issues"),
-		Flags: []cli.Flag{
-			&cli.StringFlag{Name: "issues", Usage: "Comma-separated issue keys or IDs (required, max 1000)"},
-			&cli.StringFlag{Name: "field-ids", Usage: "Comma-separated field IDs to filter changelogs (max 10)"},
-			&cli.IntFlag{Name: "max-results", Usage: "Maximum changelog items to return", Value: 1000},
-			&cli.StringFlag{Name: "next-page-token", Usage: "Cursor token from previous response"},
-		},
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			issuesFlag, err := requireFlag(cmd, "issues")
 			if err != nil {
 				return err
@@ -817,16 +676,16 @@ jira-agent issue changelog bulk-fetch --issues PROJ-1,PROJ-2 --field-ids status,
 			}
 
 			body := map[string]any{"issueIdsOrKeys": issues}
-			if fields := splitTrimmed(cmd.String("field-ids")); len(fields) > 0 {
+			if fields := splitTrimmed(mustGetString(cmd, "field-ids")); len(fields) > 0 {
 				if len(fields) > 10 {
 					return apperr.NewValidationError("--field-ids supports at most 10 fields", nil)
 				}
 				body["fieldIds"] = fields
 			}
-			if cmd.IsSet("max-results") {
-				body["maxResults"] = cmd.Int("max-results")
+			if cmd.Flags().Changed("max-results") {
+				body["maxResults"] = mustGetInt(cmd, "max-results")
 			}
-			if token := cmd.String("next-page-token"); token != "" {
+			if token := mustGetString(cmd, "next-page-token"); token != "" {
 				body["nextPageToken"] = token
 			}
 
@@ -835,33 +694,23 @@ jira-agent issue changelog bulk-fetch --issues PROJ-1,PROJ-2 --field-ids status,
 			})
 		},
 	}
+	cmd.Flags().String("issues", "", "Comma-separated issue keys or IDs (required, max 1000)")
+	cmd.Flags().String("field-ids", "", "Comma-separated field IDs to filter changelogs (max 10)")
+	cmd.Flags().Int("max-results", 1000, "Maximum changelog items to return")
+	cmd.Flags().String("next-page-token", "", "Cursor token from previous response")
+	return cmd
 }
 
-func issueRankCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:  "rank",
-		Usage: "Rank issues before or after a target issue",
-		UsageText: `jira-agent issue rank --issues PROJ-1,PROJ-2 --before PROJ-10
+func issueRankCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "rank",
+		Short: "Rank issues before or after a target issue",
+		Example: `jira-agent issue rank --issues PROJ-1,PROJ-2 --before PROJ-10
 jira-agent issue rank --issues PROJ-5 --after PROJ-3`,
-		Metadata: writeCommandMetadata(),
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:     "issues",
-				Usage:    "Comma-separated issue keys to rank",
-				Required: true,
-			},
-			&cli.StringFlag{
-				Name:  "before",
-				Usage: "Issue key to rank before (mutually exclusive with --after)",
-			},
-			&cli.StringFlag{
-				Name:  "after",
-				Usage: "Issue key to rank after (mutually exclusive with --before)",
-			},
-		},
-		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
-			before := cmd.String("before")
-			after := cmd.String("after")
+		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			before := mustGetString(cmd, "before")
+			after := mustGetString(cmd, "after")
 
 			if before == "" && after == "" {
 				return apperr.NewValidationError("either --before or --after is required", nil)
@@ -871,7 +720,7 @@ jira-agent issue rank --issues PROJ-5 --after PROJ-3`,
 				return apperr.NewValidationError("--before and --after are mutually exclusive", nil)
 			}
 
-			issues := splitTrimmed(cmd.String("issues"))
+			issues := splitTrimmed(mustGetString(cmd, "issues"))
 			body := map[string]any{
 				"issues": issues,
 			}
@@ -893,22 +742,21 @@ jira-agent issue rank --issues PROJ-5 --after PROJ-3`,
 			}, *format)
 		}),
 	}
+	cmd.Flags().String("issues", "", "Comma-separated issue keys to rank")
+	_ = cmd.MarkFlagRequired("issues")
+	cmd.Flags().String("before", "", "Issue key to rank before (mutually exclusive with --after)")
+	cmd.Flags().String("after", "", "Issue key to rank after (mutually exclusive with --before)")
+	return cmd
 }
 
-func issueCountCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:  "count",
-		Usage: "Count issues matching a JQL query",
-		UsageText: `jira-agent issue count --jql "project = PROJ AND status = Open"
+func issueCountCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "count",
+		Short: "Count issues matching a JQL query",
+		Example: `jira-agent issue count --jql "project = PROJ AND status = Open"
 jira-agent issue count --jql "assignee = currentUser() AND resolution = Unresolved"`,
-		Metadata: requiredFlagMetadata("jql"),
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:  "jql",
-				Usage: "JQL query to count results for (required)",
-			},
-		},
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			jql, err := requireFlag(cmd, "jql")
 			if err != nil {
 				return err
@@ -927,27 +775,20 @@ jira-agent issue count --jql "assignee = currentUser() AND resolution = Unresolv
 			return output.WriteSuccess(w, map[string]any{"total": meta.Total}, meta, *format)
 		},
 	}
+	cmd.Flags().String("jql", "", "JQL query to count results for (required)")
+	return cmd
 }
 
-func issueMetaCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:  "meta",
-		Usage: "Get create or edit metadata for issues",
-		UsageText: `jira-agent issue meta --project PROJ
+func issueMetaCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "meta",
+		Short: "Get create or edit metadata for issues",
+		Example: `jira-agent issue meta --project PROJ
 jira-agent issue meta --project PROJ --type Story
 jira-agent issue meta --operation edit --issue PROJ-123`,
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:    "project",
-				Usage:   "Project key",
-				Sources: cli.EnvVars("JIRA_PROJECT"),
-			},
-			&cli.StringFlag{Name: "type", Usage: "Issue type name (filters to a single type)"},
-			&cli.StringFlag{Name: "operation", Value: "create", Usage: "Operation: create or edit"},
-			&cli.StringFlag{Name: "issue", Usage: "Issue key (required for edit metadata)"},
-		},
-		Action: func(ctx context.Context, cmd *cli.Command) error {
-			operation := cmd.String("operation")
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			operation := mustGetString(cmd, "operation")
 
 			switch operation {
 			case "edit":
@@ -970,7 +811,7 @@ jira-agent issue meta --operation edit --issue PROJ-123`,
 					)
 				}
 
-				typeName := cmd.String("type")
+				typeName := mustGetString(cmd, "type")
 				if typeName == "" {
 					// List available issue types for the project.
 					path := "/issue/createmeta/" + project + "/issuetypes"
@@ -1002,29 +843,58 @@ jira-agent issue meta --operation edit --issue PROJ-123`,
 			}
 		},
 	}
+	cmd.Flags().String("type", "", "Issue type name (filters to a single type)")
+	cmd.Flags().String("operation", "create", "Operation: create or edit")
+	cmd.Flags().String("issue", "", "Issue key (required for edit metadata)")
+	return cmd
+}
+
+func mustGetString(cmd *cobra.Command, name string) string {
+	value, _ := cmd.Flags().GetString(name)
+	return value
+}
+
+func mustGetBool(cmd *cobra.Command, name string) bool {
+	value, _ := cmd.Flags().GetBool(name)
+	return value
+}
+
+func mustGetInt(cmd *cobra.Command, name string) int {
+	value, _ := cmd.Flags().GetInt(name)
+	return value
+}
+
+func mustGetStringSlice(cmd *cobra.Command, name string) []string {
+	value, _ := cmd.Flags().GetStringSlice(name)
+	return value
+}
+
+func mustGetStringToString(cmd *cobra.Command, name string) map[string]string {
+	value, _ := cmd.Flags().GetStringToString(name)
+	return value
 }
 
 // applyCommonFields sets optional issue fields that are shared between create
 // and edit: description, assignee, priority, labels, components, and parent.
 // Each field is only set when the corresponding flag has a non-empty value.
-func applyCommonFields(fields map[string]any, cmd *cli.Command) error {
-	if v := cmd.String("description"); v != "" {
-		description, err := descriptionToADF(v, cmd.String("description-format"))
+func applyCommonFields(fields map[string]any, cmd *cobra.Command) error {
+	if v := mustGetString(cmd, "description"); v != "" {
+		description, err := descriptionToADF(v, mustGetString(cmd, "description-format"))
 		if err != nil {
 			return err
 		}
 		fields["description"] = description
 	}
-	if v := cmd.String("assignee"); v != "" {
+	if v := mustGetString(cmd, "assignee"); v != "" {
 		fields["assignee"] = map[string]any{"accountId": v}
 	}
-	if v := cmd.String("priority"); v != "" {
+	if v := mustGetString(cmd, "priority"); v != "" {
 		fields["priority"] = map[string]any{"name": v}
 	}
-	if v := cmd.String("labels"); v != "" {
+	if v := mustGetString(cmd, "labels"); v != "" {
 		fields["labels"] = splitTrimmed(v)
 	}
-	if v := cmd.String("components"); v != "" {
+	if v := mustGetString(cmd, "components"); v != "" {
 		names := splitTrimmed(v)
 		comps := make([]map[string]any, len(names))
 		for i, n := range names {
@@ -1032,7 +902,7 @@ func applyCommonFields(fields map[string]any, cmd *cli.Command) error {
 		}
 		fields["components"] = comps
 	}
-	if v := cmd.String("parent"); v != "" {
+	if v := mustGetString(cmd, "parent"); v != "" {
 		fields["parent"] = map[string]any{"key": v}
 	}
 	return nil
@@ -1040,22 +910,20 @@ func applyCommonFields(fields map[string]any, cmd *cli.Command) error {
 
 // applyMerges applies --field overrides and --fields-json merges to the fields
 // map. This consolidates the two-step merge pattern used by create and edit.
-func applyMerges(fields map[string]any, cmd *cli.Command) error {
-	applyFieldOverrides(fields, cmd.StringMap("field"))
-	return applyFieldsJSON(fields, cmd.String("fields-json"))
+func applyMerges(fields map[string]any, cmd *cobra.Command) error {
+	applyFieldOverrides(fields, mustGetStringToString(cmd, "field"))
+	return applyFieldsJSON(fields, mustGetString(cmd, "fields-json"))
 }
 
 // resolveProject returns the project key from the command's own --project flag,
 // falling back to the root command's --project/-p flag (which also reads
 // JIRA_PROJECT via its Sources).
-func resolveProject(cmd *cli.Command) string {
-	if p := cmd.String("project"); p != "" {
-		return p
-	}
-	return cmd.Root().String("project")
+func resolveProject(cmd *cobra.Command) string {
+	project, _ := cmd.Flags().GetString("project")
+	return project
 }
 
-func requireProject(cmd *cli.Command) (string, error) {
+func requireProject(cmd *cobra.Command) (string, error) {
 	project := resolveProject(cmd)
 	if project != "" {
 		return project, nil
@@ -1314,7 +1182,7 @@ func parseBulkCreateBody(jsonStr string) (map[string]any, error) {
 	}
 }
 
-func buildBulkFetchBody(cmd *cli.Command) (map[string]any, error) {
+func buildBulkFetchBody(cmd *cobra.Command) (map[string]any, error) {
 	issueFlag, err := requireFlag(cmd, "issues")
 	if err != nil {
 		return nil, err
@@ -1330,52 +1198,47 @@ func buildBulkFetchBody(cmd *cli.Command) (map[string]any, error) {
 	body := map[string]any{
 		"issueIdsOrKeys": issues,
 	}
-	if fields := splitTrimmed(cmd.String("fields")); len(fields) > 0 {
+	if fields := splitTrimmed(mustGetString(cmd, "fields")); len(fields) > 0 {
 		body["fields"] = fields
 	}
-	if expand := splitTrimmed(cmd.String("expand")); len(expand) > 0 {
+	if expand := splitTrimmed(mustGetString(cmd, "expand")); len(expand) > 0 {
 		body["expand"] = expand
 	}
-	if properties := splitTrimmed(cmd.String("properties")); len(properties) > 0 {
+	if properties := splitTrimmed(mustGetString(cmd, "properties")); len(properties) > 0 {
 		if len(properties) > 5 {
 			return nil, apperr.NewValidationError("--properties supports at most 5 properties", nil)
 		}
 		body["properties"] = properties
 	}
-	if cmd.Bool("fields-by-keys") {
+	if mustGetBool(cmd, "fields-by-keys") {
 		body["fieldsByKeys"] = true
 	}
 
 	return body, nil
 }
 
-func issueAssignCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:  "assign",
-		Usage: "Assign issue to a user",
-		UsageText: `jira-agent issue assign PROJ-123 5b10a2844c20165700ede21g
+func issueAssignCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "assign <issue-key> [account-id]",
+		Short: "Assign issue to a user",
+		Example: `jira-agent issue assign PROJ-123 5b10a2844c20165700ede21g
 jira-agent issue assign PROJ-123 --unassign
 jira-agent issue assign PROJ-123 --default`,
-		Metadata:  writeCommandMetadata(),
-		ArgsUsage: "<issue-key> [account-id]",
-		Flags: []cli.Flag{
-			&cli.BoolFlag{Name: "unassign", Usage: "Remove current assignee"},
-			&cli.BoolFlag{Name: "default", Usage: "Use project default assignee"},
-		},
-		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
-			key, err := requireArg(cmd, "issue key")
+		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			key, err := requireArg(args, "issue key")
 			if err != nil {
 				return err
 			}
 
 			var body map[string]any
 			switch {
-			case cmd.Bool("unassign"):
+			case mustGetBool(cmd, "unassign"):
 				body = map[string]any{"accountId": nil}
-			case cmd.Bool("default"):
+			case mustGetBool(cmd, "default"):
 				body = map[string]any{"accountId": "-1"}
 			default:
-				args, err := requireArgs(cmd, "issue key", "account ID")
+				args, err := requireArgs(args, "issue key", "account ID")
 				if err != nil {
 					return apperr.NewValidationError(
 						"account ID is required (or use --unassign / --default)",
@@ -1395,72 +1258,39 @@ jira-agent issue assign PROJ-123 --default`,
 			}, *format)
 		}),
 	}
+	cmd.Flags().Bool("unassign", false, "Remove current assignee")
+	cmd.Flags().Bool("default", false, "Use project default assignee")
+	return cmd
 }
 
 // POST /rest/api/3/issue/{issueIdOrKey}/notify
-func issueNotifyCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:  "notify",
-		Usage: "Send an email notification for an issue",
-		UsageText: `jira-agent issue notify PROJ-123 --subject "Action needed" --text-body "Please review"
+func issueNotifyCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "notify <issue-key>",
+		Short: "Send an email notification for an issue",
+		Example: `jira-agent issue notify PROJ-123 --subject "Action needed" --text-body "Please review"
 jira-agent issue notify PROJ-123 --subject "Update" --to-watchers --to-assignee`,
-		Metadata:  writeCommandMetadata(),
-		ArgsUsage: "<issue-key>",
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:     "subject",
-				Usage:    "notification subject line",
-				Required: true,
-			},
-			&cli.StringFlag{
-				Name:  "text-body",
-				Usage: "plain text body",
-			},
-			&cli.StringFlag{
-				Name:  "html-body",
-				Usage: "HTML body",
-			},
-			&cli.BoolFlag{
-				Name:  "to-assignee",
-				Usage: "send to assignee",
-			},
-			&cli.BoolFlag{
-				Name:  "to-reporter",
-				Usage: "send to reporter",
-			},
-			&cli.BoolFlag{
-				Name:  "to-voters",
-				Usage: "send to voters",
-			},
-			&cli.BoolFlag{
-				Name:  "to-watchers",
-				Usage: "send to watchers",
-			},
-			&cli.StringSliceFlag{
-				Name:  "to-users",
-				Usage: "account IDs of additional recipients (repeatable)",
-			},
-		},
-		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
-			issueKey, err := requireArg(cmd, "issue key")
+		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			issueKey, err := requireArg(args, "issue key")
 			if err != nil {
 				return err
 			}
 
 			to := map[string]any{}
-			if cmd.IsSet("to-assignee") {
-				to["assignee"] = cmd.Bool("to-assignee")
+			if cmd.Flags().Changed("to-assignee") {
+				to["assignee"] = mustGetBool(cmd, "to-assignee")
 			}
-			if cmd.IsSet("to-reporter") {
-				to["reporter"] = cmd.Bool("to-reporter")
+			if cmd.Flags().Changed("to-reporter") {
+				to["reporter"] = mustGetBool(cmd, "to-reporter")
 			}
-			if cmd.IsSet("to-voters") {
-				to["voters"] = cmd.Bool("to-voters")
+			if cmd.Flags().Changed("to-voters") {
+				to["voters"] = mustGetBool(cmd, "to-voters")
 			}
-			if cmd.IsSet("to-watchers") {
-				to["watchers"] = cmd.Bool("to-watchers")
+			if cmd.Flags().Changed("to-watchers") {
+				to["watchers"] = mustGetBool(cmd, "to-watchers")
 			}
-			if users := cmd.StringSlice("to-users"); len(users) > 0 {
+			if users := mustGetStringSlice(cmd, "to-users"); len(users) > 0 {
 				userObjs := make([]map[string]string, len(users))
 				for i, u := range users {
 					userObjs[i] = map[string]string{"accountId": u}
@@ -1469,12 +1299,12 @@ jira-agent issue notify PROJ-123 --subject "Update" --to-watchers --to-assignee`
 			}
 
 			body := map[string]any{
-				"subject": cmd.String("subject"),
+				"subject": mustGetString(cmd, "subject"),
 			}
-			if v := cmd.String("text-body"); v != "" {
+			if v := mustGetString(cmd, "text-body"); v != "" {
 				body["textBody"] = v
 			}
-			if v := cmd.String("html-body"); v != "" {
+			if v := mustGetString(cmd, "html-body"); v != "" {
 				body["htmlBody"] = v
 			}
 			if len(to) > 0 {
@@ -1492,28 +1322,27 @@ jira-agent issue notify PROJ-123 --subject "Update" --to-watchers --to-assignee`
 			}, *format)
 		}),
 	}
+	cmd.Flags().String("subject", "", "notification subject line")
+	_ = cmd.MarkFlagRequired("subject")
+	cmd.Flags().String("text-body", "", "plain text body")
+	cmd.Flags().String("html-body", "", "HTML body")
+	cmd.Flags().Bool("to-assignee", false, "send to assignee")
+	cmd.Flags().Bool("to-reporter", false, "send to reporter")
+	cmd.Flags().Bool("to-voters", false, "send to voters")
+	cmd.Flags().Bool("to-watchers", false, "send to watchers")
+	cmd.Flags().StringSlice("to-users", []string{}, "account IDs of additional recipients (repeatable)")
+	return cmd
 }
 
 // POST /rest/api/3/bulk/issues/delete
-func issueBulkDeleteCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:  "bulk-delete",
-		Usage: "Bulk delete issues (up to 1000)",
-		UsageText: `jira-agent issue bulk-delete --issues PROJ-1,PROJ-2,PROJ-3
+func issueBulkDeleteCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "bulk-delete",
+		Short: "Bulk delete issues (up to 1000)",
+		Example: `jira-agent issue bulk-delete --issues PROJ-1,PROJ-2,PROJ-3
 jira-agent issue bulk-delete --issues PROJ-1,PROJ-2 --send-notification=false`,
-		Metadata: commandMetadata(writeCommandMetadata(), requiredFlagMetadata("issues")),
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:  "issues",
-				Usage: "Comma-separated issue keys or IDs (required)",
-			},
-			&cli.BoolFlag{
-				Name:  "send-notification",
-				Usage: "Send bulk notification email",
-				Value: true,
-			},
-		},
-		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
+		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			issueStr, err := requireFlag(cmd, "issues")
 			if err != nil {
 				return err
@@ -1522,7 +1351,7 @@ jira-agent issue bulk-delete --issues PROJ-1,PROJ-2 --send-notification=false`,
 
 			body := map[string]any{
 				"selectedIssueIdsOrKeys": issues,
-				"sendBulkNotification":   cmd.Bool("send-notification"),
+				"sendBulkNotification":   mustGetBool(cmd, "send-notification"),
 			}
 
 			return writeAPIResult(w, *format, func(result any) error {
@@ -1530,35 +1359,20 @@ jira-agent issue bulk-delete --issues PROJ-1,PROJ-2 --send-notification=false`,
 			})
 		}),
 	}
+	cmd.Flags().String("issues", "", "Comma-separated issue keys or IDs (required)")
+	cmd.Flags().Bool("send-notification", true, "Send bulk notification email")
+	return cmd
 }
 
 // GET /rest/api/3/bulk/issues/fields
-func issueBulkEditFieldsCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:  "bulk-edit-fields",
-		Usage: "List editable fields for bulk edit",
-		UsageText: `jira-agent issue bulk-edit-fields --issues PROJ-1,PROJ-2
+func issueBulkEditFieldsCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "bulk-edit-fields",
+		Short: "List editable fields for bulk edit",
+		Example: `jira-agent issue bulk-edit-fields --issues PROJ-1,PROJ-2
 jira-agent issue bulk-edit-fields --issues PROJ-1,PROJ-2 --search-text priority`,
-		Metadata: requiredFlagMetadata("issues"),
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:  "issues",
-				Usage: "Comma-separated issue keys or IDs (required)",
-			},
-			&cli.StringFlag{
-				Name:  "search-text",
-				Usage: "Filter fields by name",
-			},
-			&cli.StringFlag{
-				Name:  "ending-before",
-				Usage: "End cursor for pagination",
-			},
-			&cli.StringFlag{
-				Name:  "starting-after",
-				Usage: "Start cursor for pagination",
-			},
-		},
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			issueStr, err := requireFlag(cmd, "issues")
 			if err != nil {
 				return err
@@ -1576,23 +1390,22 @@ jira-agent issue bulk-edit-fields --issues PROJ-1,PROJ-2 --search-text priority`
 			})
 		},
 	}
+	cmd.Flags().String("issues", "", "Comma-separated issue keys or IDs (required)")
+	cmd.Flags().String("search-text", "", "Filter fields by name")
+	cmd.Flags().String("ending-before", "", "End cursor for pagination")
+	cmd.Flags().String("starting-after", "", "Start cursor for pagination")
+	return cmd
 }
 
 // POST /rest/api/3/bulk/issues/fields
-func issueBulkEditCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:      "bulk-edit",
-		Usage:     "Bulk edit issues (up to 1000 issues, 200 fields)",
-		UsageText: `jira-agent issue bulk-edit --payload-json '{"selectedIssueIdsOrKeys":["PROJ-1","PROJ-2"],"selectedActions":["priority"],"editedFieldsInput":{"priority":{"name":"High"}}}'`,
-		Metadata:  commandMetadata(writeCommandMetadata(), requiredFlagMetadata("payload-json")),
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:  "payload-json",
-				Usage: "Full JSON payload with selectedIssueIdsOrKeys, selectedActions, editedFieldsInput, and optional sendBulkNotification (required)",
-			},
-		},
-		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
-			body, err := parseJSONPayload(cmd.String("payload-json"), "payload-json")
+func issueBulkEditCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "bulk-edit",
+		Short:   "Bulk edit issues (up to 1000 issues, 200 fields)",
+		Example: `jira-agent issue bulk-edit --payload-json '{"selectedIssueIdsOrKeys":["PROJ-1","PROJ-2"],"selectedActions":["priority"],"editedFieldsInput":{"priority":{"name":"High"}}}'`,
+		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			body, err := parseJSONPayload(mustGetString(cmd, "payload-json"), "payload-json")
 			if err != nil {
 				return err
 			}
@@ -1602,23 +1415,19 @@ func issueBulkEditCommand(apiClient *client.Ref, w io.Writer, format *output.For
 			})
 		}),
 	}
+	cmd.Flags().String("payload-json", "", "Full JSON payload with selectedIssueIdsOrKeys, selectedActions, editedFieldsInput, and optional sendBulkNotification (required)")
+	return cmd
 }
 
 // POST /rest/api/3/bulk/issues/move
-func issueBulkMoveCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:      "bulk-move",
-		Usage:     "Bulk move issues to a target project and issue type (up to 1000)",
-		UsageText: `jira-agent issue bulk-move --payload-json '{"targetToSourcesMapping":{"DEST":{"issueIdsOrKeys":["PROJ-1"],"targetIssueType":"Task"}}}'`,
-		Metadata:  commandMetadata(writeCommandMetadata(), requiredFlagMetadata("payload-json")),
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:  "payload-json",
-				Usage: "Full JSON payload with targetToSourcesMapping and optional sendBulkNotification (required)",
-			},
-		},
-		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
-			body, err := parseJSONPayload(cmd.String("payload-json"), "payload-json")
+func issueBulkMoveCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "bulk-move",
+		Short:   "Bulk move issues to a target project and issue type (up to 1000)",
+		Example: `jira-agent issue bulk-move --payload-json '{"targetToSourcesMapping":{"DEST":{"issueIdsOrKeys":["PROJ-1"],"targetIssueType":"Task"}}}'`,
+		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			body, err := parseJSONPayload(mustGetString(cmd, "payload-json"), "payload-json")
 			if err != nil {
 				return err
 			}
@@ -1628,30 +1437,18 @@ func issueBulkMoveCommand(apiClient *client.Ref, w io.Writer, format *output.For
 			})
 		}),
 	}
+	cmd.Flags().String("payload-json", "", "Full JSON payload with targetToSourcesMapping and optional sendBulkNotification (required)")
+	return cmd
 }
 
 // GET /rest/api/3/bulk/issues/transition
-func issueBulkTransitionsCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:      "bulk-transitions",
-		Usage:     "List available transitions for bulk transition",
-		UsageText: `jira-agent issue bulk-transitions --issues PROJ-1,PROJ-2,PROJ-3`,
-		Metadata:  requiredFlagMetadata("issues"),
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:  "issues",
-				Usage: "Comma-separated issue keys or IDs (required)",
-			},
-			&cli.StringFlag{
-				Name:  "ending-before",
-				Usage: "End cursor for pagination",
-			},
-			&cli.StringFlag{
-				Name:  "starting-after",
-				Usage: "Start cursor for pagination",
-			},
-		},
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+func issueBulkTransitionsCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "bulk-transitions",
+		Short:   "List available transitions for bulk transition",
+		Example: `jira-agent issue bulk-transitions --issues PROJ-1,PROJ-2,PROJ-3`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			issueStr, err := requireFlag(cmd, "issues")
 			if err != nil {
 				return err
@@ -1668,29 +1465,22 @@ func issueBulkTransitionsCommand(apiClient *client.Ref, w io.Writer, format *out
 			})
 		},
 	}
+	cmd.Flags().String("issues", "", "Comma-separated issue keys or IDs (required)")
+	cmd.Flags().String("ending-before", "", "End cursor for pagination")
+	cmd.Flags().String("starting-after", "", "Start cursor for pagination")
+	return cmd
 }
 
 // POST /rest/api/3/bulk/issues/transition
-func issueBulkTransitionCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:  "bulk-transition",
-		Usage: "Bulk transition issue statuses (up to 1000)",
-		UsageText: `jira-agent issue bulk-transition --transitions-json '[{"selectedIssueIdsOrKeys":["PROJ-1"],"transitionId":"11"}]'
+func issueBulkTransitionCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "bulk-transition",
+		Short: "Bulk transition issue statuses (up to 1000)",
+		Example: `jira-agent issue bulk-transition --transitions-json '[{"selectedIssueIdsOrKeys":["PROJ-1"],"transitionId":"11"}]'
 jira-agent issue bulk-transition --transitions-json '[{"selectedIssueIdsOrKeys":["PROJ-1"],"transitionId":"11"}]' --send-notification=false`,
-		Metadata: commandMetadata(writeCommandMetadata(), requiredFlagMetadata("transitions-json")),
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:  "transitions-json",
-				Usage: `JSON array of transition inputs, e.g. [{"selectedIssueIdsOrKeys":["PROJ-1"],"transitionId":"11"}] (required)`,
-			},
-			&cli.BoolFlag{
-				Name:  "send-notification",
-				Usage: "Send bulk notification email",
-				Value: true,
-			},
-		},
-		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
-			jsonStr := cmd.String("transitions-json")
+		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			jsonStr := mustGetString(cmd, "transitions-json")
 			if jsonStr == "" {
 				return apperr.NewValidationError("--transitions-json is required", nil)
 			}
@@ -1708,7 +1498,7 @@ jira-agent issue bulk-transition --transitions-json '[{"selectedIssueIdsOrKeys":
 
 			body := map[string]any{
 				"bulkTransitionInputs": inputs,
-				"sendBulkNotification": cmd.Bool("send-notification"),
+				"sendBulkNotification": mustGetBool(cmd, "send-notification"),
 			}
 
 			return writeAPIResult(w, *format, func(result any) error {
@@ -1716,17 +1506,20 @@ jira-agent issue bulk-transition --transitions-json '[{"selectedIssueIdsOrKeys":
 			})
 		}),
 	}
+	cmd.Flags().String("transitions-json", "", `JSON array of transition inputs, e.g. [{"selectedIssueIdsOrKeys":["PROJ-1"],"transitionId":"11"}] (required)`)
+	cmd.Flags().Bool("send-notification", true, "Send bulk notification email")
+	return cmd
 }
 
 // GET /rest/api/3/bulk/queue/{taskId}
-func issueBulkStatusCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:      "bulk-status",
-		Usage:     "Get bulk issue operation progress",
-		UsageText: `jira-agent issue bulk-status 10641`,
-		ArgsUsage: "<task-id>",
-		Action: func(ctx context.Context, cmd *cli.Command) error {
-			taskID, err := requireArg(cmd, "task ID")
+func issueBulkStatusCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "bulk-status <task-id>",
+		Short:   "Get bulk issue operation progress",
+		Example: `jira-agent issue bulk-status 10641`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			taskID, err := requireArg(args, "task ID")
 			if err != nil {
 				return err
 			}
@@ -1736,6 +1529,7 @@ func issueBulkStatusCommand(apiClient *client.Ref, w io.Writer, format *output.F
 			})
 		},
 	}
+	return cmd
 }
 
 // parseJSONPayload validates and parses a raw JSON string flag into a map.

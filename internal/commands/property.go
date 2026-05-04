@@ -7,7 +7,7 @@ import (
 	"io"
 	"strconv"
 
-	"github.com/urfave/cli/v3"
+	"github.com/spf13/cobra"
 
 	"github.com/major/jira-agent/internal/client"
 	apperr "github.com/major/jira-agent/internal/errors"
@@ -27,7 +27,7 @@ type propertyTarget struct {
 	api          propertyAPI
 }
 
-func issuePropertyCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
+func issuePropertyCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
 	return propertyCommand(issuePropertyTarget(apiClient), w, format, allowWrites)
 }
 
@@ -55,7 +55,7 @@ func issuePropertyTarget(apiClient *client.Ref) propertyTarget {
 	}
 }
 
-func projectPropertyCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
+func projectPropertyCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
 	return propertyCommand(projectPropertyTarget(apiClient), w, format, allowWrites)
 }
 
@@ -83,7 +83,7 @@ func projectPropertyTarget(apiClient *client.Ref) propertyTarget {
 	}
 }
 
-func sprintPropertyCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
+func sprintPropertyCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
 	return propertyCommand(sprintPropertyTarget(apiClient), w, format, allowWrites)
 }
 
@@ -113,7 +113,7 @@ func sprintPropertyTarget(apiClient *client.Ref) propertyTarget {
 	}
 }
 
-func boardPropertyCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
+func boardPropertyCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
 	return propertyCommand(boardPropertyTarget(apiClient), w, format, allowWrites)
 }
 
@@ -143,11 +143,11 @@ func boardPropertyTarget(apiClient *client.Ref) propertyTarget {
 	}
 }
 
-func propertyCommand(target propertyTarget, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:  "property",
-		Usage: fmt.Sprintf("Manage %s properties", target.resourceName),
-		UsageText: fmt.Sprintf(`jira-agent %s property list %s
+func propertyCommand(target propertyTarget, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "property",
+		Short: fmt.Sprintf("Manage %s properties", target.resourceName),
+		Example: fmt.Sprintf(`jira-agent %s property list %s
 jira-agent %s property get %s com.example.flag
 jira-agent %s property set %s com.example.flag --value-json '{"enabled":true}'`,
 			target.resourceName,
@@ -157,24 +157,25 @@ jira-agent %s property set %s com.example.flag --value-json '{"enabled":true}'`,
 			target.resourceName,
 			exampleResourceID(target.resourceName),
 		),
-		DefaultCommand: "list",
-		Commands: []*cli.Command{
-			propertyListCommand(target, w, format),
-			propertyGetCommand(target, w, format),
-			propertySetCommand(target, w, format, allowWrites),
-			propertyDeleteCommand(target, w, format, allowWrites),
-		},
 	}
+	cmd.AddCommand(
+		propertyListCommand(target, w, format),
+		propertyGetCommand(target, w, format),
+		propertySetCommand(target, w, format, allowWrites),
+		propertyDeleteCommand(target, w, format, allowWrites),
+	)
+	setDefaultSubcommand(cmd, "list")
+	return cmd
 }
 
-func propertyListCommand(target propertyTarget, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:      "list",
-		Usage:     fmt.Sprintf("List %s property keys", target.resourceName),
-		UsageText: fmt.Sprintf(`jira-agent %s property list %s`, target.resourceName, exampleResourceID(target.resourceName)),
-		ArgsUsage: "<" + target.idLabel + ">",
-		Action: func(ctx context.Context, cmd *cli.Command) error {
-			basePath, _, err := propertyBasePath(target, cmd)
+func propertyListCommand(target propertyTarget, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "list <" + target.idLabel + ">",
+		Short:   fmt.Sprintf("List %s property keys", target.resourceName),
+		Example: fmt.Sprintf(`jira-agent %s property list %s`, target.resourceName, exampleResourceID(target.resourceName)),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			basePath, _, err := propertyBasePath(target, args)
 			if err != nil {
 				return err
 			}
@@ -183,16 +184,17 @@ func propertyListCommand(target propertyTarget, w io.Writer, format *output.Form
 			})
 		},
 	}
+	return cmd
 }
 
-func propertyGetCommand(target propertyTarget, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:      "get",
-		Usage:     fmt.Sprintf("Get a %s property", target.resourceName),
-		UsageText: fmt.Sprintf(`jira-agent %s property get %s com.example.flag`, target.resourceName, exampleResourceID(target.resourceName)),
-		ArgsUsage: "<" + target.idLabel + "> <property-key>",
-		Action: func(ctx context.Context, cmd *cli.Command) error {
-			basePath, propertyKey, err := propertyPathParts(target, cmd)
+func propertyGetCommand(target propertyTarget, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "get <" + target.idLabel + "> <property-key>",
+		Short:   fmt.Sprintf("Get a %s property", target.resourceName),
+		Example: fmt.Sprintf(`jira-agent %s property get %s com.example.flag`, target.resourceName, exampleResourceID(target.resourceName)),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			basePath, propertyKey, err := propertyPathParts(target, args)
 			if err != nil {
 				return err
 			}
@@ -202,28 +204,21 @@ func propertyGetCommand(target propertyTarget, w io.Writer, format *output.Forma
 			})
 		},
 	}
+	return cmd
 }
 
-func propertySetCommand(target propertyTarget, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:      "set",
-		Usage:     fmt.Sprintf("Set a %s property", target.resourceName),
-		UsageText: fmt.Sprintf(`jira-agent %s property set %s com.example.flag --value-json '{"enabled":true}'`, target.resourceName, exampleResourceID(target.resourceName)),
-		ArgsUsage: "<" + target.idLabel + "> <property-key>",
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:     "value-json",
-				Usage:    "Property value as raw JSON (required)",
-				Required: true,
-			},
-		},
-		Metadata: writeCommandMetadata(),
-		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
-			basePath, propertyKey, err := propertyPathParts(target, cmd)
+func propertySetCommand(target propertyTarget, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "set <" + target.idLabel + "> <property-key>",
+		Short:   fmt.Sprintf("Set a %s property", target.resourceName),
+		Example: fmt.Sprintf(`jira-agent %s property set %s com.example.flag --value-json '{"enabled":true}'`, target.resourceName, exampleResourceID(target.resourceName)),
+		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			basePath, propertyKey, err := propertyPathParts(target, args)
 			if err != nil {
 				return err
 			}
-			value, err := parsePropertyValue(cmd.String("value-json"))
+			value, err := parsePropertyValue(mustGetString(cmd, "value-json"))
 			if err != nil {
 				return err
 			}
@@ -233,17 +228,19 @@ func propertySetCommand(target propertyTarget, w io.Writer, format *output.Forma
 			})
 		}),
 	}
+	cmd.Flags().String("value-json", "", "Property value as raw JSON (required)")
+	_ = cmd.MarkFlagRequired("value-json")
+	return cmd
 }
 
-func propertyDeleteCommand(target propertyTarget, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:      "delete",
-		Usage:     fmt.Sprintf("Delete a %s property", target.resourceName),
-		UsageText: fmt.Sprintf(`jira-agent %s property delete %s com.example.flag`, target.resourceName, exampleResourceID(target.resourceName)),
-		ArgsUsage: "<" + target.idLabel + "> <property-key>",
-		Metadata:  writeCommandMetadata(),
-		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
-			basePath, propertyKey, err := propertyPathParts(target, cmd)
+func propertyDeleteCommand(target propertyTarget, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "delete <" + target.idLabel + "> <property-key>",
+		Short:   fmt.Sprintf("Delete a %s property", target.resourceName),
+		Example: fmt.Sprintf(`jira-agent %s property delete %s com.example.flag`, target.resourceName, exampleResourceID(target.resourceName)),
+		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			basePath, propertyKey, err := propertyPathParts(target, args)
 			if err != nil {
 				return err
 			}
@@ -258,18 +255,19 @@ func propertyDeleteCommand(target propertyTarget, w io.Writer, format *output.Fo
 			}, *format)
 		}),
 	}
+	return cmd
 }
 
-func propertyBasePath(target propertyTarget, cmd *cli.Command) (basePath, canonicalID string, err error) {
-	resourceID, err := requireArg(cmd, target.idLabel)
+func propertyBasePath(target propertyTarget, positionalArgs []string) (basePath, canonicalID string, err error) {
+	resourceID, err := requireArg(positionalArgs, target.idLabel)
 	if err != nil {
 		return "", "", err
 	}
 	return target.basePath(resourceID)
 }
 
-func propertyPathParts(target propertyTarget, cmd *cli.Command) (basePath, propertyKey string, err error) {
-	args, err := requireArgs(cmd, target.idLabel, "property key")
+func propertyPathParts(target propertyTarget, positionalArgs []string) (basePath, propertyKey string, err error) {
+	args, err := requireArgs(positionalArgs, target.idLabel, "property key")
 	if err != nil {
 		return "", "", err
 	}

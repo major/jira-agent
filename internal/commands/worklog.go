@@ -1,49 +1,46 @@
 package commands
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 
-	"github.com/urfave/cli/v3"
+	"github.com/spf13/cobra"
 
 	"github.com/major/jira-agent/internal/client"
 	apperr "github.com/major/jira-agent/internal/errors"
 	"github.com/major/jira-agent/internal/output"
 )
 
-func issueWorklogCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:  "worklog",
-		Usage: "Worklog operations (list, add, edit, delete)",
-		UsageText: `jira-agent issue worklog list PROJ-123
+func issueWorklogCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "worklog",
+		Short: "Worklog operations (list, add, edit, delete)",
+		Example: `jira-agent issue worklog list PROJ-123
 jira-agent issue worklog add PROJ-123 --time-spent 2h`,
-		DefaultCommand: "list",
-		Commands: []*cli.Command{
-			worklogListCommand(apiClient, w, format),
-			worklogGetCommand(apiClient, w, format),
-			worklogUpdatedCommand(apiClient, w, format),
-			worklogDeletedCommand(apiClient, w, format),
-			worklogListByIDsCommand(apiClient, w, format),
-			worklogAddCommand(apiClient, w, format, allowWrites),
-			worklogEditCommand(apiClient, w, format, allowWrites),
-			worklogDeleteCommand(apiClient, w, format, allowWrites),
-		},
 	}
+	cmd.AddCommand(
+		worklogListCommand(apiClient, w, format),
+		worklogGetCommand(apiClient, w, format),
+		worklogUpdatedCommand(apiClient, w, format),
+		worklogDeletedCommand(apiClient, w, format),
+		worklogListByIDsCommand(apiClient, w, format),
+		worklogAddCommand(apiClient, w, format, allowWrites),
+		worklogEditCommand(apiClient, w, format, allowWrites),
+		worklogDeleteCommand(apiClient, w, format, allowWrites),
+	)
+	setDefaultSubcommand(cmd, "list")
+	return cmd
 }
 
-func worklogGetCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:      "get",
-		Usage:     "Get a single worklog",
-		UsageText: `jira-agent issue worklog get PROJ-123 12345`,
-		ArgsUsage: "<issue-key> <worklog-id>",
-		Flags: []cli.Flag{
-			&cli.StringFlag{Name: "expand", Usage: "Comma-separated expansions (properties)"},
-		},
-		Action: func(ctx context.Context, cmd *cli.Command) error {
-			args, err := requireArgs(cmd, "issue key", "worklog ID")
+func worklogGetCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "get <issue-key> <worklog-id>",
+		Short:   "Get a single worklog",
+		Example: `jira-agent issue worklog get PROJ-123 12345`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			args, err := requireArgs(args, "issue key", "worklog ID")
 			if err != nil {
 				return err
 			}
@@ -57,18 +54,17 @@ func worklogGetCommand(apiClient *client.Ref, w io.Writer, format *output.Format
 			})
 		},
 	}
+	cmd.Flags().String("expand", "", "Comma-separated expansions (properties)")
+	return cmd
 }
 
-func worklogUpdatedCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:      "updated",
-		Usage:     "List updated worklogs",
-		UsageText: `jira-agent issue worklog updated --since 1700000000000`,
-		Flags: []cli.Flag{
-			&cli.StringFlag{Name: "since", Usage: "Unix timestamp in milliseconds"},
-			&cli.StringFlag{Name: "expand", Usage: "Comma-separated expansions (properties)"},
-		},
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+func worklogUpdatedCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "updated",
+		Short:   "List updated worklogs",
+		Example: `jira-agent issue worklog updated --since 1700000000000`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			params := map[string]string{}
 			addOptionalParams(cmd, params, map[string]string{"since": "since", "expand": "expand"})
 			return writePaginatedAPIResult(w, *format, func(result any) error {
@@ -76,17 +72,18 @@ func worklogUpdatedCommand(apiClient *client.Ref, w io.Writer, format *output.Fo
 			})
 		},
 	}
+	cmd.Flags().String("since", "", "Unix timestamp in milliseconds")
+	cmd.Flags().String("expand", "", "Comma-separated expansions (properties)")
+	return cmd
 }
 
-func worklogDeletedCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:      "deleted",
-		Usage:     "List deleted worklogs",
-		UsageText: `jira-agent issue worklog deleted --since 1700000000000`,
-		Flags: []cli.Flag{
-			&cli.StringFlag{Name: "since", Usage: "Unix timestamp in milliseconds"},
-		},
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+func worklogDeletedCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "deleted",
+		Short:   "List deleted worklogs",
+		Example: `jira-agent issue worklog deleted --since 1700000000000`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			params := map[string]string{}
 			addOptionalParams(cmd, params, map[string]string{"since": "since"})
 			return writePaginatedAPIResult(w, *format, func(result any) error {
@@ -94,19 +91,17 @@ func worklogDeletedCommand(apiClient *client.Ref, w io.Writer, format *output.Fo
 			})
 		},
 	}
+	cmd.Flags().String("since", "", "Unix timestamp in milliseconds")
+	return cmd
 }
 
-func worklogListByIDsCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:      "list-by-ids",
-		Usage:     "Get worklogs by IDs",
-		UsageText: `jira-agent issue worklog list-by-ids --ids 12345,67890`,
-		Metadata:  requiredFlagMetadata("ids"),
-		Flags: []cli.Flag{
-			&cli.StringFlag{Name: "ids", Usage: "Comma-separated worklog IDs (required)"},
-			&cli.StringFlag{Name: "expand", Usage: "Comma-separated expansions (properties)"},
-		},
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+func worklogListByIDsCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "list-by-ids",
+		Short:   "Get worklogs by IDs",
+		Example: `jira-agent issue worklog list-by-ids --ids 12345,67890`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			idsFlag, err := requireFlag(cmd, "ids")
 			if err != nil {
 				return err
@@ -125,23 +120,19 @@ func worklogListByIDsCommand(apiClient *client.Ref, w io.Writer, format *output.
 			})
 		},
 	}
+	cmd.Flags().String("ids", "", "Comma-separated worklog IDs (required)")
+	cmd.Flags().String("expand", "", "Comma-separated expansions (properties)")
+	return cmd
 }
 
-func worklogListCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:      "list",
-		Usage:     "List worklogs on an issue",
-		UsageText: `jira-agent issue worklog list PROJ-123`,
-		ArgsUsage: "<issue-key>",
-		Flags: []cli.Flag{
-			&cli.IntFlag{Name: "start-at", Usage: "Pagination offset", Value: 0},
-			&cli.IntFlag{Name: "max-results", Usage: "Page size", Value: 20},
-			&cli.StringFlag{Name: "started-after", Usage: "Only worklogs started after this Unix timestamp in milliseconds"},
-			&cli.StringFlag{Name: "started-before", Usage: "Only worklogs started before this Unix timestamp in milliseconds"},
-			&cli.StringFlag{Name: "expand", Usage: "Comma-separated expansions (properties)", Value: ""},
-		},
-		Action: func(ctx context.Context, cmd *cli.Command) error {
-			key, err := requireArg(cmd, "issue key")
+func worklogListCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "list <issue-key>",
+		Short:   "List worklogs on an issue",
+		Example: `jira-agent issue worklog list PROJ-123`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			key, err := requireArg(args, "issue key")
 			if err != nil {
 				return err
 			}
@@ -157,18 +148,23 @@ func worklogListCommand(apiClient *client.Ref, w io.Writer, format *output.Forma
 			})
 		},
 	}
+	cmd.Flags().Int("start-at", 0, "Pagination offset")
+	cmd.Flags().Int("max-results", 20, "Page size")
+	cmd.Flags().String("started-after", "", "Only worklogs started after this Unix timestamp in milliseconds")
+	cmd.Flags().String("started-before", "", "Only worklogs started before this Unix timestamp in milliseconds")
+	cmd.Flags().String("expand", "", "Comma-separated expansions (properties)")
+	return cmd
 }
 
-func worklogAddCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:  "add",
-		Usage: "Add a worklog to an issue",
-		UsageText: `jira-agent issue worklog add PROJ-123 --time-spent 2h
+func worklogAddCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "add <issue-key>",
+		Short: "Add a worklog to an issue",
+		Example: `jira-agent issue worklog add PROJ-123 --time-spent 2h
 jira-agent issue worklog add PROJ-123 --time-spent 30m --started "2025-01-15T09:00:00.000+0000"`,
-		ArgsUsage: "<issue-key>",
-		Flags:     worklogMutationFlags(),
-		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
-			key, err := requireArg(cmd, "issue key")
+		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			key, err := requireArg(args, "issue key")
 			if err != nil {
 				return err
 			}
@@ -184,17 +180,18 @@ jira-agent issue worklog add PROJ-123 --time-spent 30m --started "2025-01-15T09:
 			})
 		}),
 	}
+	appendWorklogMutationFlags(cmd)
+	return cmd
 }
 
-func worklogEditCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:      "edit",
-		Usage:     "Edit an existing worklog",
-		UsageText: `jira-agent issue worklog edit PROJ-123 12345 --time-spent 3h`,
-		ArgsUsage: "<issue-key> <worklog-id>",
-		Flags:     worklogMutationFlags(),
-		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
-			args, err := requireArgs(cmd, "issue key", "worklog ID")
+func worklogEditCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "edit <issue-key> <worklog-id>",
+		Short:   "Edit an existing worklog",
+		Example: `jira-agent issue worklog edit PROJ-123 12345 --time-spent 3h`,
+		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			args, err := requireArgs(args, "issue key", "worklog ID")
 			if err != nil {
 				return err
 			}
@@ -214,23 +211,18 @@ func worklogEditCommand(apiClient *client.Ref, w io.Writer, format *output.Forma
 			})
 		}),
 	}
+	appendWorklogMutationFlags(cmd)
+	return cmd
 }
 
-func worklogDeleteCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:      "delete",
-		Usage:     "Delete a worklog",
-		UsageText: `jira-agent issue worklog delete PROJ-123 12345`,
-		ArgsUsage: "<issue-key> <worklog-id>",
-		Flags: []cli.Flag{
-			&cli.BoolFlag{Name: "notify", Usage: "Send notification to watchers", Value: true},
-			&cli.StringFlag{Name: "adjust-estimate", Usage: "Estimate adjustment: auto, leave, manual, new"},
-			&cli.StringFlag{Name: "new-estimate", Usage: "New remaining estimate when adjust-estimate is new"},
-			&cli.StringFlag{Name: "increase-by", Usage: "Increase remaining estimate when adjust-estimate is manual"},
-			&cli.BoolFlag{Name: "override-editable-flag", Usage: "Override worklog editable flag"},
-		},
-		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
-			args, err := requireArgs(cmd, "issue key", "worklog ID")
+func worklogDeleteCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "delete <issue-key> <worklog-id>",
+		Short:   "Delete a worklog",
+		Example: `jira-agent issue worklog delete PROJ-123 12345`,
+		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			args, err := requireArgs(args, "issue key", "worklog ID")
 			if err != nil {
 				return err
 			}
@@ -251,38 +243,42 @@ func worklogDeleteCommand(apiClient *client.Ref, w io.Writer, format *output.For
 			}, *format)
 		}),
 	}
+	cmd.Flags().Bool("notify", true, "Send notification to watchers")
+	cmd.Flags().String("adjust-estimate", "", "Estimate adjustment: auto, leave, manual, new")
+	cmd.Flags().String("new-estimate", "", "New remaining estimate when adjust-estimate is new")
+	cmd.Flags().String("increase-by", "", "Increase remaining estimate when adjust-estimate is manual")
+	cmd.Flags().Bool("override-editable-flag", false, "Override worklog editable flag")
+	return cmd
 }
 
-func worklogMutationFlags() []cli.Flag {
-	return []cli.Flag{
-		&cli.StringFlag{Name: "started", Usage: "Worklog start timestamp, e.g. 2026-04-27T10:00:00.000-0500"},
-		&cli.StringFlag{Name: "time-spent", Usage: "Time spent, such as 1h 30m"},
-		&cli.IntFlag{Name: "time-spent-seconds", Usage: "Time spent in seconds"},
-		&cli.StringFlag{Name: "comment", Usage: "Worklog comment (plain text or ADF JSON)"},
-		&cli.StringFlag{Name: "visibility-type", Usage: "Visibility restriction type: group or role"},
-		&cli.StringFlag{Name: "visibility-value", Usage: "Visibility restriction value (group/role name)"},
-		&cli.StringFlag{Name: "properties-json", Usage: "JSON array of worklog properties"},
-		&cli.StringFlag{Name: "expand", Usage: "Comma-separated expansions (properties)"},
-		&cli.BoolFlag{Name: "notify", Usage: "Send notification to watchers", Value: true},
-		&cli.StringFlag{Name: "adjust-estimate", Usage: "Estimate adjustment: auto, leave, manual, new"},
-		&cli.StringFlag{Name: "new-estimate", Usage: "New remaining estimate when adjust-estimate is new"},
-		&cli.StringFlag{Name: "reduce-by", Usage: "Amount to reduce remaining estimate when adjust-estimate is manual"},
-		&cli.BoolFlag{Name: "override-editable-flag", Usage: "Override worklog editable flag"},
-	}
+func appendWorklogMutationFlags(cmd *cobra.Command) {
+	cmd.Flags().String("started", "", "Worklog start timestamp, e.g. 2026-04-27T10:00:00.000-0500")
+	cmd.Flags().String("time-spent", "", "Time spent, such as 1h 30m")
+	cmd.Flags().Int("time-spent-seconds", 0, "Time spent in seconds")
+	cmd.Flags().String("comment", "", "Worklog comment (plain text or ADF JSON)")
+	cmd.Flags().String("visibility-type", "", "Visibility restriction type: group or role")
+	cmd.Flags().String("visibility-value", "", "Visibility restriction value (group/role name)")
+	cmd.Flags().String("properties-json", "", "JSON array of worklog properties")
+	cmd.Flags().String("expand", "", "Comma-separated expansions (properties)")
+	cmd.Flags().Bool("notify", true, "Send notification to watchers")
+	cmd.Flags().String("adjust-estimate", "", "Estimate adjustment: auto, leave, manual, new")
+	cmd.Flags().String("new-estimate", "", "New remaining estimate when adjust-estimate is new")
+	cmd.Flags().String("reduce-by", "", "Amount to reduce remaining estimate when adjust-estimate is manual")
+	cmd.Flags().Bool("override-editable-flag", false, "Override worklog editable flag")
 }
 
-func buildWorklogBody(cmd *cli.Command, requireCoreFields bool) (map[string]any, error) {
+func buildWorklogBody(cmd *cobra.Command, requireCoreFields bool) (map[string]any, error) {
 	body := map[string]any{}
-	if started := cmd.String("started"); started != "" {
+	if started := mustGetString(cmd, "started"); started != "" {
 		body["started"] = started
 	}
-	if timeSpent := cmd.String("time-spent"); timeSpent != "" {
+	if timeSpent := mustGetString(cmd, "time-spent"); timeSpent != "" {
 		body["timeSpent"] = timeSpent
 	}
-	if seconds := cmd.Int("time-spent-seconds"); seconds > 0 {
+	if seconds := mustGetInt(cmd, "time-spent-seconds"); seconds > 0 {
 		body["timeSpentSeconds"] = seconds
 	}
-	if comment := cmd.String("comment"); comment != "" {
+	if comment := mustGetString(cmd, "comment"); comment != "" {
 		body["comment"] = toADF(comment)
 	}
 	vt, vv, err := requireVisibilityFlags(cmd)
@@ -292,7 +288,7 @@ func buildWorklogBody(cmd *cli.Command, requireCoreFields bool) (map[string]any,
 	if vt != "" {
 		body["visibility"] = map[string]any{"type": vt, "value": vv}
 	}
-	if propertiesJSON := cmd.String("properties-json"); propertiesJSON != "" {
+	if propertiesJSON := mustGetString(cmd, "properties-json"); propertiesJSON != "" {
 		properties, err := parseWorklogProperties(propertiesJSON)
 		if err != nil {
 			return nil, err
@@ -326,9 +322,9 @@ func parseWorklogProperties(jsonStr string) ([]any, error) {
 	return properties, nil
 }
 
-func worklogMutationParams(cmd *cli.Command, includeIncreaseBy bool) map[string]string {
+func worklogMutationParams(cmd *cobra.Command, includeIncreaseBy bool) map[string]string {
 	params := map[string]string{}
-	if !cmd.Bool("notify") {
+	if !mustGetBool(cmd, "notify") {
 		params["notifyUsers"] = "false"
 	}
 	addOptionalParams(cmd, params, map[string]string{

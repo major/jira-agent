@@ -1,10 +1,9 @@
 package commands
 
 import (
-	"context"
 	"io"
 
-	"github.com/urfave/cli/v3"
+	"github.com/spf13/cobra"
 
 	"github.com/major/jira-agent/internal/client"
 	"github.com/major/jira-agent/internal/output"
@@ -12,64 +11,50 @@ import (
 
 // JQLCommand returns the "jql" parent command for JQL autocomplete and
 // validation helpers.
-func JQLCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:  "jql",
-		Usage: "JQL autocomplete and validation helpers",
-		UsageText: `jira-agent jql fields
+func JQLCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "jql",
+		Short: "JQL autocomplete and validation helpers",
+		Example: `jira-agent jql fields
 jira-agent jql suggest --field-name status
 jira-agent jql validate --query "project = PROJ AND status = Open"`,
-		Commands: []*cli.Command{
-			jqlFieldsCommand(apiClient, w, format),
-			jqlSuggestCommand(apiClient, w, format),
-			jqlValidateCommand(apiClient, w, format),
-		},
 	}
+	cmd.AddCommand(
+		jqlFieldsCommand(apiClient, w, format),
+		jqlSuggestCommand(apiClient, w, format),
+		jqlValidateCommand(apiClient, w, format),
+	)
+	return cmd
 }
 
 // GET /rest/api/3/jql/autocompletedata
-func jqlFieldsCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:  "fields",
-		Usage: "List JQL field reference data (field names, operators, functions, reserved words)",
-		UsageText: `jira-agent jql fields`,
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+func jqlFieldsCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "fields",
+		Short:   "List JQL field reference data (field names, operators, functions, reserved words)",
+		Example: `jira-agent jql fields`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			return writeAPIResult(w, *format, func(result any) error {
 				return apiClient.Get(ctx, "/jql/autocompletedata", nil, result)
 			})
 		},
 	}
+	return cmd
 }
 
 // GET /rest/api/3/jql/autocompletedata/suggestions
-func jqlSuggestCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:  "suggest",
-		Usage: "Get JQL autocomplete suggestions for a field value",
-		UsageText: `jira-agent jql suggest --field-name status
+func jqlSuggestCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "suggest",
+		Short: "Get JQL autocomplete suggestions for a field value",
+		Example: `jira-agent jql suggest --field-name status
 jira-agent jql suggest --field-name priority --field-value Hi`,
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:     "field-name",
-				Usage:    "field to get suggestions for (e.g. reporter, assignee, project)",
-				Required: true,
-			},
-			&cli.StringFlag{
-				Name:  "field-value",
-				Usage: "partial value to filter suggestions",
-			},
-			&cli.StringFlag{
-				Name:  "predicate-name",
-				Usage: "CHANGED operator predicate (by, from, to)",
-			},
-			&cli.StringFlag{
-				Name:  "predicate-value",
-				Usage: "partial predicate value to filter suggestions",
-			},
-		},
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			fieldName, _ := cmd.Flags().GetString("field-name")
 			params := map[string]string{
-				"fieldName": cmd.String("field-name"),
+				"fieldName": fieldName,
 			}
 			addOptionalParams(cmd, params, map[string]string{
 				"field-value":     "fieldValue",
@@ -82,33 +67,29 @@ jira-agent jql suggest --field-name priority --field-value Hi`,
 			})
 		},
 	}
+	cmd.Flags().String("field-name", "", "field to get suggestions for (e.g. reporter, assignee, project)")
+	_ = cmd.MarkFlagRequired("field-name")
+	cmd.Flags().String("field-value", "", "partial value to filter suggestions")
+	cmd.Flags().String("predicate-name", "", "CHANGED operator predicate (by, from, to)")
+	cmd.Flags().String("predicate-value", "", "partial predicate value to filter suggestions")
+	return cmd
 }
 
 // POST /rest/api/3/jql/parse
-func jqlValidateCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:  "validate",
-		Usage: "Parse and validate one or more JQL queries",
-		UsageText: `jira-agent jql validate --query "project = PROJ AND status = Open"`,
-		Flags: []cli.Flag{
-			&cli.StringSliceFlag{
-				Name:     "query",
-				Aliases:  []string{"q"},
-				Usage:    "JQL query to validate (repeatable)",
-				Required: true,
-			},
-			&cli.StringFlag{
-				Name:  "validation",
-				Usage: "validation mode: strict, warn, or none",
-				Value: "strict",
-			},
-		},
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+func jqlValidateCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "validate",
+		Short:   "Parse and validate one or more JQL queries",
+		Example: `jira-agent jql validate --query "project = PROJ AND status = Open"`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			queries, _ := cmd.Flags().GetStringSlice("query")
+			validation, _ := cmd.Flags().GetString("validation")
 			body := map[string]any{
-				"queries": cmd.StringSlice("query"),
+				"queries": queries,
 			}
 			path := appendQueryParams("/jql/parse", map[string]string{
-				"validation": cmd.String("validation"),
+				"validation": validation,
 			})
 
 			return writeAPIResult(w, *format, func(result any) error {
@@ -116,4 +97,8 @@ func jqlValidateCommand(apiClient *client.Ref, w io.Writer, format *output.Forma
 			})
 		},
 	}
+	cmd.Flags().StringSliceP("query", "q", nil, "JQL query to validate (repeatable)")
+	_ = cmd.MarkFlagRequired("query")
+	cmd.Flags().String("validation", "strict", "validation mode: strict, warn, or none")
+	return cmd
 }

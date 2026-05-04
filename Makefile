@@ -2,13 +2,20 @@ GORELEASER ?= goreleaser
 GORELEASER_SNAPSHOT_ARGS ?= --snapshot --clean --skip=sign
 GOVULNCHECK ?= go run golang.org/x/vuln/cmd/govulncheck@latest
 
-.PHONY: build test lint vuln clean install release-check release-snapshot release
+.PHONY: build test smoke lint vuln clean install release-check release-snapshot release
 
 build:
 	go build -o jira-agent ./cmd/jira-agent/
 
 test:
 	go test -v -race -shuffle=on -coverprofile=coverage.out ./...
+
+SMOKE_PROJECT ?= RSPEED
+SMOKE_ISSUE ?= RSPEED-2229
+
+smoke: build
+	SMOKE_PROJECT=$(SMOKE_PROJECT) SMOKE_ISSUE=$(SMOKE_ISSUE) \
+		go test -v -tags smoke_live -count=1 -timeout=120s ./cmd/jira-agent/
 
 lint:
 	golangci-lint run ./...

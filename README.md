@@ -11,7 +11,7 @@
 
 This is an unofficial project. It is not produced, endorsed, supported, or affiliated with Atlassian or the official Jira product teams.
 
-It wraps the Jira REST API v3 and Jira Software Agile API with structured output, schema discovery, deterministic exit codes, and write protection by default. Human users can run it directly, but the main contract is helping tool-calling agents discover the right Jira command without scraping help text.
+It wraps the Jira REST API v3 and Jira Software Agile API with structured output, command-line help, deterministic exit codes, and write protection by default. Human users can run it directly, but the main contract is helping tool-calling agents discover the right Jira command without scraping help text.
 
 ## Install
 
@@ -25,7 +25,7 @@ Verify the binary:
 
 ```bash
 jira-agent --version
-jira-agent schema --compact
+jira-agent --help
 ```
 
 ## Configure
@@ -72,12 +72,12 @@ Blocked writes return a JSON validation error with exit code `5` and remediation
 
 ## Usage
 
-Start with schema discovery instead of guessing flags:
+Start with `--help` to discover available commands and flags:
 
 ```bash
-jira-agent schema --compact
-jira-agent schema --category issue --required-only --depth 1
-jira-agent schema --command "issue create" --required-only
+jira-agent --help
+jira-agent issue --help
+jira-agent issue create --help
 ```
 
 Common read-only commands:
@@ -112,7 +112,7 @@ Default JSON removes noisy Jira metadata such as `self`, `expand`, `avatarUrls`,
 | Projects | projects, components, versions | [`skills/jira-agent/project-management.md`](./skills/jira-agent/project-management.md) |
 | Admin/reference | fields, users, groups, filters, permissions, dashboards, workflows, statuses, JQL, server info | [`skills/jira-agent/admin-reference.md`](./skills/jira-agent/admin-reference.md) |
 
-The skill entry point, [`skills/jira-agent/SKILL.md`](./skills/jira-agent/SKILL.md), documents auth, global flags, schema discovery, output contracts, exit codes, and Jira-specific gotchas for agents.
+The skill entry point, [`skills/jira-agent/SKILL.md`](./skills/jira-agent/SKILL.md), documents auth, global flags, command discovery, output contracts, exit codes, and Jira-specific gotchas for agents.
 
 ## Output contract
 
@@ -159,7 +159,7 @@ make lint
 make vuln
 ```
 
-The project uses Go 1.26, `urfave/cli/v3`, `golangci-lint`, `govulncheck`, and GoReleaser. See [`AGENTS.md`](./AGENTS.md) for repository architecture, command conventions, testing expectations, and release workflow details.
+The project uses Go 1.26, `spf13/cobra`, `golangci-lint`, `govulncheck`, and GoReleaser. See [`AGENTS.md`](./AGENTS.md) for repository architecture, command conventions, testing expectations, and release workflow details.
 
 ## License
 

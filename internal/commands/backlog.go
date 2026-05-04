@@ -1,11 +1,10 @@
 package commands
 
 import (
-	"context"
 	"io"
 	"strconv"
 
-	"github.com/urfave/cli/v3"
+	"github.com/spf13/cobra"
 
 	"github.com/major/jira-agent/internal/client"
 	apperr "github.com/major/jira-agent/internal/errors"
@@ -13,44 +12,32 @@ import (
 )
 
 // BacklogCommand returns the top-level "backlog" command with Agile backlog operations.
-func BacklogCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:  "backlog",
-		Usage: "Agile backlog operations (list, move)",
-		UsageText: `jira-agent backlog list --board-id 42
+func BacklogCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "backlog",
+		Short: "Agile backlog operations (list, move)",
+		Example: `jira-agent backlog list --board-id 42
 jira-agent backlog move --issues PROJ-1,PROJ-2`,
-		DefaultCommand: "list",
-		Commands: []*cli.Command{
-			backlogListCommand(apiClient, w, format),
-			backlogMoveCommand(apiClient, w, format, allowWrites),
-		},
 	}
+	cmd.AddCommand(
+		backlogListCommand(apiClient, w, format),
+		backlogMoveCommand(apiClient, w, format, allowWrites),
+	)
+	setDefaultSubcommand(cmd, "list")
+	return cmd
 }
 
 // backlogListCommand lists issues in the backlog for a board.
 // GET /rest/agile/1.0/board/{boardId}/backlog
-func backlogListCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:  "list",
-		Usage: "List backlog issues for a board",
-		UsageText: `jira-agent backlog list --board-id 42`,
-		Flags: appendPaginationFlags([]cli.Flag{
-			&cli.StringFlag{
-				Name:     "board-id",
-				Usage:    "Board ID (required)",
-				Required: true,
-			},
-			&cli.StringFlag{
-				Name:  "jql",
-				Usage: "JQL filter to apply",
-			},
-			&cli.StringFlag{
-				Name:  "fields",
-				Usage: "Comma-separated list of fields to return",
-			},
-		}),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
-			boardID, err := parseBoardID(cmd.String("board-id"))
+func backlogListCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "list",
+		Short:   "List backlog issues for a board",
+		Example: `jira-agent backlog list --board-id 42`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			boardIDStr, _ := cmd.Flags().GetString("board-id")
+			boardID, err := parseBoardID(boardIDStr)
 			if err != nil {
 				return err
 			}
@@ -67,24 +54,25 @@ func backlogListCommand(apiClient *client.Ref, w io.Writer, format *output.Forma
 			})
 		},
 	}
+	cmd.Flags().String("board-id", "", "Board ID (required)")
+	_ = cmd.MarkFlagRequired("board-id")
+	cmd.Flags().String("jql", "", "JQL filter to apply")
+	cmd.Flags().String("fields", "", "Comma-separated list of fields to return")
+	appendPaginationFlags(cmd)
+	return cmd
 }
 
 // backlogMoveCommand moves issues to the backlog.
 // POST /rest/agile/1.0/backlog/issue
-func backlogMoveCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:  "move",
-		Usage: "Move issues to the backlog",
-		UsageText: `jira-agent backlog move --issues PROJ-1,PROJ-2`,
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:     "issues",
-				Usage:    "Comma-separated issue keys to move to backlog (required)",
-				Required: true,
-			},
-		},
-		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
-			issues := splitTrimmed(cmd.String("issues"))
+func backlogMoveCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "move",
+		Short:   "Move issues to the backlog",
+		Example: `jira-agent backlog move --issues PROJ-1,PROJ-2`,
+		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			issuesStr, _ := cmd.Flags().GetString("issues")
+			issues := splitTrimmed(issuesStr)
 			if len(issues) == 0 {
 				return apperr.NewValidationError("at least one issue key is required", nil)
 			}
@@ -102,4 +90,7 @@ func backlogMoveCommand(apiClient *client.Ref, w io.Writer, format *output.Forma
 			}, *format)
 		}),
 	}
+	cmd.Flags().String("issues", "", "Comma-separated issue keys to move to backlog (required)")
+	_ = cmd.MarkFlagRequired("issues")
+	return cmd
 }

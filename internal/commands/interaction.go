@@ -1,74 +1,76 @@
 package commands
 
 import (
-	"context"
 	"io"
 	"os"
 	"path/filepath"
 
-	"github.com/urfave/cli/v3"
+	"github.com/spf13/cobra"
 
 	"github.com/major/jira-agent/internal/client"
 	apperr "github.com/major/jira-agent/internal/errors"
 	"github.com/major/jira-agent/internal/output"
 )
 
-func issueWatcherCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:  "watcher",
-		Usage: "Watcher operations (list, add, remove)",
-		UsageText: `jira-agent issue watcher list PROJ-123
+func issueWatcherCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "watcher",
+		Short: "Watcher operations (list, add, remove)",
+		Example: `jira-agent issue watcher list PROJ-123
 jira-agent issue watcher add PROJ-123 --account-id 5b10a284
 jira-agent issue watcher remove PROJ-123 --account-id 5b10a284`,
-		DefaultCommand: "list",
-		Commands: []*cli.Command{
-			watcherListCommand(apiClient, w, format),
-			watcherAddCommand(apiClient, w, format, allowWrites),
-			watcherRemoveCommand(apiClient, w, format, allowWrites),
-		},
 	}
+	cmd.AddCommand(
+		watcherListCommand(apiClient, w, format),
+		watcherAddCommand(apiClient, w, format, allowWrites),
+		watcherRemoveCommand(apiClient, w, format, allowWrites),
+	)
+	setDefaultSubcommand(cmd, "list")
+	return cmd
 }
 
-func issueVoteCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:  "vote",
-		Usage: "Vote operations (get, add, remove)",
-		UsageText: `jira-agent issue vote get PROJ-123
+func issueVoteCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "vote",
+		Short: "Vote operations (get, add, remove)",
+		Example: `jira-agent issue vote get PROJ-123
 jira-agent issue vote add PROJ-123
 jira-agent issue vote remove PROJ-123`,
-		Commands: []*cli.Command{
-			voteGetCommand(apiClient, w, format),
-			voteAddCommand(apiClient, w, format, allowWrites),
-			voteRemoveCommand(apiClient, w, format, allowWrites),
-		},
 	}
+	cmd.AddCommand(
+		voteGetCommand(apiClient, w, format),
+		voteAddCommand(apiClient, w, format, allowWrites),
+		voteRemoveCommand(apiClient, w, format, allowWrites),
+	)
+	return cmd
 }
 
-func issueAttachmentCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:  "attachment",
-		Usage: "Attachment operations (list, add, get, delete)",
-		UsageText: `jira-agent issue attachment list PROJ-123
+func issueAttachmentCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "attachment",
+		Short: "Attachment operations (list, add, get, delete)",
+		Example: `jira-agent issue attachment list PROJ-123
 jira-agent issue attachment add PROJ-123 --file report.pdf
 jira-agent issue attachment get 10001`,
-		DefaultCommand: "list",
-		Commands: []*cli.Command{
-			attachmentListCommand(apiClient, w, format),
-			attachmentAddCommand(apiClient, w, format, allowWrites),
-			attachmentGetCommand(apiClient, w, format),
-			attachmentDeleteCommand(apiClient, w, format, allowWrites),
-		},
 	}
+	cmd.AddCommand(
+		attachmentListCommand(apiClient, w, format),
+		attachmentAddCommand(apiClient, w, format, allowWrites),
+		attachmentGetCommand(apiClient, w, format),
+		attachmentDeleteCommand(apiClient, w, format, allowWrites),
+	)
+	setDefaultSubcommand(cmd, "list")
+	return cmd
 }
 
-func watcherListCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:      "list",
-		Usage:     "List watchers on an issue",
-		UsageText: `jira-agent issue watcher list PROJ-123`,
-		ArgsUsage: "<issue-key>",
-		Action: func(ctx context.Context, cmd *cli.Command) error {
-			key, err := requireArg(cmd, "issue key")
+func watcherListCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "list <issue-key>",
+		Short:   "List watchers on an issue",
+		Example: `jira-agent issue watcher list PROJ-123`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			key, err := requireArg(args, "issue key")
 			if err != nil {
 				return err
 			}
@@ -78,48 +80,46 @@ func watcherListCommand(apiClient *client.Ref, w io.Writer, format *output.Forma
 			})
 		},
 	}
+	return cmd
 }
 
-func watcherAddCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:      "add",
-		Usage:     "Add a watcher to an issue",
-		UsageText: `jira-agent issue watcher add PROJ-123 --account-id 5b10a2844c20165700ede21g`,
-		ArgsUsage: "<issue-key>",
-		Flags: []cli.Flag{
-			&cli.StringFlag{Name: "account-id", Usage: "Watcher account ID", Required: true},
-		},
-		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
-			key, err := requireArg(cmd, "issue key")
+func watcherAddCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "add <issue-key>",
+		Short:   "Add a watcher to an issue",
+		Example: `jira-agent issue watcher add PROJ-123 --account-id 5b10a2844c20165700ede21g`,
+		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			key, err := requireArg(args, "issue key")
 			if err != nil {
 				return err
 			}
 
-			accountID := cmd.String("account-id")
+			accountID := mustGetString(cmd, "account-id")
 			if err := apiClient.Post(ctx, "/issue/"+key+"/watchers", accountID, nil); err != nil {
 				return err
 			}
 			return output.WriteResult(w, map[string]any{"key": key, "accountId": accountID, "added": true}, *format)
 		}),
 	}
+	cmd.Flags().String("account-id", "", "Watcher account ID")
+	_ = cmd.MarkFlagRequired("account-id")
+	return cmd
 }
 
-func watcherRemoveCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:      "remove",
-		Usage:     "Remove a watcher from an issue",
-		UsageText: `jira-agent issue watcher remove PROJ-123 --account-id 5b10a2844c20165700ede21g`,
-		ArgsUsage: "<issue-key>",
-		Flags: []cli.Flag{
-			&cli.StringFlag{Name: "account-id", Usage: "Watcher account ID", Required: true},
-		},
-		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
-			key, err := requireArg(cmd, "issue key")
+func watcherRemoveCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "remove <issue-key>",
+		Short:   "Remove a watcher from an issue",
+		Example: `jira-agent issue watcher remove PROJ-123 --account-id 5b10a2844c20165700ede21g`,
+		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			key, err := requireArg(args, "issue key")
 			if err != nil {
 				return err
 			}
 
-			accountID := cmd.String("account-id")
+			accountID := mustGetString(cmd, "account-id")
 			path := appendQueryParams("/issue/"+key+"/watchers", map[string]string{"accountId": accountID})
 			if err := apiClient.Delete(ctx, path, nil); err != nil {
 				return err
@@ -127,16 +127,19 @@ func watcherRemoveCommand(apiClient *client.Ref, w io.Writer, format *output.For
 			return output.WriteResult(w, map[string]any{"key": key, "accountId": accountID, "removed": true}, *format)
 		}),
 	}
+	cmd.Flags().String("account-id", "", "Watcher account ID")
+	_ = cmd.MarkFlagRequired("account-id")
+	return cmd
 }
 
-func voteGetCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:      "get",
-		Usage:     "Get votes on an issue",
-		UsageText: `jira-agent issue vote get PROJ-123`,
-		ArgsUsage: "<issue-key>",
-		Action: func(ctx context.Context, cmd *cli.Command) error {
-			key, err := requireArg(cmd, "issue key")
+func voteGetCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "get <issue-key>",
+		Short:   "Get votes on an issue",
+		Example: `jira-agent issue vote get PROJ-123`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			key, err := requireArg(args, "issue key")
 			if err != nil {
 				return err
 			}
@@ -146,16 +149,17 @@ func voteGetCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *
 			})
 		},
 	}
+	return cmd
 }
 
-func voteAddCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:      "add",
-		Usage:     "Add your vote to an issue",
-		UsageText: `jira-agent issue vote add PROJ-123`,
-		ArgsUsage: "<issue-key>",
-		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
-			key, err := requireArg(cmd, "issue key")
+func voteAddCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "add <issue-key>",
+		Short:   "Add your vote to an issue",
+		Example: `jira-agent issue vote add PROJ-123`,
+		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			key, err := requireArg(args, "issue key")
 			if err != nil {
 				return err
 			}
@@ -166,16 +170,17 @@ func voteAddCommand(apiClient *client.Ref, w io.Writer, format *output.Format, a
 			return output.WriteResult(w, map[string]any{"key": key, "voted": true}, *format)
 		}),
 	}
+	return cmd
 }
 
-func voteRemoveCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:      "remove",
-		Usage:     "Remove your vote from an issue",
-		UsageText: `jira-agent issue vote remove PROJ-123`,
-		ArgsUsage: "<issue-key>",
-		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
-			key, err := requireArg(cmd, "issue key")
+func voteRemoveCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "remove <issue-key>",
+		Short:   "Remove your vote from an issue",
+		Example: `jira-agent issue vote remove PROJ-123`,
+		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			key, err := requireArg(args, "issue key")
 			if err != nil {
 				return err
 			}
@@ -186,16 +191,17 @@ func voteRemoveCommand(apiClient *client.Ref, w io.Writer, format *output.Format
 			return output.WriteResult(w, map[string]any{"key": key, "voted": false}, *format)
 		}),
 	}
+	return cmd
 }
 
-func attachmentListCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:      "list",
-		Usage:     "List attachments on an issue",
-		UsageText: `jira-agent issue attachment list PROJ-123`,
-		ArgsUsage: "<issue-key>",
-		Action: func(ctx context.Context, cmd *cli.Command) error {
-			key, err := requireArg(cmd, "issue key")
+func attachmentListCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "list <issue-key>",
+		Short:   "List attachments on an issue",
+		Example: `jira-agent issue attachment list PROJ-123`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			key, err := requireArg(args, "issue key")
 			if err != nil {
 				return err
 			}
@@ -214,25 +220,23 @@ func attachmentListCommand(apiClient *client.Ref, w io.Writer, format *output.Fo
 			return output.WriteSuccess(w, attachments, meta, *format)
 		},
 	}
+	return cmd
 }
 
-func attachmentAddCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:      "add",
-		Usage:     "Add an attachment to an issue",
-		UsageText: `jira-agent issue attachment add PROJ-123 --file report.pdf
+func attachmentAddCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "add <issue-key>",
+		Short: "Add an attachment to an issue",
+		Example: `jira-agent issue attachment add PROJ-123 --file report.pdf
 jira-agent issue attachment add PROJ-123 --file doc.pdf --file image.png`,
-		ArgsUsage: "<issue-key>",
-		Flags: []cli.Flag{
-			&cli.StringSliceFlag{Name: "file", Usage: "File path to attach (repeatable)", Required: true},
-		},
-		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
-			key, err := requireArg(cmd, "issue key")
+		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			key, err := requireArg(args, "issue key")
 			if err != nil {
 				return err
 			}
 
-			files, closeFiles, err := openAttachmentFiles(cmd.StringSlice("file"))
+			files, closeFiles, err := openAttachmentFiles(mustGetStringSlice(cmd, "file"))
 			if err != nil {
 				return err
 			}
@@ -243,16 +247,19 @@ jira-agent issue attachment add PROJ-123 --file doc.pdf --file image.png`,
 			})
 		}),
 	}
+	cmd.Flags().StringSlice("file", []string{}, "File path to attach (repeatable)")
+	_ = cmd.MarkFlagRequired("file")
+	return cmd
 }
 
-func attachmentGetCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:      "get",
-		Usage:     "Get attachment metadata",
-		UsageText: `jira-agent issue attachment get 10001`,
-		ArgsUsage: "<attachment-id>",
-		Action: func(ctx context.Context, cmd *cli.Command) error {
-			attachmentID, err := requireArg(cmd, "attachment ID")
+func attachmentGetCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "get <attachment-id>",
+		Short:   "Get attachment metadata",
+		Example: `jira-agent issue attachment get 10001`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			attachmentID, err := requireArg(args, "attachment ID")
 			if err != nil {
 				return err
 			}
@@ -262,16 +269,17 @@ func attachmentGetCommand(apiClient *client.Ref, w io.Writer, format *output.For
 			})
 		},
 	}
+	return cmd
 }
 
-func attachmentDeleteCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:      "delete",
-		Usage:     "Delete an attachment",
-		UsageText: `jira-agent issue attachment delete 10001`,
-		ArgsUsage: "<attachment-id>",
-		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
-			attachmentID, err := requireArg(cmd, "attachment ID")
+func attachmentDeleteCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "delete <attachment-id>",
+		Short:   "Delete an attachment",
+		Example: `jira-agent issue attachment delete 10001`,
+		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			attachmentID, err := requireArg(args, "attachment ID")
 			if err != nil {
 				return err
 			}
@@ -282,6 +290,7 @@ func attachmentDeleteCommand(apiClient *client.Ref, w io.Writer, format *output.
 			return output.WriteResult(w, map[string]any{"attachmentId": attachmentID, "deleted": true}, *format)
 		}),
 	}
+	return cmd
 }
 
 func openAttachmentFiles(paths []string) ([]client.MultipartFile, func(), error) {

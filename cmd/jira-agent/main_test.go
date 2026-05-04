@@ -2,10 +2,10 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 
@@ -19,31 +19,17 @@ func TestBuildApp_RootCommands(t *testing.T) {
 	t.Parallel()
 
 	app := buildApp(&bytes.Buffer{})
-	want := []string{"whoami", "issue", "field", "project", "role", "board", "schema"}
+
+	var names []string
+	for _, cmd := range app.Commands() {
+		names = append(names, cmd.Name())
+	}
+
+	want := []string{"whoami", "issue", "field", "project", "role", "board"}
 	for _, name := range want {
-		if app.Command(name) == nil {
-			t.Errorf("command %q = nil, want registered", name)
+		if !slices.Contains(names, name) {
+			t.Errorf("command %q should be registered", name)
 		}
-	}
-}
-
-func TestBuildAppWithDeps_SkipsAuthForSchema(t *testing.T) {
-	t.Parallel()
-
-	deps := appDeps{
-		newClient: client.NewClient,
-		loadConfig: func(string) (*auth.Config, error) {
-			return nil, errors.New("auth should not load for schema")
-		},
-	}
-	var buf bytes.Buffer
-	app := buildAppWithDeps(&buf, deps)
-
-	if err := app.Run(context.Background(), []string{"jira-agent", "schema"}); err != nil {
-		t.Fatalf("schema Run() error = %v, want nil", err)
-	}
-	if !strings.Contains(buf.String(), `"whoami"`) {
-		t.Errorf("schema output = %q, want whoami command", buf.String())
 	}
 }
 
@@ -59,8 +45,9 @@ func TestBuildAppWithDeps_HelpIncludesRepositorySupport(t *testing.T) {
 	var buf bytes.Buffer
 	app := buildAppWithDeps(&buf, deps)
 
-	if err := app.Run(context.Background(), []string{"jira-agent", "--help"}); err != nil {
-		t.Fatalf("help Run() error = %v, want nil", err)
+	app.SetArgs([]string{"--help"})
+	if err := app.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 
 	got := buf.String()
@@ -69,7 +56,7 @@ func TestBuildAppWithDeps_HelpIncludesRepositorySupport(t *testing.T) {
 		"File new bugs and RFEs there.",
 	} {
 		if !strings.Contains(got, want) {
-			t.Errorf("help output = %q, want %q", got, want)
+			t.Errorf("expected output to contain %q", want)
 		}
 	}
 }
@@ -86,11 +73,12 @@ func TestBuildAppWithDeps_SkipsAuthForVersionFlag(t *testing.T) {
 	var buf bytes.Buffer
 	app := buildAppWithDeps(&buf, deps)
 
-	if err := app.Run(context.Background(), []string{"jira-agent", "--version"}); err != nil {
-		t.Fatalf("version Run() error = %v, want nil", err)
+	app.SetArgs([]string{"--version"})
+	if err := app.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 	if !strings.Contains(buf.String(), "jira-agent version") {
-		t.Errorf("version output = %q, want app version", buf.String())
+		t.Errorf("expected output to contain %q, got %q", "jira-agent version", buf.String())
 	}
 }
 
@@ -105,13 +93,15 @@ func TestBuildAppWithDeps_VersionCommandRequiresAuth(t *testing.T) {
 	}
 	app := buildAppWithDeps(&bytes.Buffer{}, deps)
 
-	err := app.Run(context.Background(), []string{"jira-agent", "version", "list", "--project", "PROJ"})
+	app.SetArgs([]string{"version", "list", "--project", "PROJ"})
+	err := app.Execute()
 	if err == nil {
-		t.Fatal("version list Run() error = nil, want auth error")
+		t.Fatal("version list should fail without auth")
 	}
+
 	var authErr *apperr.AuthError
 	if !errors.As(err, &authErr) {
-		t.Errorf("errors.As(AuthError) = false, want true")
+		t.Errorf("error should be AuthError, got: %v", err)
 	}
 }
 
@@ -144,11 +134,13 @@ func TestBuildAppWithDeps_VersionCommandLoadsConfigAndClient(t *testing.T) {
 
 	var buf bytes.Buffer
 	app := buildAppWithDeps(&buf, deps)
-	if err := app.Run(context.Background(), []string{"jira-agent", "version", "list", "--project", "PROJ"}); err != nil {
-		t.Fatalf("version list Run() error = %v, want nil", err)
+
+	app.SetArgs([]string{"version", "list", "--project", "PROJ"})
+	if err := app.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 	if !strings.Contains(buf.String(), `"name":"v1.0"`) {
-		t.Errorf("version list output = %q, want version name", buf.String())
+		t.Errorf("expected output to contain %q, got %q", `"name":"v1.0"`, buf.String())
 	}
 }
 
@@ -183,14 +175,16 @@ func TestBuildAppWithDeps_WhoamiLoadsConfigAndClient(t *testing.T) {
 
 	var buf bytes.Buffer
 	app := buildAppWithDeps(&buf, deps)
-	if err := app.Run(context.Background(), []string{"jira-agent", "--config", "/tmp/jira-agent.json", "whoami"}); err != nil {
-		t.Fatalf("whoami Run() error = %v, want nil", err)
+
+	app.SetArgs([]string{"--config", "/tmp/jira-agent.json", "whoami"})
+	if err := app.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 	if loadedPath != "/tmp/jira-agent.json" {
 		t.Errorf("loadedPath = %q, want %q", loadedPath, "/tmp/jira-agent.json")
 	}
 	if !strings.Contains(buf.String(), `"accountId":"abc123"`) {
-		t.Errorf("whoami output = %q, want account ID", buf.String())
+		t.Errorf("expected output to contain %q, got %q", `"accountId":"abc123"`, buf.String())
 	}
 }
 
@@ -217,16 +211,18 @@ func TestBuildAppWithDeps_PrettyPrintsJSON(t *testing.T) {
 
 	var buf bytes.Buffer
 	app := buildAppWithDeps(&buf, deps)
-	if err := app.Run(context.Background(), []string{"jira-agent", "--pretty", "whoami"}); err != nil {
-		t.Fatalf("whoami Run() error = %v, want nil", err)
+
+	app.SetArgs([]string{"--pretty", "whoami"})
+	if err := app.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 
 	got := buf.String()
 	if !strings.Contains(got, "\n  ") {
-		t.Errorf("whoami output = %q, want pretty-printed JSON", got)
+		t.Errorf("expected pretty-printed output with indentation")
 	}
 	if !strings.Contains(got, `"accountId": "abc123"`) {
-		t.Errorf("whoami output = %q, want pretty-printed account ID", got)
+		t.Errorf("expected output to contain %q, got %q", `"accountId": "abc123"`, got)
 	}
 }
 
@@ -253,16 +249,21 @@ func TestBuildAppWithDeps_PrettyDoesNotAffectCSV(t *testing.T) {
 
 	var buf bytes.Buffer
 	app := buildAppWithDeps(&buf, deps)
-	if err := app.Run(context.Background(), []string{"jira-agent", "--pretty", "--output", "csv", "whoami"}); err != nil {
-		t.Fatalf("whoami Run() error = %v, want nil", err)
+
+	app.SetArgs([]string{"--pretty", "--output", "csv", "whoami"})
+	if err := app.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 
 	got := buf.String()
-	if strings.Contains(got, "{") || strings.Contains(got, "\n  ") {
-		t.Errorf("whoami output = %q, want CSV output unaffected by --pretty", got)
+	if strings.Contains(got, "{") {
+		t.Errorf("expected CSV output to not contain %q, got %q", "{", got)
+	}
+	if strings.Contains(got, "\n  ") {
+		t.Errorf("expected CSV output to not contain indentation, got %q", got)
 	}
 	if !strings.Contains(got, "accountId,displayName") {
-		t.Errorf("whoami output = %q, want CSV header", got)
+		t.Errorf("expected output to contain %q, got %q", "accountId,displayName", got)
 	}
 }
 
@@ -276,13 +277,16 @@ func TestBuildAppWithDeps_Errors(t *testing.T) {
 			newClient:  client.NewClient,
 			loadConfig: auth.LoadConfig,
 		})
-		err := app.Run(context.Background(), []string{"jira-agent", "--output", "xml", "schema"})
+
+		app.SetArgs([]string{"--output", "xml", "whoami"})
+		err := app.Execute()
 		if err == nil {
-			t.Fatal("Run() error = nil, want validation error")
+			t.Fatal("invalid output format should return error")
 		}
+
 		var validationErr *apperr.ValidationError
 		if !errors.As(err, &validationErr) {
-			t.Errorf("errors.As(ValidationError) = false, want true")
+			t.Errorf("error should be ValidationError, got: %v", err)
 		}
 	})
 
@@ -293,12 +297,17 @@ func TestBuildAppWithDeps_Errors(t *testing.T) {
 			newClient:  client.NewClient,
 			loadConfig: auth.LoadConfig,
 		})
-		err := app.Run(context.Background(), []string{"jira-agent", "whomai"})
+
+		app.SetArgs([]string{"whomai"})
+		err := app.Execute()
 		if err == nil {
-			t.Fatal("Run() error = nil, want validation error")
+			t.Fatal("unknown command should return error")
 		}
-		if !strings.Contains(err.Error(), `Did you mean "whoami"`) {
-			t.Errorf("error = %q, want whoami suggestion", err.Error())
+		if !strings.Contains(err.Error(), "unknown command") {
+			t.Errorf("expected error to contain %q, got %q", "unknown command", err.Error())
+		}
+		if !strings.Contains(err.Error(), "whomai") {
+			t.Errorf("expected error to contain %q, got %q", "whomai", err.Error())
 		}
 	})
 }

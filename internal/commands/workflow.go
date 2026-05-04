@@ -1,10 +1,9 @@
 package commands
 
 import (
-	"context"
 	"io"
 
-	"github.com/urfave/cli/v3"
+	"github.com/spf13/cobra"
 
 	"github.com/major/jira-agent/internal/client"
 	apperr "github.com/major/jira-agent/internal/errors"
@@ -14,38 +13,33 @@ import (
 // WorkflowCommand returns the top-level "workflow" command for Jira workflow
 // configuration lookups. These endpoints are read-only, but Jira usually
 // requires administrator permissions to call them.
-func WorkflowCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:  "workflow",
-		Usage: "Work with Jira workflows",
-		UsageText: `jira-agent workflow list
+func WorkflowCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "workflow",
+		Short: "Work with Jira workflows",
+		Example: `jira-agent workflow list
 jira-agent workflow get wf-10001
 jira-agent workflow statuses`,
-		DefaultCommand: "list",
-		Commands: []*cli.Command{
-			workflowListCommand(apiClient, w, format),
-			workflowGetCommand(apiClient, w, format),
-			workflowStatusesCommand(apiClient, w, format),
-			workflowSchemeCommand(apiClient, w, format),
-			workflowTransitionRulesCommand(apiClient, w, format),
-		},
 	}
+	cmd.AddCommand(
+		workflowListCommand(apiClient, w, format),
+		workflowGetCommand(apiClient, w, format),
+		workflowStatusesCommand(apiClient, w, format),
+		workflowSchemeCommand(apiClient, w, format),
+		workflowTransitionRulesCommand(apiClient, w, format),
+	)
+	setDefaultSubcommand(cmd, "list")
+	return cmd
 }
 
-func workflowListCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:  "list",
-		Usage: "Search workflows",
-		UsageText: `jira-agent workflow list
+func workflowListCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "Search workflows",
+		Example: `jira-agent workflow list
 jira-agent workflow list --expand transitions`,
-		Flags: appendPaginationFlags([]cli.Flag{
-			&cli.StringFlag{Name: "query", Usage: "Case-insensitive workflow name filter"},
-			&cli.StringFlag{Name: "order-by", Usage: "Sort order: name, created, updated, +name, or -name"},
-			&cli.StringFlag{Name: "scope", Usage: "Workflow scope: GLOBAL or PROJECT"},
-			&cli.BoolFlag{Name: "is-active", Usage: "Only return active workflows"},
-			&cli.StringFlag{Name: "expand", Usage: "Comma-separated expansions, such as values.transitions"},
-		}),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			params := buildPaginationParams(cmd, map[string]string{
 				"query":    "queryString",
 				"order-by": "orderBy",
@@ -59,20 +53,27 @@ jira-agent workflow list --expand transitions`,
 			})
 		},
 	}
+	cmd.Flags().String("query", "", "Case-insensitive workflow name filter")
+	cmd.Flags().String("order-by", "", "Sort order: name, created, updated, +name, or -name")
+	cmd.Flags().String("scope", "", "Workflow scope: GLOBAL or PROJECT")
+	cmd.Flags().Bool("is-active", false, "Only return active workflows")
+	cmd.Flags().String("expand", "", "Comma-separated expansions, such as values.transitions")
+	appendPaginationFlags(cmd)
+	return cmd
 }
 
-func workflowGetCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:      "get",
-		Usage:     "Get a workflow by workflow ID or name",
-		UsageText: `jira-agent workflow get wf-10001`,
-		ArgsUsage: "<workflow-id>",
-		Flags: []cli.Flag{
-			&cli.StringFlag{Name: "name", Usage: "Workflow name to read instead of a workflow ID"},
-		},
-		Action: func(ctx context.Context, cmd *cli.Command) error {
-			workflowID := cmd.Args().First()
-			workflowName := cmd.String("name")
+func workflowGetCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "get <workflow-id>",
+		Short:   "Get a workflow by workflow ID or name",
+		Example: `jira-agent workflow get wf-10001`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			workflowID := ""
+			if len(args) > 0 {
+				workflowID = args[0]
+			}
+			workflowName, _ := cmd.Flags().GetString("name")
 			switch {
 			case workflowID == "" && workflowName == "":
 				return apperr.NewValidationError("workflow ID or --name is required", nil)
@@ -92,36 +93,39 @@ func workflowGetCommand(apiClient *client.Ref, w io.Writer, format *output.Forma
 			})
 		},
 	}
-}
-
-func workflowStatusesCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	cmd := flatListCommand("statuses", "List Jira statuses used by workflows", "/status", apiClient, w, format)
-	cmd.UsageText = `jira-agent workflow statuses`
+	cmd.Flags().String("name", "", "Workflow name to read instead of a workflow ID")
 	return cmd
 }
 
-func workflowSchemeCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:  "scheme",
-		Usage: "Work with workflow schemes",
-		UsageText: `jira-agent workflow scheme list
-jira-agent workflow scheme get 10001`,
-		DefaultCommand: "list",
-		Commands: []*cli.Command{
-			workflowSchemeListCommand(apiClient, w, format),
-			workflowSchemeGetCommand(apiClient, w, format),
-			workflowSchemeProjectCommand(apiClient, w, format),
-		},
-	}
+func workflowStatusesCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := flatListCommand("statuses", "List Jira statuses used by workflows", "/status", apiClient, w, format)
+	cmd.Example = `jira-agent workflow statuses`
+	return cmd
 }
 
-func workflowSchemeListCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:      "list",
-		Usage:     "List workflow schemes",
-		UsageText: `jira-agent workflow scheme list`,
-		Flags:     appendPaginationFlags(nil),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+func workflowSchemeCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "scheme",
+		Short: "Work with workflow schemes",
+		Example: `jira-agent workflow scheme list
+jira-agent workflow scheme get 10001`,
+	}
+	cmd.AddCommand(
+		workflowSchemeListCommand(apiClient, w, format),
+		workflowSchemeGetCommand(apiClient, w, format),
+		workflowSchemeProjectCommand(apiClient, w, format),
+	)
+	setDefaultSubcommand(cmd, "list")
+	return cmd
+}
+
+func workflowSchemeListCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "list",
+		Short:   "List workflow schemes",
+		Example: `jira-agent workflow scheme list`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			params := buildPaginationParams(cmd, nil)
 
 			return writePaginatedAPIResult(w, *format, func(result any) error {
@@ -129,19 +133,18 @@ func workflowSchemeListCommand(apiClient *client.Ref, w io.Writer, format *outpu
 			})
 		},
 	}
+	appendPaginationFlags(cmd)
+	return cmd
 }
 
-func workflowSchemeGetCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:      "get",
-		Usage:     "Get a workflow scheme",
-		UsageText: `jira-agent workflow scheme get 10001`,
-		ArgsUsage: "<scheme-id>",
-		Flags: []cli.Flag{
-			&cli.BoolFlag{Name: "return-draft", Usage: "Return the draft scheme when one exists"},
-		},
-		Action: func(ctx context.Context, cmd *cli.Command) error {
-			schemeID, err := requireNumericArg(cmd, "scheme ID")
+func workflowSchemeGetCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "get <scheme-id>",
+		Short:   "Get a workflow scheme",
+		Example: `jira-agent workflow scheme get 10001`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			schemeID, err := requireNumericArg(args, "scheme ID")
 			if err != nil {
 				return err
 			}
@@ -154,16 +157,18 @@ func workflowSchemeGetCommand(apiClient *client.Ref, w io.Writer, format *output
 			})
 		},
 	}
+	cmd.Flags().Bool("return-draft", false, "Return the draft scheme when one exists")
+	return cmd
 }
 
-func workflowSchemeProjectCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:      "project",
-		Usage:     "Get workflow scheme associations for a numeric project ID",
-		UsageText: `jira-agent workflow scheme project 10001`,
-		ArgsUsage: "<project-id>",
-		Action: func(ctx context.Context, cmd *cli.Command) error {
-			projectID, err := requireNumericArg(cmd, "project ID")
+func workflowSchemeProjectCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "project <project-id>",
+		Short:   "Get workflow scheme associations for a numeric project ID",
+		Example: `jira-agent workflow scheme project 10001`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			projectID, err := requireNumericArg(args, "project ID")
 			if err != nil {
 				return err
 			}
@@ -174,19 +179,16 @@ func workflowSchemeProjectCommand(apiClient *client.Ref, w io.Writer, format *ou
 			})
 		},
 	}
+	return cmd
 }
 
-func workflowTransitionRulesCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:      "transition-rules",
-		Usage:     "List available workflow transition rule capabilities",
-		UsageText: `jira-agent workflow transition-rules --workflow-ids wf-10001,wf-10002`,
-		Flags: []cli.Flag{
-			&cli.StringFlag{Name: "workflow-id", Usage: "Workflow UUID context"},
-			&cli.StringFlag{Name: "project-id", Usage: "Numeric project ID context"},
-			&cli.StringFlag{Name: "issue-type-id", Usage: "Issue type ID context"},
-		},
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+func workflowTransitionRulesCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "transition-rules",
+		Short:   "List available workflow transition rule capabilities",
+		Example: `jira-agent workflow transition-rules --workflow-ids wf-10001,wf-10002`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			params := map[string]string{}
 			addOptionalParams(cmd, params, map[string]string{
 				"workflow-id":   "workflowId",
@@ -199,4 +201,8 @@ func workflowTransitionRulesCommand(apiClient *client.Ref, w io.Writer, format *
 			})
 		},
 	}
+	cmd.Flags().String("workflow-id", "", "Workflow UUID context")
+	cmd.Flags().String("project-id", "", "Numeric project ID context")
+	cmd.Flags().String("issue-type-id", "", "Issue type ID context")
+	return cmd
 }
