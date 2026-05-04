@@ -70,10 +70,13 @@ func buildAppWithDeps(w io.Writer, deps appDeps) *cobra.Command {
 	allowWrites := new(bool)
 
 	rootCmd := &cobra.Command{
-		Use:     "jira-agent",
-		Args:    cobra.ArbitraryArgs,
-		Short:   "CLI tool for LLMs to interact with Jira Cloud REST API",
-		Long:    "Project repository: https://github.com/major/jira-agent\nFile new bugs and RFEs there.",
+		Use:   "jira-agent",
+		Args:  cobra.ArbitraryArgs,
+		Short: "CLI tool for LLMs to interact with Jira Cloud REST API",
+		Long:  "Project repository: https://github.com/major/jira-agent\nFile new bugs and RFEs there.",
+		Example: `jira-agent issue get PROJ-123 --fields key,summary,status
+jira-agent issue search --jql "assignee = currentUser()"
+jira-agent project list --output csv`,
 		Version: version,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
@@ -191,6 +194,7 @@ func buildAppWithDeps(w io.Writer, deps appDeps) *cobra.Command {
 		commands.ServerInfoCommand(apiClient, w, outputFormat),
 		commands.JQLCommand(apiClient, w, outputFormat),
 	)
+	commands.MarkWriteProtectedCommands(rootCmd)
 
 	return rootCmd
 }
@@ -198,8 +202,9 @@ func buildAppWithDeps(w io.Writer, deps appDeps) *cobra.Command {
 // whoamiCommand returns the "whoami" command that displays the authenticated user.
 func whoamiCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
 	return &cobra.Command{
-		Use:   "whoami",
-		Short: "Display the authenticated Jira user",
+		Use:     "whoami",
+		Short:   "Display the authenticated Jira user",
+		Example: `jira-agent whoami`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 			var result any

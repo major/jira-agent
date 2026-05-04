@@ -31,8 +31,8 @@ jira-agent status categories`,
 // PriorityCommand returns the top-level "priority" command for Jira priorities.
 func PriorityCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "priority",
-		Short: "Work with Jira priorities",
+		Use:     "priority",
+		Short:   "Work with Jira priorities",
 		Example: `jira-agent priority list`,
 	}
 	cmd.AddCommand(
@@ -46,8 +46,8 @@ func PriorityCommand(apiClient *client.Ref, w io.Writer, format *output.Format) 
 // resolutions.
 func ResolutionCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "resolution",
-		Short: "Work with Jira resolutions",
+		Use:     "resolution",
+		Short:   "Work with Jira resolutions",
 		Example: `jira-agent resolution list`,
 	}
 	cmd.AddCommand(
@@ -62,8 +62,8 @@ func ResolutionCommand(apiClient *client.Ref, w io.Writer, format *output.Format
 func IssueTypeCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "issuetype",
-		Short:   "Work with Jira issue types",
 		Aliases: []string{"issue-type"},
+		Short:   "Work with Jira issue types",
 		Example: `jira-agent issuetype list
 jira-agent issuetype get 10001
 jira-agent issuetype project 10001`,
@@ -80,8 +80,8 @@ jira-agent issuetype project 10001`,
 // LabelCommand returns the top-level "label" command for Jira labels.
 func LabelCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "label",
-		Short: "Work with Jira labels",
+		Use:     "label",
+		Short:   "Work with Jira labels",
 		Example: `jira-agent label list`,
 	}
 	cmd.AddCommand(
@@ -93,39 +93,37 @@ func LabelCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *co
 
 // GET /rest/api/3/status
 func statusListCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
-	return flatListCommand("list", "List all statuses", "/status", apiClient, w, format)
+	return flatListCommand("list", "List all statuses", "jira-agent status list", "/status", apiClient, w, format)
 }
 
 // GET /rest/api/3/status/{idOrName}
 func statusGetCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
-	return singleGetCommand("get", "Get status details by ID or name", "<status-id-or-name>", "status ID or name", "/status/", apiClient, w, format)
+	return singleGetCommand("get", "Get status details by ID or name", "<status-id-or-name>", "status ID or name", `jira-agent status get "In Progress"`, "/status/", apiClient, w, format)
 }
 
 // GET /rest/api/3/statuses/categories
 func statusCategoriesCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
-	cmd := flatListCommand("categories", "List status categories", "/statuses/categories", apiClient, w, format)
-	cmd.Example = `jira-agent status categories`
-	return cmd
+	return flatListCommand("categories", "List status categories", "jira-agent status categories", "/statuses/categories", apiClient, w, format)
 }
 
 // GET /rest/api/3/priority
 func priorityListCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
-	return flatListCommand("list", "List all priorities", "/priority", apiClient, w, format)
+	return flatListCommand("list", "List all priorities", "jira-agent priority list", "/priority", apiClient, w, format)
 }
 
 // GET /rest/api/3/resolution
 func resolutionListCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
-	return flatListCommand("list", "List all resolutions", "/resolution", apiClient, w, format)
+	return flatListCommand("list", "List all resolutions", "jira-agent resolution list", "/resolution", apiClient, w, format)
 }
 
 // GET /rest/api/3/issuetype
 func issueTypeListCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
-	return flatListCommand("list", "List all issue types", "/issuetype", apiClient, w, format)
+	return flatListCommand("list", "List all issue types", "jira-agent issuetype list", "/issuetype", apiClient, w, format)
 }
 
 // GET /rest/api/3/issuetype/{id}
 func issueTypeGetCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
-	return singleGetCommand("get", "Get issue type details by ID", "<issue-type-id>", "issue type ID", "/issuetype/", apiClient, w, format)
+	return singleGetCommand("get", "Get issue type details by ID", "<issue-type-id>", "issue type ID", "jira-agent issuetype get 10001", "/issuetype/", apiClient, w, format)
 }
 
 // GET /rest/api/3/issuetype/project?projectId={projectId}
@@ -158,8 +156,9 @@ func issueTypeProjectCommand(apiClient *client.Ref, w io.Writer, format *output.
 // GET /rest/api/3/label
 func labelListCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List labels",
+		Use:     "list",
+		Short:   "List labels",
+		Example: `jira-agent label list`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			params := buildPaginationParams(cmd, nil)
@@ -193,14 +192,16 @@ func ServerInfoCommand(apiClient *client.Ref, w io.Writer, format *output.Format
 func flatListCommand(
 	name string,
 	usage string,
+	example string,
 	path string,
 	apiClient *client.Ref,
 	w io.Writer,
 	format *output.Format,
 ) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   name,
-		Short: usage,
+		Use:     name,
+		Short:   usage,
+		Example: example,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			var items []any
@@ -222,14 +223,16 @@ func singleGetCommand(
 	usage string,
 	argsUsage string,
 	argLabel string,
+	example string,
 	pathPrefix string,
 	apiClient *client.Ref,
 	w io.Writer,
 	format *output.Format,
 ) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   name + " " + argsUsage,
-		Short: usage,
+		Use:     name + " " + argsUsage,
+		Short:   usage,
+		Example: example,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			value, err := requireArg(args, argLabel)

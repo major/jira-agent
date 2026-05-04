@@ -26,6 +26,7 @@ Every `&cobra.Command{}` needs:
 - `Example`
 - `setDefaultSubcommand(cmd, "name")` on parents when the default is obvious
 - positional argument placeholders in `Use` on leaves with positional args
+- declarative Cobra annotations for behavior that is otherwise hidden in handlers. `setDefaultSubcommand` records `jira-agent/default-subcommand`; use shared annotation helpers rather than ad hoc keys.
 
 Naming and text:
 
@@ -39,9 +40,11 @@ Naming and text:
 ## Write protection
 
 - All mutations must be wrapped with `writeGuard(allowWrites, action)` or explicitly call `requireWriteAccess(allowWrites)` before side effects.
+- Mutating commands must carry `jira-agent/write-protected=true`; root wiring records this through the authoritative annotator `MarkWriteProtectedCommands`, which uses the explicit `WriteProtectedCommandPaths` configuration list.
 - Do not add hidden write paths in read-looking commands.
 - Blocked writes must remain validation failures with exit 5 and remediation for config/env write enablement.
-- Mutating commands are identifiable by the `writeGuard` wrapper in their `RunE`.
+- Mutating commands are identifiable by both their write-protection annotation and the `writeGuard` wrapper or explicit `requireWriteAccess` in their handlers.
+- `TestWriteProtectedCommandsAnnotated` is the CI contract check that keeps `jira-agent/write-protected` annotations aligned with `MarkWriteProtectedCommands`; update the path list and tests together when adding write commands.
 
 ## Validation helpers
 

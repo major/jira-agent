@@ -1,0 +1,5340 @@
+[
+  {
+    "path": "jira-agent",
+    "use": "jira-agent",
+    "short": "CLI tool for LLMs to interact with Jira Cloud REST API",
+    "long": "Project repository: https://github.com/major/jira-agent\nFile new bugs and RFEs there.",
+    "example": "jira-agent issue get PROJ-123 --fields key,summary,status\njira-agent issue search --jql \"assignee = currentUser()\"\njira-agent project list --output csv",
+    "local_flags": [
+      {
+        "name": "config",
+        "type": "string",
+        "default": "${HOME}/.config/jira-agent/config.json",
+        "usage": "Path to config file"
+      },
+      {
+        "name": "output",
+        "shorthand": "o",
+        "type": "string",
+        "default": "json",
+        "usage": "Output format (json, csv, tsv)"
+      },
+      {
+        "name": "pretty",
+        "type": "bool",
+        "default": "false",
+        "usage": "Pretty-print JSON output"
+      },
+      {
+        "name": "project",
+        "shorthand": "p",
+        "type": "string",
+        "usage": "Override default Jira project key"
+      },
+      {
+        "name": "verbose",
+        "shorthand": "v",
+        "type": "bool",
+        "default": "false",
+        "usage": "Enable debug logging to stderr"
+      }
+    ],
+    "persistent_flags": [
+      {
+        "name": "config",
+        "type": "string",
+        "default": "${HOME}/.config/jira-agent/config.json",
+        "usage": "Path to config file"
+      },
+      {
+        "name": "output",
+        "shorthand": "o",
+        "type": "string",
+        "default": "json",
+        "usage": "Output format (json, csv, tsv)"
+      },
+      {
+        "name": "pretty",
+        "type": "bool",
+        "default": "false",
+        "usage": "Pretty-print JSON output"
+      },
+      {
+        "name": "project",
+        "shorthand": "p",
+        "type": "string",
+        "usage": "Override default Jira project key"
+      },
+      {
+        "name": "verbose",
+        "shorthand": "v",
+        "type": "bool",
+        "default": "false",
+        "usage": "Enable debug logging to stderr"
+      }
+    ],
+    "subcommands": [
+      "audit",
+      "backlog",
+      "board",
+      "component",
+      "dashboard",
+      "epic",
+      "field",
+      "filter",
+      "group",
+      "issue",
+      "issuetype",
+      "jql",
+      "label",
+      "permission",
+      "priority",
+      "project",
+      "resolution",
+      "role",
+      "server-info",
+      "sprint",
+      "status",
+      "task",
+      "time-tracking",
+      "user",
+      "version",
+      "whoami",
+      "workflow"
+    ]
+  },
+  {
+    "path": "jira-agent audit",
+    "use": "audit",
+    "short": "Work with Jira audit records",
+    "example": "jira-agent audit list\njira-agent audit list --from 2024-01-01T00:00:00.000+0000 --to 2024-12-31T23:59:59.000+0000\njira-agent audit list --filter \"user created\" --limit 25",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
+    "subcommands": [
+      "list"
+    ]
+  },
+  {
+    "path": "jira-agent audit list",
+    "use": "list",
+    "short": "List Jira audit records",
+    "example": "jira-agent audit list\njira-agent audit list --from 2024-01-01T00:00:00.000+0000 --to 2024-12-31T23:59:59.000+0000\njira-agent audit list --filter \"user created\" --limit 25",
+    "local_flags": [
+      {
+        "name": "filter",
+        "type": "string",
+        "usage": "Text filter across audit record fields"
+      },
+      {
+        "name": "from",
+        "type": "string",
+        "usage": "Start date or datetime for created records"
+      },
+      {
+        "name": "limit",
+        "type": "int",
+        "default": "1000",
+        "usage": "Page size"
+      },
+      {
+        "name": "offset",
+        "type": "int",
+        "default": "0",
+        "usage": "Pagination offset"
+      },
+      {
+        "name": "to",
+        "type": "string",
+        "usage": "End date or datetime for created records"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent backlog",
+    "use": "backlog",
+    "short": "Agile backlog operations (list, move)",
+    "example": "jira-agent backlog list --board-id 42\njira-agent backlog move --issues PROJ-1,PROJ-2",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
+    "subcommands": [
+      "list",
+      "move"
+    ]
+  },
+  {
+    "path": "jira-agent backlog list",
+    "use": "list",
+    "short": "List backlog issues for a board",
+    "example": "jira-agent backlog list --board-id 42",
+    "local_flags": [
+      {
+        "name": "board-id",
+        "type": "string",
+        "usage": "Board ID (required)",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      },
+      {
+        "name": "fields",
+        "type": "string",
+        "usage": "Comma-separated list of fields to return"
+      },
+      {
+        "name": "jql",
+        "type": "string",
+        "usage": "JQL filter to apply"
+      },
+      {
+        "name": "max-results",
+        "type": "int",
+        "default": "50",
+        "usage": "Page size"
+      },
+      {
+        "name": "start-at",
+        "type": "int",
+        "default": "0",
+        "usage": "Pagination offset"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent backlog move",
+    "use": "move",
+    "short": "Move issues to the backlog",
+    "example": "jira-agent backlog move --issues PROJ-1,PROJ-2",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "issues",
+        "type": "string",
+        "usage": "Comma-separated issue keys to move to backlog (required)",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "path": "jira-agent board",
+    "use": "board",
+    "short": "Jira Software board operations (list, create, get, filter, delete, properties)",
+    "example": "jira-agent board list\njira-agent board create --name \"Team board\" --type scrum --filter 10000\njira-agent board get 42\njira-agent board filter 10000\njira-agent board issues 42 --jql \"status = Open\"\njira-agent board property list 42",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
+    "subcommands": [
+      "config",
+      "create",
+      "delete",
+      "epics",
+      "filter",
+      "get",
+      "issues",
+      "list",
+      "projects",
+      "property",
+      "versions"
+    ]
+  },
+  {
+    "path": "jira-agent board config",
+    "use": "config",
+    "short": "Get board configuration (columns, estimation, ranking)",
+    "example": "jira-agent board config 42"
+  },
+  {
+    "path": "jira-agent board create",
+    "use": "create",
+    "short": "Create a Jira Software board",
+    "example": "jira-agent board create --name \"Team board\" --type scrum --filter 10000\njira-agent board create --name \"Team board\" --type kanban --filter 10000 --location-project PROJ",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "filter",
+        "type": "int64",
+        "default": "0",
+        "usage": "Saved filter ID backing the board"
+      },
+      {
+        "name": "location-project",
+        "type": "string",
+        "usage": "Project key or ID for the board location"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "usage": "Board name"
+      },
+      {
+        "name": "type",
+        "type": "string",
+        "usage": "Board type: scrum or kanban"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent board delete",
+    "use": "delete",
+    "short": "Delete a Jira Software board",
+    "example": "jira-agent board delete 42",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    }
+  },
+  {
+    "path": "jira-agent board epics",
+    "use": "epics",
+    "short": "List epics on a board",
+    "example": "jira-agent board epics 42",
+    "local_flags": [
+      {
+        "name": "done",
+        "type": "bool",
+        "default": "false",
+        "usage": "Include done epics"
+      },
+      {
+        "name": "max-results",
+        "type": "int",
+        "default": "50",
+        "usage": "Page size"
+      },
+      {
+        "name": "start-at",
+        "type": "int",
+        "default": "0",
+        "usage": "Pagination offset"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent board filter",
+    "use": "filter",
+    "short": "List boards using a filter",
+    "example": "jira-agent board filter 10000\njira-agent board filter 10000 --max-results 25",
+    "local_flags": [
+      {
+        "name": "max-results",
+        "type": "int",
+        "default": "50",
+        "usage": "Page size"
+      },
+      {
+        "name": "start-at",
+        "type": "int",
+        "default": "0",
+        "usage": "Pagination offset"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent board get",
+    "use": "get",
+    "short": "Get Jira Software board details by ID",
+    "example": "jira-agent board get 42"
+  },
+  {
+    "path": "jira-agent board issues",
+    "use": "issues",
+    "short": "List issues on a board",
+    "example": "jira-agent board issues 42\njira-agent board issues 42 --jql \"status = Open\"",
+    "local_flags": [
+      {
+        "name": "expand",
+        "type": "string",
+        "usage": "Comma-separated list of expansions"
+      },
+      {
+        "name": "fields",
+        "type": "string",
+        "usage": "Comma-separated list of fields to return"
+      },
+      {
+        "name": "jql",
+        "type": "string",
+        "usage": "JQL filter to apply"
+      },
+      {
+        "name": "max-results",
+        "type": "int",
+        "default": "50",
+        "usage": "Page size"
+      },
+      {
+        "name": "start-at",
+        "type": "int",
+        "default": "0",
+        "usage": "Pagination offset"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent board list",
+    "use": "list",
+    "short": "List Jira Software boards",
+    "example": "jira-agent board list\njira-agent board list --type scrum\njira-agent board list --project PROJ",
+    "local_flags": [
+      {
+        "name": "max-results",
+        "type": "int",
+        "default": "50",
+        "usage": "Page size"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "usage": "Filter by board name"
+      },
+      {
+        "name": "project",
+        "type": "string",
+        "usage": "Filter by project key or ID referenced by the board filter"
+      },
+      {
+        "name": "start-at",
+        "type": "int",
+        "default": "0",
+        "usage": "Pagination offset"
+      },
+      {
+        "name": "type",
+        "type": "string",
+        "usage": "Filter by board type: scrum or kanban"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent board projects",
+    "use": "projects",
+    "short": "List projects associated with a board",
+    "example": "jira-agent board projects 42",
+    "local_flags": [
+      {
+        "name": "max-results",
+        "type": "int",
+        "default": "50",
+        "usage": "Page size"
+      },
+      {
+        "name": "start-at",
+        "type": "int",
+        "default": "0",
+        "usage": "Pagination offset"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent board property",
+    "use": "property",
+    "short": "Manage board properties",
+    "example": "jira-agent board property list 42\njira-agent board property get 42 com.example.flag\njira-agent board property set 42 com.example.flag --value-json '{\"enabled\":true}'",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
+    "subcommands": [
+      "delete",
+      "get",
+      "list",
+      "set"
+    ]
+  },
+  {
+    "path": "jira-agent board property delete",
+    "use": "delete \u003cboard ID\u003e \u003cproperty-key\u003e",
+    "short": "Delete a board property",
+    "example": "jira-agent board property delete 42 com.example.flag",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    }
+  },
+  {
+    "path": "jira-agent board property get",
+    "use": "get \u003cboard ID\u003e \u003cproperty-key\u003e",
+    "short": "Get a board property",
+    "example": "jira-agent board property get 42 com.example.flag"
+  },
+  {
+    "path": "jira-agent board property list",
+    "use": "list \u003cboard ID\u003e",
+    "short": "List board property keys",
+    "example": "jira-agent board property list 42"
+  },
+  {
+    "path": "jira-agent board property set",
+    "use": "set \u003cboard ID\u003e \u003cproperty-key\u003e",
+    "short": "Set a board property",
+    "example": "jira-agent board property set 42 com.example.flag --value-json '{\"enabled\":true}'",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "value-json",
+        "type": "string",
+        "usage": "Property value as raw JSON (required)",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "path": "jira-agent board versions",
+    "use": "versions",
+    "short": "List versions associated with a board",
+    "example": "jira-agent board versions 42",
+    "local_flags": [
+      {
+        "name": "max-results",
+        "type": "int",
+        "default": "50",
+        "usage": "Page size"
+      },
+      {
+        "name": "start-at",
+        "type": "int",
+        "default": "0",
+        "usage": "Pagination offset"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent component",
+    "use": "component",
+    "short": "Project component operations (list, get, create, update, delete, issue-counts)",
+    "example": "jira-agent component list --project PROJ\njira-agent component get 10100\njira-agent component create --project PROJ --name \"Backend\"",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
+    "subcommands": [
+      "create",
+      "delete",
+      "get",
+      "issue-counts",
+      "list",
+      "update"
+    ]
+  },
+  {
+    "path": "jira-agent component create",
+    "use": "create",
+    "short": "Create a project component",
+    "example": "jira-agent component create --project PROJ --name \"Backend\"\njira-agent component create --project PROJ --name \"Frontend\" --lead-account-id 5b10a284",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "assignee-type",
+        "type": "string",
+        "usage": "Default assignee type: PROJECT_DEFAULT, COMPONENT_LEAD, PROJECT_LEAD, UNASSIGNED"
+      },
+      {
+        "name": "description",
+        "type": "string",
+        "usage": "Component description"
+      },
+      {
+        "name": "lead-account-id",
+        "type": "string",
+        "usage": "Account ID of the component lead"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "usage": "Component name",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "path": "jira-agent component delete",
+    "use": "delete \u003ccomponent-id\u003e",
+    "short": "Delete a project component",
+    "example": "jira-agent component delete 10100",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "move-issues-to",
+        "type": "string",
+        "usage": "Component ID to reassign issues to before deletion"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent component get",
+    "use": "get \u003ccomponent-id\u003e",
+    "short": "Get component details by ID",
+    "example": "jira-agent component get 10100"
+  },
+  {
+    "path": "jira-agent component issue-counts",
+    "use": "issue-counts \u003ccomponent-id\u003e",
+    "short": "Get related issue counts for a component",
+    "example": "jira-agent component issue-counts 10100"
+  },
+  {
+    "path": "jira-agent component list",
+    "use": "list",
+    "short": "List project components",
+    "example": "jira-agent component list --project PROJ",
+    "local_flags": [
+      {
+        "name": "max-results",
+        "type": "int",
+        "default": "50",
+        "usage": "Page size"
+      },
+      {
+        "name": "order-by",
+        "type": "string",
+        "usage": "Order results by field (e.g. name, description)"
+      },
+      {
+        "name": "query",
+        "type": "string",
+        "usage": "Filter components by name (case-insensitive substring match)"
+      },
+      {
+        "name": "start-at",
+        "type": "int",
+        "default": "0",
+        "usage": "Pagination offset"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent component update",
+    "use": "update \u003ccomponent-id\u003e",
+    "short": "Update a project component",
+    "example": "jira-agent component update 10100 --name \"Backend Services\"",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "assignee-type",
+        "type": "string",
+        "usage": "Default assignee type: PROJECT_DEFAULT, COMPONENT_LEAD, PROJECT_LEAD, UNASSIGNED"
+      },
+      {
+        "name": "description",
+        "type": "string",
+        "usage": "New component description"
+      },
+      {
+        "name": "lead-account-id",
+        "type": "string",
+        "usage": "Account ID of the component lead"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "usage": "New component name"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent dashboard",
+    "use": "dashboard",
+    "short": "Work with Jira dashboards",
+    "example": "jira-agent dashboard list\njira-agent dashboard get 10001\njira-agent dashboard gadgets 10001",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
+    "subcommands": [
+      "copy",
+      "create",
+      "delete",
+      "gadgets",
+      "get",
+      "list",
+      "update"
+    ]
+  },
+  {
+    "path": "jira-agent dashboard copy",
+    "use": "copy \u003cdashboard-id\u003e",
+    "short": "Copy a dashboard",
+    "example": "jira-agent dashboard copy 10001 --name \"Team dashboard copy\"\njira-agent dashboard copy 10001 --name \"Team dashboard copy\" --extend-admin-permissions",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "body-json",
+        "type": "string",
+        "usage": "Raw dashboard JSON body"
+      },
+      {
+        "name": "description",
+        "type": "string",
+        "usage": "Dashboard description"
+      },
+      {
+        "name": "edit-permissions-json",
+        "type": "string",
+        "default": "[]",
+        "usage": "Dashboard editPermissions JSON array"
+      },
+      {
+        "name": "extend-admin-permissions",
+        "type": "bool",
+        "default": "false",
+        "usage": "Extend admin permissions for the operation"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "usage": "Dashboard name"
+      },
+      {
+        "name": "share-permissions-json",
+        "type": "string",
+        "default": "[]",
+        "usage": "Dashboard sharePermissions JSON array"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent dashboard create",
+    "use": "create",
+    "short": "Create a dashboard",
+    "example": "jira-agent dashboard create --name \"Team dashboard\"\njira-agent dashboard create --name \"Team dashboard\" --share-permissions-json '[{\"type\":\"authenticated\"}]'\njira-agent dashboard create --body-json '{\"name\":\"Team dashboard\",\"sharePermissions\":[],\"editPermissions\":[]}'",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "body-json",
+        "type": "string",
+        "usage": "Raw dashboard JSON body"
+      },
+      {
+        "name": "description",
+        "type": "string",
+        "usage": "Dashboard description"
+      },
+      {
+        "name": "edit-permissions-json",
+        "type": "string",
+        "default": "[]",
+        "usage": "Dashboard editPermissions JSON array"
+      },
+      {
+        "name": "extend-admin-permissions",
+        "type": "bool",
+        "default": "false",
+        "usage": "Extend admin permissions for the operation"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "usage": "Dashboard name"
+      },
+      {
+        "name": "share-permissions-json",
+        "type": "string",
+        "default": "[]",
+        "usage": "Dashboard sharePermissions JSON array"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent dashboard delete",
+    "use": "delete \u003cdashboard-id\u003e",
+    "short": "Delete a dashboard",
+    "example": "jira-agent dashboard delete 10001",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    }
+  },
+  {
+    "path": "jira-agent dashboard gadgets",
+    "use": "gadgets \u003cdashboard-id\u003e",
+    "short": "List dashboard gadgets",
+    "example": "jira-agent dashboard gadgets 10001",
+    "local_flags": [
+      {
+        "name": "gadget-id",
+        "type": "string",
+        "usage": "Filter by gadget ID"
+      },
+      {
+        "name": "module-key",
+        "type": "string",
+        "usage": "Filter by gadget module key"
+      },
+      {
+        "name": "uri",
+        "type": "string",
+        "usage": "Filter by gadget URI"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent dashboard get",
+    "use": "get \u003cdashboard-id\u003e",
+    "short": "Get a dashboard",
+    "example": "jira-agent dashboard get 10001"
+  },
+  {
+    "path": "jira-agent dashboard list",
+    "use": "list",
+    "short": "List dashboards",
+    "example": "jira-agent dashboard list\njira-agent dashboard list --filter my\njira-agent dashboard list --search \"ops\"",
+    "local_flags": [
+      {
+        "name": "filter",
+        "type": "string",
+        "usage": "Dashboard filter: my or favorite"
+      },
+      {
+        "name": "max-results",
+        "type": "int",
+        "default": "50",
+        "usage": "Page size"
+      },
+      {
+        "name": "search",
+        "type": "string",
+        "usage": "Search dashboards by name substring"
+      },
+      {
+        "name": "start-at",
+        "type": "int",
+        "default": "0",
+        "usage": "Pagination offset"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent dashboard update",
+    "use": "update \u003cdashboard-id\u003e",
+    "short": "Update a dashboard",
+    "example": "jira-agent dashboard update 10001 --name \"Team dashboard\"\njira-agent dashboard update 10001 --name \"Team dashboard\" --description \"Team metrics\"\njira-agent dashboard update 10001 --body-json '{\"name\":\"Team dashboard\",\"sharePermissions\":[],\"editPermissions\":[]}'",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "body-json",
+        "type": "string",
+        "usage": "Raw dashboard JSON body"
+      },
+      {
+        "name": "description",
+        "type": "string",
+        "usage": "Dashboard description"
+      },
+      {
+        "name": "edit-permissions-json",
+        "type": "string",
+        "default": "[]",
+        "usage": "Dashboard editPermissions JSON array"
+      },
+      {
+        "name": "extend-admin-permissions",
+        "type": "bool",
+        "default": "false",
+        "usage": "Extend admin permissions for the operation"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "usage": "Dashboard name"
+      },
+      {
+        "name": "share-permissions-json",
+        "type": "string",
+        "default": "[]",
+        "usage": "Dashboard sharePermissions JSON array"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent epic",
+    "use": "epic",
+    "short": "Agile epic operations (get, issues, move-issues, orphans, remove-issues, rank)",
+    "example": "jira-agent epic get PROJ-50\njira-agent epic issues PROJ-50\njira-agent epic move-issues PROJ-50 --issues PROJ-1,PROJ-2",
+    "annotations": {
+      "jira-agent/default-subcommand": "get"
+    },
+    "subcommands": [
+      "get",
+      "issues",
+      "move-issues",
+      "orphans",
+      "rank",
+      "remove-issues"
+    ]
+  },
+  {
+    "path": "jira-agent epic get",
+    "use": "get",
+    "short": "Get epic details by ID or key",
+    "example": "jira-agent epic get PROJ-50\njira-agent epic get 12345"
+  },
+  {
+    "path": "jira-agent epic issues",
+    "use": "issues",
+    "short": "List issues in an epic",
+    "example": "jira-agent epic issues PROJ-50\njira-agent epic issues PROJ-50 --jql \"status = Open\"",
+    "local_flags": [
+      {
+        "name": "fields",
+        "type": "string",
+        "usage": "Comma-separated list of fields to return"
+      },
+      {
+        "name": "jql",
+        "type": "string",
+        "usage": "JQL filter to apply"
+      },
+      {
+        "name": "max-results",
+        "type": "int",
+        "default": "50",
+        "usage": "Page size"
+      },
+      {
+        "name": "start-at",
+        "type": "int",
+        "default": "0",
+        "usage": "Pagination offset"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent epic move-issues",
+    "use": "move-issues",
+    "short": "Move issues to an epic",
+    "example": "jira-agent epic move-issues PROJ-50 --issues PROJ-1,PROJ-2",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "issues",
+        "type": "string",
+        "usage": "Comma-separated issue keys to move (required)",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "path": "jira-agent epic orphans",
+    "use": "orphans",
+    "short": "List issues without an epic",
+    "example": "jira-agent epic orphans",
+    "local_flags": [
+      {
+        "name": "fields",
+        "type": "string",
+        "usage": "Comma-separated list of fields to return"
+      },
+      {
+        "name": "jql",
+        "type": "string",
+        "usage": "JQL filter to apply"
+      },
+      {
+        "name": "max-results",
+        "type": "int",
+        "default": "50",
+        "usage": "Page size"
+      },
+      {
+        "name": "start-at",
+        "type": "int",
+        "default": "0",
+        "usage": "Pagination offset"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent epic rank",
+    "use": "rank",
+    "short": "Rank an epic before or after another epic",
+    "example": "jira-agent epic rank PROJ-50 --before PROJ-49\njira-agent epic rank PROJ-50 --after PROJ-51",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "rank-after",
+        "type": "string",
+        "usage": "Epic ID or key to rank after"
+      },
+      {
+        "name": "rank-before",
+        "type": "string",
+        "usage": "Epic ID or key to rank before"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent epic remove-issues",
+    "use": "remove-issues",
+    "short": "Remove issues from their epic",
+    "example": "jira-agent epic remove-issues --issues PROJ-1,PROJ-2",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "issues",
+        "type": "string",
+        "usage": "Comma-separated issue keys to remove from their epic (required)",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "path": "jira-agent field",
+    "use": "field",
+    "aliases": [
+      "f"
+    ],
+    "short": "Work with Jira fields",
+    "example": "jira-agent field list\njira-agent field search --type custom --query \"story points\"",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
+    "subcommands": [
+      "context",
+      "list",
+      "option",
+      "search"
+    ]
+  },
+  {
+    "path": "jira-agent field context",
+    "use": "context",
+    "short": "Custom field context operations (list, create, update, delete)",
+    "example": "jira-agent field context list customfield_10001\njira-agent field context create customfield_10001 --name \"Global context\"",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
+    "subcommands": [
+      "create",
+      "delete",
+      "list",
+      "update"
+    ]
+  },
+  {
+    "path": "jira-agent field context create",
+    "use": "create \u003cfield-id\u003e",
+    "short": "Create a context for a custom field",
+    "example": "jira-agent field context create customfield_10001 --name \"Global context\"",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "description",
+        "type": "string",
+        "usage": "Context description"
+      },
+      {
+        "name": "issue-types",
+        "type": "string",
+        "usage": "Comma-separated issue type IDs to associate"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "usage": "Context name",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      },
+      {
+        "name": "projects",
+        "type": "string",
+        "usage": "Comma-separated project IDs to associate"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent field context delete",
+    "use": "delete \u003cfield-id\u003e \u003ccontext-id\u003e",
+    "short": "Delete a custom field context",
+    "example": "jira-agent field context delete customfield_10001 10200",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    }
+  },
+  {
+    "path": "jira-agent field context list",
+    "use": "list \u003cfield-id\u003e",
+    "short": "List contexts for a custom field",
+    "example": "jira-agent field context list customfield_10001",
+    "local_flags": [
+      {
+        "name": "max-results",
+        "type": "int",
+        "default": "50",
+        "usage": "Page size"
+      },
+      {
+        "name": "start-at",
+        "type": "int",
+        "default": "0",
+        "usage": "Pagination offset"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent field context update",
+    "use": "update \u003cfield-id\u003e \u003ccontext-id\u003e",
+    "short": "Update a custom field context",
+    "example": "jira-agent field context update customfield_10001 10200 --name \"Updated context\"",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "description",
+        "type": "string",
+        "usage": "New context description"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "usage": "New context name"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent field list",
+    "use": "list",
+    "short": "List all fields (system and custom)",
+    "example": "jira-agent field list"
+  },
+  {
+    "path": "jira-agent field option",
+    "use": "option",
+    "short": "Custom field option operations (list, create, update, delete, reorder)",
+    "example": "jira-agent field option list customfield_10001 10200\njira-agent field option create customfield_10001 10200 --options-json '[{\"value\":\"Option A\"}]'",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
+    "subcommands": [
+      "create",
+      "delete",
+      "list",
+      "reorder",
+      "update"
+    ]
+  },
+  {
+    "path": "jira-agent field option create",
+    "use": "create \u003cfield-id\u003e \u003ccontext-id\u003e",
+    "short": "Create options for a custom field context",
+    "example": "jira-agent field option create customfield_10001 10200 --options-json '[{\"value\":\"Option A\"},{\"value\":\"Option B\"}]'",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "values",
+        "type": "string",
+        "usage": "Comma-separated option values to create",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "path": "jira-agent field option delete",
+    "use": "delete \u003cfield-id\u003e \u003ccontext-id\u003e \u003coption-id\u003e",
+    "short": "Delete a custom field option",
+    "example": "jira-agent field option delete customfield_10001 10200 10300",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    }
+  },
+  {
+    "path": "jira-agent field option list",
+    "use": "list \u003cfield-id\u003e \u003ccontext-id\u003e",
+    "short": "List options for a custom field context",
+    "example": "jira-agent field option list customfield_10001 10200",
+    "local_flags": [
+      {
+        "name": "max-results",
+        "type": "int",
+        "default": "50",
+        "usage": "Page size"
+      },
+      {
+        "name": "start-at",
+        "type": "int",
+        "default": "0",
+        "usage": "Pagination offset"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent field option reorder",
+    "use": "reorder \u003cfield-id\u003e \u003ccontext-id\u003e",
+    "short": "Reorder custom field options",
+    "example": "jira-agent field option reorder customfield_10001 10200 --option-ids 10300,10301,10302\njira-agent field option reorder customfield_10001 10200 --option-ids 10301 --after 10300",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "anchor",
+        "type": "string",
+        "usage": "Anchor option ID (required for Before/After positions)"
+      },
+      {
+        "name": "option-ids",
+        "type": "string",
+        "usage": "Comma-separated option IDs to move (in desired order)",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      },
+      {
+        "name": "position",
+        "type": "string",
+        "usage": "Position: First, Last, Before, After",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "path": "jira-agent field option update",
+    "use": "update \u003cfield-id\u003e \u003ccontext-id\u003e",
+    "short": "Update options for a custom field context",
+    "example": "jira-agent field option update customfield_10001 10200 --options-json '[{\"id\":\"10300\",\"value\":\"Updated option\"}]'",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "disabled",
+        "type": "bool",
+        "default": "false",
+        "usage": "Disable the option"
+      },
+      {
+        "name": "option-id",
+        "type": "string",
+        "usage": "ID of the option to update",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      },
+      {
+        "name": "value",
+        "type": "string",
+        "usage": "New option value",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "path": "jira-agent field search",
+    "use": "search",
+    "short": "Search fields with filtering and pagination",
+    "example": "jira-agent field search --type custom\njira-agent field search --query \"story points\"",
+    "local_flags": [
+      {
+        "name": "max-results",
+        "type": "int",
+        "default": "50",
+        "usage": "Maximum number of results to return"
+      },
+      {
+        "name": "query",
+        "type": "string",
+        "usage": "Filter fields by name (substring match)"
+      },
+      {
+        "name": "start-at",
+        "type": "int",
+        "default": "0",
+        "usage": "Index of the first result to return"
+      },
+      {
+        "name": "type",
+        "type": "string",
+        "usage": "Filter by field type: custom, system"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent filter",
+    "use": "filter",
+    "short": "Work with Jira filters",
+    "example": "jira-agent filter list\njira-agent filter get 10001\njira-agent filter favorites",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
+    "subcommands": [
+      "create",
+      "default-share-scope",
+      "delete",
+      "favorites",
+      "get",
+      "list",
+      "permissions",
+      "share",
+      "unshare",
+      "update"
+    ]
+  },
+  {
+    "path": "jira-agent filter create",
+    "use": "create",
+    "short": "Create a filter",
+    "example": "jira-agent filter create --name \"My open bugs\" --jql \"project = PROJ AND type = Bug AND status = Open\"",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "body-json",
+        "type": "string",
+        "usage": "Raw filter JSON body"
+      },
+      {
+        "name": "description",
+        "type": "string",
+        "usage": "Filter description"
+      },
+      {
+        "name": "expand",
+        "type": "string",
+        "usage": "Comma-separated expansions"
+      },
+      {
+        "name": "jql",
+        "type": "string",
+        "usage": "Filter JQL"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "usage": "Filter name"
+      },
+      {
+        "name": "override-share-permissions",
+        "type": "bool",
+        "default": "false",
+        "usage": "Override share permission checks"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent filter default-share-scope",
+    "use": "default-share-scope",
+    "short": "Work with the default filter share scope",
+    "example": "jira-agent filter default-share-scope get\njira-agent filter default-share-scope set --scope PRIVATE",
+    "annotations": {
+      "jira-agent/default-subcommand": "get"
+    },
+    "subcommands": [
+      "get",
+      "set"
+    ]
+  },
+  {
+    "path": "jira-agent filter default-share-scope get",
+    "use": "get",
+    "short": "Get the default filter share scope",
+    "example": "jira-agent filter default-share-scope get"
+  },
+  {
+    "path": "jira-agent filter default-share-scope set",
+    "use": "set",
+    "short": "Set the default filter share scope",
+    "example": "jira-agent filter default-share-scope set --scope PRIVATE",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "scope",
+        "type": "string",
+        "usage": "Default scope: GLOBAL, AUTHENTICATED, or PRIVATE",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "path": "jira-agent filter delete",
+    "use": "delete \u003cfilter-id\u003e",
+    "short": "Delete a filter",
+    "example": "jira-agent filter delete 10001",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    }
+  },
+  {
+    "path": "jira-agent filter favorites",
+    "use": "favorites",
+    "short": "List favorite filters",
+    "example": "jira-agent filter favorites"
+  },
+  {
+    "path": "jira-agent filter get",
+    "use": "get \u003cfilter-id\u003e",
+    "short": "Get a filter",
+    "example": "jira-agent filter get 10001",
+    "local_flags": [
+      {
+        "name": "expand",
+        "type": "string",
+        "usage": "Comma-separated expansions"
+      },
+      {
+        "name": "override-share-permissions",
+        "type": "bool",
+        "default": "false",
+        "usage": "Override share permission filtering"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent filter list",
+    "use": "list",
+    "aliases": [
+      "search"
+    ],
+    "short": "Search filters",
+    "example": "jira-agent filter list\njira-agent filter list --expand owner,jql",
+    "local_flags": [
+      {
+        "name": "account-id",
+        "type": "string",
+        "usage": "Owner account ID"
+      },
+      {
+        "name": "expand",
+        "type": "string",
+        "usage": "Comma-separated expansions"
+      },
+      {
+        "name": "group-id",
+        "type": "string",
+        "usage": "Shared group ID"
+      },
+      {
+        "name": "groupname",
+        "type": "string",
+        "usage": "Shared group name"
+      },
+      {
+        "name": "max-results",
+        "type": "int",
+        "default": "50",
+        "usage": "Page size"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "usage": "Filter name query"
+      },
+      {
+        "name": "order-by",
+        "type": "string",
+        "usage": "Sort field"
+      },
+      {
+        "name": "override-share-permissions",
+        "type": "bool",
+        "default": "false",
+        "usage": "Override share permission filtering"
+      },
+      {
+        "name": "project-id",
+        "type": "string",
+        "usage": "Shared project ID"
+      },
+      {
+        "name": "start-at",
+        "type": "int",
+        "default": "0",
+        "usage": "Pagination offset"
+      },
+      {
+        "name": "substring",
+        "type": "bool",
+        "default": "false",
+        "usage": "Use substring matching for --name"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent filter permissions",
+    "use": "permissions \u003cfilter-id\u003e",
+    "short": "List filter share permissions",
+    "example": "jira-agent filter permissions 10001"
+  },
+  {
+    "path": "jira-agent filter share",
+    "use": "share \u003cfilter-id\u003e",
+    "short": "Add a filter share permission",
+    "example": "jira-agent filter share 10001 --with user:5b10a2844c20165700ede21g\njira-agent filter share 10001 --with group:team-group-id\njira-agent filter share 10001 --type project --project-id 10000",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "account-id",
+        "type": "string",
+        "usage": "User account ID"
+      },
+      {
+        "name": "body-json",
+        "type": "string",
+        "usage": "Raw share permission JSON body"
+      },
+      {
+        "name": "group-id",
+        "type": "string",
+        "usage": "Group ID"
+      },
+      {
+        "name": "groupname",
+        "type": "string",
+        "usage": "Group name"
+      },
+      {
+        "name": "project-id",
+        "type": "string",
+        "usage": "Project ID"
+      },
+      {
+        "name": "project-role-id",
+        "type": "string",
+        "usage": "Project role ID"
+      },
+      {
+        "name": "rights",
+        "type": "int",
+        "default": "0",
+        "usage": "Share rights value"
+      },
+      {
+        "name": "type",
+        "type": "string",
+        "usage": "Share permission type"
+      },
+      {
+        "name": "with",
+        "type": "string",
+        "usage": "Permission shorthand: global, authenticated, user:\u003caccount-id\u003e, group:\u003cgroup-id\u003e, groupname:\u003cname\u003e, project:\u003cproject-id\u003e, project-role:\u003cproject-id\u003e:\u003crole-id\u003e"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent filter unshare",
+    "use": "unshare \u003cfilter-id\u003e",
+    "short": "Remove a filter share permission",
+    "example": "jira-agent filter unshare 10001 --permission-id 10002",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "permission-id",
+        "type": "string",
+        "usage": "Share permission ID",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "path": "jira-agent filter update",
+    "use": "update \u003cfilter-id\u003e",
+    "short": "Update a filter",
+    "example": "jira-agent filter update 10001 --name \"Updated filter\" --jql \"project = PROJ AND status != Done\"",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "body-json",
+        "type": "string",
+        "usage": "Raw filter JSON body"
+      },
+      {
+        "name": "description",
+        "type": "string",
+        "usage": "Filter description"
+      },
+      {
+        "name": "expand",
+        "type": "string",
+        "usage": "Comma-separated expansions"
+      },
+      {
+        "name": "jql",
+        "type": "string",
+        "usage": "Filter JQL"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "usage": "Filter name"
+      },
+      {
+        "name": "override-share-permissions",
+        "type": "bool",
+        "default": "false",
+        "usage": "Override share permission checks"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent group",
+    "use": "group",
+    "short": "Work with Jira groups",
+    "example": "jira-agent group list\njira-agent group get --groupname \"jira-users\"\njira-agent group members --groupname \"jira-users\"",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
+    "subcommands": [
+      "add-member",
+      "create",
+      "delete",
+      "get",
+      "list",
+      "member-picker",
+      "members",
+      "remove-member"
+    ]
+  },
+  {
+    "path": "jira-agent group add-member",
+    "use": "add-member",
+    "short": "Add a user to a group",
+    "example": "jira-agent group add-member --groupname \"dev-team\" --account-id 5b10a2844c20165700ede21g",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "account-id",
+        "type": "string",
+        "usage": "User account ID",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      },
+      {
+        "name": "group-id",
+        "type": "string",
+        "usage": "Group ID"
+      },
+      {
+        "name": "groupname",
+        "type": "string",
+        "usage": "Group name"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent group create",
+    "use": "create \u003cgroup-name\u003e",
+    "short": "Create a group",
+    "example": "jira-agent group create \"new-team\"",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    }
+  },
+  {
+    "path": "jira-agent group delete",
+    "use": "delete",
+    "short": "Delete a group",
+    "example": "jira-agent group delete --groupname \"old-team\"",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "group-id",
+        "type": "string",
+        "usage": "Group ID"
+      },
+      {
+        "name": "groupname",
+        "type": "string",
+        "usage": "Group name"
+      },
+      {
+        "name": "swap-group",
+        "type": "string",
+        "usage": "Group name receiving transferred restrictions"
+      },
+      {
+        "name": "swap-group-id",
+        "type": "string",
+        "usage": "Group ID receiving transferred restrictions"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent group get",
+    "use": "get",
+    "short": "Get group details",
+    "example": "jira-agent group get --groupname \"jira-users\"\njira-agent group get --group-id abc-123",
+    "local_flags": [
+      {
+        "name": "expand",
+        "type": "string",
+        "usage": "Comma-separated expansions"
+      },
+      {
+        "name": "group-id",
+        "type": "string",
+        "usage": "Group ID"
+      },
+      {
+        "name": "groupname",
+        "type": "string",
+        "usage": "Group name"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent group list",
+    "use": "list",
+    "short": "Find groups",
+    "example": "jira-agent group list",
+    "local_flags": [
+      {
+        "name": "case-insensitive",
+        "type": "bool",
+        "default": "false",
+        "usage": "Search case-insensitively"
+      },
+      {
+        "name": "max-results",
+        "type": "int",
+        "default": "50",
+        "usage": "Page size"
+      },
+      {
+        "name": "query",
+        "type": "string",
+        "usage": "Group name query"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent group member-picker",
+    "use": "member-picker",
+    "short": "Search users and groups for pickers",
+    "example": "jira-agent group member-picker --query \"john\"",
+    "local_flags": [
+      {
+        "name": "issue-key",
+        "type": "string",
+        "usage": "Issue key for visibility context"
+      },
+      {
+        "name": "project-id",
+        "type": "string",
+        "usage": "Project ID for visibility context"
+      },
+      {
+        "name": "query",
+        "type": "string",
+        "usage": "Picker query"
+      },
+      {
+        "name": "show-avatar",
+        "type": "bool",
+        "default": "false",
+        "usage": "Include avatar URLs"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent group members",
+    "use": "members",
+    "short": "List members of a group",
+    "example": "jira-agent group members --groupname \"jira-users\"",
+    "local_flags": [
+      {
+        "name": "group-id",
+        "type": "string",
+        "usage": "Group ID"
+      },
+      {
+        "name": "groupname",
+        "type": "string",
+        "usage": "Group name"
+      },
+      {
+        "name": "include-inactive",
+        "type": "bool",
+        "default": "false",
+        "usage": "Include inactive users"
+      },
+      {
+        "name": "max-results",
+        "type": "int",
+        "default": "50",
+        "usage": "Page size"
+      },
+      {
+        "name": "start-at",
+        "type": "int",
+        "default": "0",
+        "usage": "Pagination offset"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent group remove-member",
+    "use": "remove-member",
+    "short": "Remove a user from a group",
+    "example": "jira-agent group remove-member --groupname \"dev-team\" --account-id 5b10a2844c20165700ede21g",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "account-id",
+        "type": "string",
+        "usage": "User account ID",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      },
+      {
+        "name": "group-id",
+        "type": "string",
+        "usage": "Group ID"
+      },
+      {
+        "name": "groupname",
+        "type": "string",
+        "usage": "Group name"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue",
+    "use": "issue",
+    "short": "Issue operations (get, search, create, edit, delete, transition, assign, comment, changelog, rank, count, notify, meta, bulk, property)",
+    "example": "jira-agent issue get PROJ-123\njira-agent issue search --jql \"project = PROJ AND status = Open\"\njira-agent issue create --project PROJ --type Story --summary \"New feature\"\njira-agent issue transition PROJ-123 --to \"In Progress\"",
+    "subcommands": [
+      "assign",
+      "attachment",
+      "bulk",
+      "bulk-create",
+      "bulk-delete",
+      "bulk-edit",
+      "bulk-edit-fields",
+      "bulk-fetch",
+      "bulk-move",
+      "bulk-status",
+      "bulk-transition",
+      "bulk-transitions",
+      "changelog",
+      "comment",
+      "count",
+      "create",
+      "delete",
+      "edit",
+      "get",
+      "link",
+      "meta",
+      "notify",
+      "picker",
+      "property",
+      "rank",
+      "remote-link",
+      "search",
+      "transition",
+      "vote",
+      "watcher",
+      "worklog"
+    ]
+  },
+  {
+    "path": "jira-agent issue assign",
+    "use": "assign \u003cissue-key\u003e [account-id]",
+    "short": "Assign issue to a user",
+    "example": "jira-agent issue assign PROJ-123 5b10a2844c20165700ede21g\njira-agent issue assign PROJ-123 --unassign\njira-agent issue assign PROJ-123 --default",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "default",
+        "type": "bool",
+        "default": "false",
+        "usage": "Use project default assignee"
+      },
+      {
+        "name": "unassign",
+        "type": "bool",
+        "default": "false",
+        "usage": "Remove current assignee"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue attachment",
+    "use": "attachment",
+    "short": "Attachment operations (list, add, get, delete)",
+    "example": "jira-agent issue attachment list PROJ-123\njira-agent issue attachment add PROJ-123 --file report.pdf\njira-agent issue attachment get 10001",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
+    "subcommands": [
+      "add",
+      "delete",
+      "get",
+      "list"
+    ]
+  },
+  {
+    "path": "jira-agent issue attachment add",
+    "use": "add \u003cissue-key\u003e",
+    "short": "Add an attachment to an issue",
+    "example": "jira-agent issue attachment add PROJ-123 --file report.pdf\njira-agent issue attachment add PROJ-123 --file doc.pdf --file image.png",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "file",
+        "type": "stringSlice",
+        "default": "[]",
+        "usage": "File path to attach (repeatable)",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue attachment delete",
+    "use": "delete \u003cattachment-id\u003e",
+    "short": "Delete an attachment",
+    "example": "jira-agent issue attachment delete 10001",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    }
+  },
+  {
+    "path": "jira-agent issue attachment get",
+    "use": "get \u003cattachment-id\u003e",
+    "short": "Get attachment metadata",
+    "example": "jira-agent issue attachment get 10001"
+  },
+  {
+    "path": "jira-agent issue attachment list",
+    "use": "list \u003cissue-key\u003e",
+    "short": "List attachments on an issue",
+    "example": "jira-agent issue attachment list PROJ-123"
+  },
+  {
+    "path": "jira-agent issue bulk",
+    "use": "bulk",
+    "short": "Bulk issue operations",
+    "example": "jira-agent issue bulk fetch --issues PROJ-1,PROJ-2 --fields key,summary,status\njira-agent issue bulk create --issues-json '[{\"fields\":{\"project\":{\"key\":\"PROJ\"},\"issuetype\":{\"name\":\"Task\"},\"summary\":\"Task 1\"}}]'\njira-agent issue bulk transition --transitions-json '[{\"selectedIssueIdsOrKeys\":[\"PROJ-1\"],\"transitionId\":\"11\"}]'",
+    "subcommands": [
+      "create",
+      "delete",
+      "edit",
+      "edit-fields",
+      "fetch",
+      "move",
+      "status",
+      "transition",
+      "transitions"
+    ]
+  },
+  {
+    "path": "jira-agent issue bulk create",
+    "use": "create",
+    "short": "Create multiple issues from Jira issueUpdates JSON",
+    "example": "jira-agent issue bulk create --issues-json '[{\"fields\":{\"project\":{\"key\":\"PROJ\"},\"issuetype\":{\"name\":\"Task\"},\"summary\":\"Task 1\"}}]'",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "issues-json",
+        "type": "string",
+        "usage": "JSON array of issueUpdates or object with issueUpdates (required, max 50 issues)"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue bulk delete",
+    "use": "delete",
+    "short": "Bulk delete issues (up to 1000)",
+    "example": "jira-agent issue bulk delete --issues PROJ-1,PROJ-2,PROJ-3\njira-agent issue bulk delete --issues PROJ-1,PROJ-2 --send-notification=false",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "issues",
+        "type": "string",
+        "usage": "Comma-separated issue keys or IDs (required)"
+      },
+      {
+        "name": "send-notification",
+        "type": "bool",
+        "default": "true",
+        "usage": "Send bulk notification email"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue bulk edit",
+    "use": "edit",
+    "short": "Bulk edit issues (up to 1000 issues, 200 fields)",
+    "example": "jira-agent issue bulk edit --payload-json '{\"selectedIssueIdsOrKeys\":[\"PROJ-1\",\"PROJ-2\"],\"selectedActions\":[\"priority\"],\"editedFieldsInput\":{\"priority\":{\"name\":\"High\"}}}'",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "payload-json",
+        "type": "string",
+        "usage": "Full JSON payload with selectedIssueIdsOrKeys, selectedActions, editedFieldsInput, and optional sendBulkNotification (required)"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue bulk edit-fields",
+    "use": "edit-fields",
+    "short": "List editable fields for bulk edit",
+    "example": "jira-agent issue bulk edit-fields --issues PROJ-1,PROJ-2\njira-agent issue bulk edit-fields --issues PROJ-1,PROJ-2 --search-text priority",
+    "local_flags": [
+      {
+        "name": "ending-before",
+        "type": "string",
+        "usage": "End cursor for pagination"
+      },
+      {
+        "name": "issues",
+        "type": "string",
+        "usage": "Comma-separated issue keys or IDs (required)"
+      },
+      {
+        "name": "search-text",
+        "type": "string",
+        "usage": "Filter fields by name"
+      },
+      {
+        "name": "starting-after",
+        "type": "string",
+        "usage": "Start cursor for pagination"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue bulk fetch",
+    "use": "fetch",
+    "short": "Fetch multiple issues by key or ID",
+    "example": "jira-agent issue bulk fetch --issues PROJ-1,PROJ-2,PROJ-3\njira-agent issue bulk fetch --issues PROJ-1,PROJ-2 --fields key,summary,status",
+    "local_flags": [
+      {
+        "name": "expand",
+        "type": "string",
+        "usage": "Comma-separated expansions (names, schema, changelog, operations)"
+      },
+      {
+        "name": "fields",
+        "type": "string",
+        "usage": "Comma-separated field list"
+      },
+      {
+        "name": "fields-by-keys",
+        "type": "bool",
+        "default": "false",
+        "usage": "Treat field identifiers as field keys instead of field IDs"
+      },
+      {
+        "name": "issues",
+        "type": "string",
+        "usage": "Comma-separated issue keys or IDs (required, max 100 issues)"
+      },
+      {
+        "name": "properties",
+        "type": "string",
+        "usage": "Comma-separated issue properties to include (max 5)"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue bulk move",
+    "use": "move",
+    "short": "Bulk move issues to a target project and issue type (up to 1000)",
+    "example": "jira-agent issue bulk move --payload-json '{\"targetToSourcesMapping\":{\"DEST\":{\"issueIdsOrKeys\":[\"PROJ-1\"],\"targetIssueType\":\"Task\"}}}'",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "payload-json",
+        "type": "string",
+        "usage": "Full JSON payload with targetToSourcesMapping and optional sendBulkNotification (required)"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue bulk status",
+    "use": "status \u003ctask-id\u003e",
+    "short": "Get bulk issue operation progress",
+    "example": "jira-agent issue bulk status 10641"
+  },
+  {
+    "path": "jira-agent issue bulk transition",
+    "use": "transition",
+    "short": "Bulk transition issue statuses (up to 1000)",
+    "example": "jira-agent issue bulk transition --transitions-json '[{\"selectedIssueIdsOrKeys\":[\"PROJ-1\"],\"transitionId\":\"11\"}]'\njira-agent issue bulk transition --transitions-json '[{\"selectedIssueIdsOrKeys\":[\"PROJ-1\"],\"transitionId\":\"11\"}]' --send-notification=false",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "send-notification",
+        "type": "bool",
+        "default": "true",
+        "usage": "Send bulk notification email"
+      },
+      {
+        "name": "transitions-json",
+        "type": "string",
+        "usage": "JSON array of transition inputs, e.g. [{\"selectedIssueIdsOrKeys\":[\"PROJ-1\"],\"transitionId\":\"11\"}] (required)"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue bulk transitions",
+    "use": "transitions",
+    "short": "List available transitions for bulk transition",
+    "example": "jira-agent issue bulk transitions --issues PROJ-1,PROJ-2,PROJ-3",
+    "local_flags": [
+      {
+        "name": "ending-before",
+        "type": "string",
+        "usage": "End cursor for pagination"
+      },
+      {
+        "name": "issues",
+        "type": "string",
+        "usage": "Comma-separated issue keys or IDs (required)"
+      },
+      {
+        "name": "starting-after",
+        "type": "string",
+        "usage": "Start cursor for pagination"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue bulk-create",
+    "use": "bulk-create",
+    "short": "Create multiple issues from Jira issueUpdates JSON",
+    "example": "jira-agent issue bulk-create --issues-json '[{\"fields\":{\"project\":{\"key\":\"PROJ\"},\"issuetype\":{\"name\":\"Task\"},\"summary\":\"Task 1\"}}]'",
+    "hidden": true,
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "issues-json",
+        "type": "string",
+        "usage": "JSON array of issueUpdates or object with issueUpdates (required, max 50 issues)"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue bulk-delete",
+    "use": "bulk-delete",
+    "short": "Bulk delete issues (up to 1000)",
+    "example": "jira-agent issue bulk-delete --issues PROJ-1,PROJ-2,PROJ-3\njira-agent issue bulk-delete --issues PROJ-1,PROJ-2 --send-notification=false",
+    "hidden": true,
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "issues",
+        "type": "string",
+        "usage": "Comma-separated issue keys or IDs (required)"
+      },
+      {
+        "name": "send-notification",
+        "type": "bool",
+        "default": "true",
+        "usage": "Send bulk notification email"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue bulk-edit",
+    "use": "bulk-edit",
+    "short": "Bulk edit issues (up to 1000 issues, 200 fields)",
+    "example": "jira-agent issue bulk-edit --payload-json '{\"selectedIssueIdsOrKeys\":[\"PROJ-1\",\"PROJ-2\"],\"selectedActions\":[\"priority\"],\"editedFieldsInput\":{\"priority\":{\"name\":\"High\"}}}'",
+    "hidden": true,
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "payload-json",
+        "type": "string",
+        "usage": "Full JSON payload with selectedIssueIdsOrKeys, selectedActions, editedFieldsInput, and optional sendBulkNotification (required)"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue bulk-edit-fields",
+    "use": "bulk-edit-fields",
+    "short": "List editable fields for bulk edit",
+    "example": "jira-agent issue bulk-edit-fields --issues PROJ-1,PROJ-2\njira-agent issue bulk-edit-fields --issues PROJ-1,PROJ-2 --search-text priority",
+    "hidden": true,
+    "local_flags": [
+      {
+        "name": "ending-before",
+        "type": "string",
+        "usage": "End cursor for pagination"
+      },
+      {
+        "name": "issues",
+        "type": "string",
+        "usage": "Comma-separated issue keys or IDs (required)"
+      },
+      {
+        "name": "search-text",
+        "type": "string",
+        "usage": "Filter fields by name"
+      },
+      {
+        "name": "starting-after",
+        "type": "string",
+        "usage": "Start cursor for pagination"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue bulk-fetch",
+    "use": "bulk-fetch",
+    "short": "Fetch multiple issues by key or ID",
+    "example": "jira-agent issue bulk-fetch --issues PROJ-1,PROJ-2,PROJ-3\njira-agent issue bulk-fetch --issues PROJ-1,PROJ-2 --fields key,summary,status",
+    "hidden": true,
+    "local_flags": [
+      {
+        "name": "expand",
+        "type": "string",
+        "usage": "Comma-separated expansions (names, schema, changelog, operations)"
+      },
+      {
+        "name": "fields",
+        "type": "string",
+        "usage": "Comma-separated field list"
+      },
+      {
+        "name": "fields-by-keys",
+        "type": "bool",
+        "default": "false",
+        "usage": "Treat field identifiers as field keys instead of field IDs"
+      },
+      {
+        "name": "issues",
+        "type": "string",
+        "usage": "Comma-separated issue keys or IDs (required, max 100 issues)"
+      },
+      {
+        "name": "properties",
+        "type": "string",
+        "usage": "Comma-separated issue properties to include (max 5)"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue bulk-move",
+    "use": "bulk-move",
+    "short": "Bulk move issues to a target project and issue type (up to 1000)",
+    "example": "jira-agent issue bulk-move --payload-json '{\"targetToSourcesMapping\":{\"DEST\":{\"issueIdsOrKeys\":[\"PROJ-1\"],\"targetIssueType\":\"Task\"}}}'",
+    "hidden": true,
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "payload-json",
+        "type": "string",
+        "usage": "Full JSON payload with targetToSourcesMapping and optional sendBulkNotification (required)"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue bulk-status",
+    "use": "bulk-status \u003ctask-id\u003e",
+    "short": "Get bulk issue operation progress",
+    "example": "jira-agent issue bulk-status 10641",
+    "hidden": true
+  },
+  {
+    "path": "jira-agent issue bulk-transition",
+    "use": "bulk-transition",
+    "short": "Bulk transition issue statuses (up to 1000)",
+    "example": "jira-agent issue bulk-transition --transitions-json '[{\"selectedIssueIdsOrKeys\":[\"PROJ-1\"],\"transitionId\":\"11\"}]'\njira-agent issue bulk-transition --transitions-json '[{\"selectedIssueIdsOrKeys\":[\"PROJ-1\"],\"transitionId\":\"11\"}]' --send-notification=false",
+    "hidden": true,
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "send-notification",
+        "type": "bool",
+        "default": "true",
+        "usage": "Send bulk notification email"
+      },
+      {
+        "name": "transitions-json",
+        "type": "string",
+        "usage": "JSON array of transition inputs, e.g. [{\"selectedIssueIdsOrKeys\":[\"PROJ-1\"],\"transitionId\":\"11\"}] (required)"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue bulk-transitions",
+    "use": "bulk-transitions",
+    "short": "List available transitions for bulk transition",
+    "example": "jira-agent issue bulk-transitions --issues PROJ-1,PROJ-2,PROJ-3",
+    "hidden": true,
+    "local_flags": [
+      {
+        "name": "ending-before",
+        "type": "string",
+        "usage": "End cursor for pagination"
+      },
+      {
+        "name": "issues",
+        "type": "string",
+        "usage": "Comma-separated issue keys or IDs (required)"
+      },
+      {
+        "name": "starting-after",
+        "type": "string",
+        "usage": "Start cursor for pagination"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue changelog",
+    "use": "changelog \u003cissue-key\u003e",
+    "short": "List changelog entries for an issue",
+    "example": "jira-agent issue changelog PROJ-123\njira-agent issue changelog PROJ-123 --max-results 10\njira-agent issue changelog list-by-ids PROJ-123 --ids 10001,10002\njira-agent issue changelog bulk-fetch --issues PROJ-1,PROJ-2",
+    "local_flags": [
+      {
+        "name": "max-results",
+        "type": "int",
+        "default": "50",
+        "usage": "Page size"
+      },
+      {
+        "name": "start-at",
+        "type": "int",
+        "default": "0",
+        "usage": "Pagination offset"
+      }
+    ],
+    "subcommands": [
+      "bulk-fetch",
+      "list-by-ids"
+    ]
+  },
+  {
+    "path": "jira-agent issue changelog bulk-fetch",
+    "use": "bulk-fetch",
+    "short": "Bulk fetch changelogs for issues",
+    "example": "jira-agent issue changelog bulk-fetch --issues PROJ-1,PROJ-2\njira-agent issue changelog bulk-fetch --issues PROJ-1,PROJ-2 --field-ids status,assignee --max-results 100",
+    "local_flags": [
+      {
+        "name": "field-ids",
+        "type": "string",
+        "usage": "Comma-separated field IDs to filter changelogs (max 10)"
+      },
+      {
+        "name": "issues",
+        "type": "string",
+        "usage": "Comma-separated issue keys or IDs (required, max 1000)"
+      },
+      {
+        "name": "max-results",
+        "type": "int",
+        "default": "1000",
+        "usage": "Maximum changelog items to return"
+      },
+      {
+        "name": "next-page-token",
+        "type": "string",
+        "usage": "Cursor token from previous response"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue changelog list-by-ids",
+    "use": "list-by-ids \u003cissue-key\u003e",
+    "short": "Get issue changelogs by IDs",
+    "example": "jira-agent issue changelog list-by-ids PROJ-123 --ids 10001,10002",
+    "local_flags": [
+      {
+        "name": "ids",
+        "type": "string",
+        "usage": "Comma-separated changelog IDs (required)"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue comment",
+    "use": "comment",
+    "short": "Comment operations (list, add, edit, delete)",
+    "example": "jira-agent issue comment list PROJ-123\njira-agent issue comment add PROJ-123 --body \"This is a comment\"",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
+    "subcommands": [
+      "add",
+      "delete",
+      "edit",
+      "get",
+      "list",
+      "list-by-ids"
+    ]
+  },
+  {
+    "path": "jira-agent issue comment add",
+    "use": "add \u003cissue-key\u003e",
+    "short": "Add a comment to an issue",
+    "example": "jira-agent issue comment add PROJ-123 --body \"This is a comment\"\njira-agent issue comment add PROJ-123 --body \"Internal note\" --visibility-type role --visibility-value Developers",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "body",
+        "shorthand": "b",
+        "type": "string",
+        "usage": "Comment body (plain text or ADF JSON)",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      },
+      {
+        "name": "expand",
+        "type": "string",
+        "usage": "Comma-separated expansions (renderedBody)"
+      },
+      {
+        "name": "visibility-type",
+        "type": "string",
+        "usage": "Visibility restriction type: group or role"
+      },
+      {
+        "name": "visibility-value",
+        "type": "string",
+        "usage": "Visibility restriction value (group/role name)"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue comment delete",
+    "use": "delete \u003cissue-key\u003e \u003ccomment-id\u003e",
+    "short": "Delete a comment",
+    "example": "jira-agent issue comment delete PROJ-123 10001",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    }
+  },
+  {
+    "path": "jira-agent issue comment edit",
+    "use": "edit \u003cissue-key\u003e \u003ccomment-id\u003e",
+    "short": "Edit an existing comment",
+    "example": "jira-agent issue comment edit PROJ-123 10001 --body \"Updated comment\"\njira-agent issue comment edit PROJ-123 10001 --body \"Updated\" --notify=false",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "body",
+        "shorthand": "b",
+        "type": "string",
+        "usage": "New comment body (plain text or ADF JSON)",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      },
+      {
+        "name": "expand",
+        "type": "string",
+        "usage": "Comma-separated expansions (renderedBody)"
+      },
+      {
+        "name": "notify",
+        "type": "bool",
+        "default": "true",
+        "usage": "Send notification to watchers"
+      },
+      {
+        "name": "override-editable-flag",
+        "type": "bool",
+        "default": "false",
+        "usage": "Override comment editable flag"
+      },
+      {
+        "name": "visibility-type",
+        "type": "string",
+        "usage": "Visibility restriction type: group or role"
+      },
+      {
+        "name": "visibility-value",
+        "type": "string",
+        "usage": "Visibility restriction value (group/role name)"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue comment get",
+    "use": "get \u003cissue-key\u003e \u003ccomment-id\u003e",
+    "short": "Get a single comment",
+    "example": "jira-agent issue comment get PROJ-123 10001",
+    "local_flags": [
+      {
+        "name": "expand",
+        "type": "string",
+        "usage": "Comma-separated expansions (renderedBody, properties)"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue comment list",
+    "use": "list \u003cissue-key\u003e",
+    "short": "List comments on an issue",
+    "example": "jira-agent issue comment list PROJ-123\njira-agent issue comment list PROJ-123 --order-by -created"
+  },
+  {
+    "path": "jira-agent issue comment list-by-ids",
+    "use": "list-by-ids",
+    "short": "Get comments by IDs",
+    "example": "jira-agent issue comment list-by-ids --ids 10001,10002",
+    "local_flags": [
+      {
+        "name": "expand",
+        "type": "string",
+        "usage": "Comma-separated expansions (renderedBody, properties)"
+      },
+      {
+        "name": "ids",
+        "type": "string",
+        "usage": "Comma-separated comment IDs (required)"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue count",
+    "use": "count",
+    "short": "Count issues matching a JQL query",
+    "example": "jira-agent issue count --jql \"project = PROJ AND status = Open\"\njira-agent issue count --jql \"assignee = currentUser() AND resolution = Unresolved\"",
+    "local_flags": [
+      {
+        "name": "jql",
+        "type": "string",
+        "usage": "JQL query to count results for (required)"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue create",
+    "use": "create",
+    "short": "Create a new issue",
+    "example": "jira-agent issue create --project PROJ --type Story --summary \"New feature\"\njira-agent issue create --project PROJ --type Bug --summary \"Fix login\" --priority High --labels bug,urgent\njira-agent issue create --project PROJ --type Task --summary \"Subtask\" --parent PROJ-100",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "assignee",
+        "type": "string",
+        "usage": "Assignee account ID"
+      },
+      {
+        "name": "components",
+        "type": "string",
+        "usage": "Comma-separated component names"
+      },
+      {
+        "name": "description",
+        "type": "string",
+        "usage": "Description text, ADF JSON, or wiki markup with --description-format"
+      },
+      {
+        "name": "description-format",
+        "type": "string",
+        "default": "auto",
+        "usage": "Description input format: auto, plain, adf, or wiki"
+      },
+      {
+        "name": "field",
+        "type": "stringToString",
+        "default": "[]",
+        "usage": "Custom field value (key=value, repeatable)"
+      },
+      {
+        "name": "fields-json",
+        "type": "string",
+        "usage": "JSON object of fields (alternative to individual flags)"
+      },
+      {
+        "name": "labels",
+        "type": "string",
+        "usage": "Comma-separated labels"
+      },
+      {
+        "name": "parent",
+        "type": "string",
+        "usage": "Parent issue key (for subtasks/child issues)"
+      },
+      {
+        "name": "payload-json",
+        "type": "string",
+        "usage": "Full JSON issue create payload, merged after field flags"
+      },
+      {
+        "name": "priority",
+        "type": "string",
+        "usage": "Priority name (e.g. High, Medium, Low)"
+      },
+      {
+        "name": "summary",
+        "type": "string",
+        "usage": "Issue summary"
+      },
+      {
+        "name": "type",
+        "type": "string",
+        "usage": "Issue type name (e.g. Story, Bug, Task)"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue delete",
+    "use": "delete \u003cissue-key\u003e",
+    "short": "Delete an issue",
+    "example": "jira-agent issue delete PROJ-123\njira-agent issue delete PROJ-123 --delete-subtasks",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "delete-subtasks",
+        "type": "bool",
+        "default": "false",
+        "usage": "Delete subtasks of the issue"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue edit",
+    "use": "edit \u003cissue-key\u003e",
+    "short": "Update issue fields",
+    "example": "jira-agent issue edit PROJ-123 --summary \"Updated summary\"\njira-agent issue edit PROJ-123 --priority High --labels bug,critical\njira-agent issue edit PROJ-123 --fields-json '{\"customfield_10001\":\"value\"}'",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "assignee",
+        "type": "string",
+        "usage": "Assignee account ID"
+      },
+      {
+        "name": "components",
+        "type": "string",
+        "usage": "Comma-separated component names"
+      },
+      {
+        "name": "description",
+        "type": "string",
+        "usage": "Description text, ADF JSON, or wiki markup with --description-format"
+      },
+      {
+        "name": "description-format",
+        "type": "string",
+        "default": "auto",
+        "usage": "Description input format: auto, plain, adf, or wiki"
+      },
+      {
+        "name": "field",
+        "type": "stringToString",
+        "default": "[]",
+        "usage": "Custom field value (key=value, repeatable)"
+      },
+      {
+        "name": "fields-json",
+        "type": "string",
+        "usage": "JSON object of fields"
+      },
+      {
+        "name": "labels",
+        "type": "string",
+        "usage": "Comma-separated labels"
+      },
+      {
+        "name": "notify",
+        "type": "bool",
+        "default": "true",
+        "usage": "Send notification to watchers"
+      },
+      {
+        "name": "parent",
+        "type": "string",
+        "usage": "Parent issue key"
+      },
+      {
+        "name": "payload-json",
+        "type": "string",
+        "usage": "Full JSON issue edit payload, merged after field flags"
+      },
+      {
+        "name": "priority",
+        "type": "string",
+        "usage": "Priority name"
+      },
+      {
+        "name": "summary",
+        "type": "string",
+        "usage": "Issue summary"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue get",
+    "use": "get \u003cissue-key\u003e",
+    "short": "Get issue by key or ID",
+    "example": "jira-agent issue get PROJ-123\njira-agent issue get PROJ-123 --fields key,summary,status,assignee\njira-agent issue get PROJ-123 --fields description --description-output-format markdown\njira-agent issue get PROJ-123 --expand changelog\njira-agent issue get PROJ-123 --raw",
+    "local_flags": [
+      {
+        "name": "description-output-format",
+        "type": "string",
+        "default": "text",
+        "usage": "Description output format: text, markdown, or adf"
+      },
+      {
+        "name": "expand",
+        "type": "string",
+        "usage": "Comma-separated expansions (names, schema, changelog, operations)"
+      },
+      {
+        "name": "fail-fast",
+        "type": "bool",
+        "default": "true",
+        "usage": "Fail immediately if a requested field cannot be resolved"
+      },
+      {
+        "name": "fields",
+        "type": "string",
+        "usage": "Comma-separated field list (default: all navigable)"
+      },
+      {
+        "name": "fields-by-keys",
+        "type": "bool",
+        "default": "false",
+        "usage": "Treat field identifiers as field keys instead of field IDs"
+      },
+      {
+        "name": "properties",
+        "type": "string",
+        "usage": "Comma-separated issue properties to include"
+      },
+      {
+        "name": "raw",
+        "type": "bool",
+        "default": "false",
+        "usage": "Return the unmodified Jira API response for JSON output"
+      },
+      {
+        "name": "update-history",
+        "type": "bool",
+        "default": "false",
+        "usage": "Add the issue to the user's recently viewed history"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue link",
+    "use": "link",
+    "short": "Issue link operations (list, add, delete, types)",
+    "example": "jira-agent issue link list PROJ-123\njira-agent issue link add --type Blocks --inward PROJ-1 --outward PROJ-2\njira-agent issue link types",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
+    "subcommands": [
+      "add",
+      "delete",
+      "get",
+      "list",
+      "types"
+    ]
+  },
+  {
+    "path": "jira-agent issue link add",
+    "use": "add",
+    "short": "Add a link between two issues",
+    "example": "jira-agent issue link add --type Blocks --inward PROJ-1 --outward PROJ-2\njira-agent issue link add --type-id 10001 --inward PROJ-1 --outward PROJ-2",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "comment",
+        "type": "string",
+        "usage": "Comment to add with the issue link"
+      },
+      {
+        "name": "inward",
+        "type": "string",
+        "usage": "Inward issue key or ID",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      },
+      {
+        "name": "outward",
+        "type": "string",
+        "usage": "Outward issue key or ID",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      },
+      {
+        "name": "type",
+        "type": "string",
+        "usage": "Issue link type name, such as Blocks"
+      },
+      {
+        "name": "type-id",
+        "type": "string",
+        "usage": "Issue link type ID"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue link delete",
+    "use": "delete \u003clink-id\u003e",
+    "short": "Delete an issue link",
+    "example": "jira-agent issue link delete 12345",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    }
+  },
+  {
+    "path": "jira-agent issue link get",
+    "use": "get \u003clink-id\u003e",
+    "short": "Get an issue link",
+    "example": "jira-agent issue link get 12345"
+  },
+  {
+    "path": "jira-agent issue link list",
+    "use": "list \u003cissue-key\u003e",
+    "short": "List issue links on an issue",
+    "example": "jira-agent issue link list PROJ-123"
+  },
+  {
+    "path": "jira-agent issue link types",
+    "use": "types",
+    "short": "List issue link types",
+    "example": "jira-agent issue link types"
+  },
+  {
+    "path": "jira-agent issue meta",
+    "use": "meta",
+    "short": "Get create or edit metadata for issues",
+    "example": "jira-agent issue meta --project PROJ\njira-agent issue meta --project PROJ --type Story\njira-agent issue meta --operation edit --issue PROJ-123",
+    "local_flags": [
+      {
+        "name": "issue",
+        "type": "string",
+        "usage": "Issue key (required for edit metadata)"
+      },
+      {
+        "name": "operation",
+        "type": "string",
+        "default": "create",
+        "usage": "Operation: create or edit"
+      },
+      {
+        "name": "type",
+        "type": "string",
+        "usage": "Issue type name (filters to a single type)"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue notify",
+    "use": "notify \u003cissue-key\u003e",
+    "short": "Send an email notification for an issue",
+    "example": "jira-agent issue notify PROJ-123 --subject \"Action needed\" --text-body \"Please review\"\njira-agent issue notify PROJ-123 --subject \"Update\" --to-watchers --to-assignee",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "html-body",
+        "type": "string",
+        "usage": "HTML body"
+      },
+      {
+        "name": "subject",
+        "type": "string",
+        "usage": "notification subject line",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      },
+      {
+        "name": "text-body",
+        "type": "string",
+        "usage": "plain text body"
+      },
+      {
+        "name": "to-assignee",
+        "type": "bool",
+        "default": "false",
+        "usage": "send to assignee"
+      },
+      {
+        "name": "to-reporter",
+        "type": "bool",
+        "default": "false",
+        "usage": "send to reporter"
+      },
+      {
+        "name": "to-users",
+        "type": "stringSlice",
+        "default": "[]",
+        "usage": "account IDs of additional recipients (repeatable)"
+      },
+      {
+        "name": "to-voters",
+        "type": "bool",
+        "default": "false",
+        "usage": "send to voters"
+      },
+      {
+        "name": "to-watchers",
+        "type": "bool",
+        "default": "false",
+        "usage": "send to watchers"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue picker",
+    "use": "picker",
+    "short": "Find issues for picker UI",
+    "example": "jira-agent issue picker --query PROJ-123\njira-agent issue picker --query login --current-jql \"project = PROJ\" --show-subtasks=false",
+    "local_flags": [
+      {
+        "name": "current-issue-key",
+        "type": "string",
+        "usage": "Current issue key for context"
+      },
+      {
+        "name": "current-jql",
+        "type": "string",
+        "usage": "JQL context for current search results"
+      },
+      {
+        "name": "current-project-id",
+        "type": "string",
+        "usage": "Current project ID for context"
+      },
+      {
+        "name": "query",
+        "type": "string",
+        "usage": "Issue key, summary text, or search text"
+      },
+      {
+        "name": "show-subtask-parent",
+        "type": "bool",
+        "default": "true",
+        "usage": "Show parent summaries for subtasks"
+      },
+      {
+        "name": "show-subtasks",
+        "type": "bool",
+        "default": "true",
+        "usage": "Include subtasks in picker results"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue property",
+    "use": "property",
+    "short": "Manage issue properties",
+    "example": "jira-agent issue property list PROJ-123\njira-agent issue property get PROJ-123 com.example.flag\njira-agent issue property set PROJ-123 com.example.flag --value-json '{\"enabled\":true}'",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
+    "subcommands": [
+      "delete",
+      "get",
+      "list",
+      "set"
+    ]
+  },
+  {
+    "path": "jira-agent issue property delete",
+    "use": "delete \u003cissue key\u003e \u003cproperty-key\u003e",
+    "short": "Delete an issue property",
+    "example": "jira-agent issue property delete PROJ-123 com.example.flag",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    }
+  },
+  {
+    "path": "jira-agent issue property get",
+    "use": "get \u003cissue key\u003e \u003cproperty-key\u003e",
+    "short": "Get an issue property",
+    "example": "jira-agent issue property get PROJ-123 com.example.flag"
+  },
+  {
+    "path": "jira-agent issue property list",
+    "use": "list \u003cissue key\u003e",
+    "short": "List issue property keys",
+    "example": "jira-agent issue property list PROJ-123"
+  },
+  {
+    "path": "jira-agent issue property set",
+    "use": "set \u003cissue key\u003e \u003cproperty-key\u003e",
+    "short": "Set an issue property",
+    "example": "jira-agent issue property set PROJ-123 com.example.flag --value-json '{\"enabled\":true}'",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "value-json",
+        "type": "string",
+        "usage": "Property value as raw JSON (required)",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue rank",
+    "use": "rank",
+    "short": "Rank issues before or after a target issue",
+    "example": "jira-agent issue rank --issues PROJ-1,PROJ-2 --before PROJ-10\njira-agent issue rank --issues PROJ-5 --after PROJ-3",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "after",
+        "type": "string",
+        "usage": "Issue key to rank after (mutually exclusive with --before)"
+      },
+      {
+        "name": "before",
+        "type": "string",
+        "usage": "Issue key to rank before (mutually exclusive with --after)"
+      },
+      {
+        "name": "issues",
+        "type": "string",
+        "usage": "Comma-separated issue keys to rank",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue remote-link",
+    "use": "remote-link",
+    "aliases": [
+      "remotelink"
+    ],
+    "short": "Remote issue link operations (list, add, edit, delete)",
+    "example": "jira-agent issue remote-link list PROJ-123\njira-agent issue remote-link add PROJ-123 --url \"https://example.com\" --title \"Docs\"",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
+    "subcommands": [
+      "add",
+      "delete",
+      "edit",
+      "get",
+      "list"
+    ]
+  },
+  {
+    "path": "jira-agent issue remote-link add",
+    "use": "add \u003cissue-key\u003e",
+    "short": "Add a remote link to an issue",
+    "example": "jira-agent issue remote-link add PROJ-123 --url \"https://example.com\" --title \"Related doc\"",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "global-id",
+        "type": "string",
+        "usage": "Stable global ID for the remote link"
+      },
+      {
+        "name": "relationship",
+        "type": "string",
+        "usage": "Relationship description, such as mentioned in"
+      },
+      {
+        "name": "title",
+        "type": "string",
+        "usage": "Remote object title",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      },
+      {
+        "name": "url",
+        "type": "string",
+        "usage": "Remote object URL",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue remote-link delete",
+    "use": "delete \u003cissue-key\u003e [remote-link-id]",
+    "short": "Delete a remote link from an issue",
+    "example": "jira-agent issue remote-link delete PROJ-123 10001\njira-agent issue remote-link delete PROJ-123 --global-id system=https://example.com\u0026id=123",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "global-id",
+        "type": "string",
+        "usage": "Delete by stable global ID instead of remote link ID"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue remote-link edit",
+    "use": "edit \u003cissue-key\u003e \u003cremote-link-id\u003e",
+    "short": "Edit a remote link on an issue",
+    "example": "jira-agent issue remote-link edit PROJ-123 10001 --url \"https://example.com/updated\" --title \"Updated doc\"",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "global-id",
+        "type": "string",
+        "usage": "Stable global ID for the remote link"
+      },
+      {
+        "name": "relationship",
+        "type": "string",
+        "usage": "Relationship description, such as mentioned in"
+      },
+      {
+        "name": "title",
+        "type": "string",
+        "usage": "Remote object title",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      },
+      {
+        "name": "url",
+        "type": "string",
+        "usage": "Remote object URL",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue remote-link get",
+    "use": "get \u003cissue-key\u003e \u003cremote-link-id\u003e",
+    "short": "Get a remote issue link",
+    "example": "jira-agent issue remote-link get PROJ-123 10001"
+  },
+  {
+    "path": "jira-agent issue remote-link list",
+    "use": "list \u003cissue-key\u003e",
+    "short": "List remote links on an issue",
+    "example": "jira-agent issue remote-link list PROJ-123",
+    "local_flags": [
+      {
+        "name": "global-id",
+        "type": "string",
+        "usage": "Filter by stable global ID"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue search",
+    "use": "search",
+    "short": "Search issues via JQL",
+    "example": "jira-agent issue search --jql \"project = PROJ AND status = Open\"\njira-agent issue search --jql \"assignee = currentUser()\" --fields key,summary,status\njira-agent issue search --jql \"project = PROJ\" --fields key,description --description-output-format markdown\njira-agent issue search --jql \"project = PROJ\" --max-results 10 --order-by created --order desc\njira-agent issue search --jql \"project = PROJ\" --raw",
+    "local_flags": [
+      {
+        "name": "description-output-format",
+        "type": "string",
+        "default": "text",
+        "usage": "Description output format: text, markdown, or adf"
+      },
+      {
+        "name": "expand",
+        "type": "string",
+        "usage": "Comma-separated expansions (names, schema, changelog, operations)"
+      },
+      {
+        "name": "fail-fast",
+        "type": "bool",
+        "default": "true",
+        "usage": "Fail immediately if a requested field cannot be resolved"
+      },
+      {
+        "name": "fields",
+        "type": "string",
+        "default": "key,summary,status,assignee,priority",
+        "usage": "Comma-separated field list"
+      },
+      {
+        "name": "fields-by-keys",
+        "type": "bool",
+        "default": "false",
+        "usage": "Treat field identifiers as field keys instead of field IDs"
+      },
+      {
+        "name": "jql",
+        "type": "string",
+        "usage": "JQL query string (required)"
+      },
+      {
+        "name": "max-results",
+        "type": "int",
+        "default": "50",
+        "usage": "Page size"
+      },
+      {
+        "name": "next-page-token",
+        "type": "string",
+        "usage": "Token for fetching next page of results"
+      },
+      {
+        "name": "order",
+        "type": "string",
+        "usage": "Sort direction: asc or desc (used with --order-by)"
+      },
+      {
+        "name": "order-by",
+        "type": "string",
+        "usage": "Sort field (appended to JQL as ORDER BY clause)"
+      },
+      {
+        "name": "properties",
+        "type": "string",
+        "usage": "Comma-separated issue properties to include"
+      },
+      {
+        "name": "raw",
+        "type": "bool",
+        "default": "false",
+        "usage": "Return the unmodified Jira API response for JSON output"
+      },
+      {
+        "name": "reconcile-issues",
+        "type": "string",
+        "usage": "Comma-separated issue IDs to reconcile for approximate-count drift"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue transition",
+    "use": "transition \u003cissue-key\u003e",
+    "short": "Transition issue to a new status",
+    "example": "jira-agent issue transition PROJ-123 --list\njira-agent issue transition PROJ-123 --to \"In Progress\"\njira-agent issue transition PROJ-123 --to Done --comment \"Completed\"",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "comment",
+        "type": "string",
+        "usage": "Comment to add during transition"
+      },
+      {
+        "name": "expand",
+        "type": "string",
+        "usage": "Comma-separated transition expansions (transitions.fields)"
+      },
+      {
+        "name": "field",
+        "type": "stringToString",
+        "default": "[]",
+        "usage": "Transition screen field (key=value, repeatable)"
+      },
+      {
+        "name": "include-unavailable-transitions",
+        "type": "bool",
+        "default": "false",
+        "usage": "Include transitions unavailable to the current user"
+      },
+      {
+        "name": "list",
+        "type": "bool",
+        "default": "false",
+        "usage": "List available transitions instead of performing one"
+      },
+      {
+        "name": "list-transition-id",
+        "type": "string",
+        "usage": "Only return this transition ID when listing transitions"
+      },
+      {
+        "name": "payload-json",
+        "type": "string",
+        "usage": "Full JSON transition payload, merged after flags"
+      },
+      {
+        "name": "skip-remote-only-condition",
+        "type": "bool",
+        "default": "false",
+        "usage": "Skip remote-only workflow conditions"
+      },
+      {
+        "name": "sort-by-ops-bar-and-status",
+        "type": "bool",
+        "default": "false",
+        "usage": "Sort listed transitions by ops bar sequence and status"
+      },
+      {
+        "name": "to",
+        "type": "string",
+        "usage": "Target status or transition name"
+      },
+      {
+        "name": "transition-id",
+        "type": "string",
+        "usage": "Transition ID to apply directly"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue vote",
+    "use": "vote",
+    "short": "Vote operations (get, add, remove)",
+    "example": "jira-agent issue vote get PROJ-123\njira-agent issue vote add PROJ-123\njira-agent issue vote remove PROJ-123",
+    "subcommands": [
+      "add",
+      "get",
+      "remove"
+    ]
+  },
+  {
+    "path": "jira-agent issue vote add",
+    "use": "add \u003cissue-key\u003e",
+    "short": "Add your vote to an issue",
+    "example": "jira-agent issue vote add PROJ-123",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    }
+  },
+  {
+    "path": "jira-agent issue vote get",
+    "use": "get \u003cissue-key\u003e",
+    "short": "Get votes on an issue",
+    "example": "jira-agent issue vote get PROJ-123"
+  },
+  {
+    "path": "jira-agent issue vote remove",
+    "use": "remove \u003cissue-key\u003e",
+    "short": "Remove your vote from an issue",
+    "example": "jira-agent issue vote remove PROJ-123",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    }
+  },
+  {
+    "path": "jira-agent issue watcher",
+    "use": "watcher",
+    "short": "Watcher operations (list, add, remove)",
+    "example": "jira-agent issue watcher list PROJ-123\njira-agent issue watcher add PROJ-123 --account-id 5b10a284\njira-agent issue watcher remove PROJ-123 --account-id 5b10a284",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
+    "subcommands": [
+      "add",
+      "list",
+      "remove"
+    ]
+  },
+  {
+    "path": "jira-agent issue watcher add",
+    "use": "add \u003cissue-key\u003e",
+    "short": "Add a watcher to an issue",
+    "example": "jira-agent issue watcher add PROJ-123 --account-id 5b10a2844c20165700ede21g",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "account-id",
+        "type": "string",
+        "usage": "Watcher account ID",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue watcher list",
+    "use": "list \u003cissue-key\u003e",
+    "short": "List watchers on an issue",
+    "example": "jira-agent issue watcher list PROJ-123"
+  },
+  {
+    "path": "jira-agent issue watcher remove",
+    "use": "remove \u003cissue-key\u003e",
+    "short": "Remove a watcher from an issue",
+    "example": "jira-agent issue watcher remove PROJ-123 --account-id 5b10a2844c20165700ede21g",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "account-id",
+        "type": "string",
+        "usage": "Watcher account ID",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue worklog",
+    "use": "worklog",
+    "short": "Worklog operations (list, add, edit, delete)",
+    "example": "jira-agent issue worklog list PROJ-123\njira-agent issue worklog add PROJ-123 --time-spent 2h",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
+    "subcommands": [
+      "add",
+      "delete",
+      "deleted",
+      "edit",
+      "get",
+      "list",
+      "list-by-ids",
+      "updated"
+    ]
+  },
+  {
+    "path": "jira-agent issue worklog add",
+    "use": "add \u003cissue-key\u003e",
+    "short": "Add a worklog to an issue",
+    "example": "jira-agent issue worklog add PROJ-123 --time-spent 2h\njira-agent issue worklog add PROJ-123 --time-spent 30m --started \"2025-01-15T09:00:00.000+0000\"",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "adjust-estimate",
+        "type": "string",
+        "usage": "Estimate adjustment: auto, leave, manual, new"
+      },
+      {
+        "name": "comment",
+        "type": "string",
+        "usage": "Worklog comment (plain text or ADF JSON)"
+      },
+      {
+        "name": "expand",
+        "type": "string",
+        "usage": "Comma-separated expansions (properties)"
+      },
+      {
+        "name": "new-estimate",
+        "type": "string",
+        "usage": "New remaining estimate when adjust-estimate is new"
+      },
+      {
+        "name": "notify",
+        "type": "bool",
+        "default": "true",
+        "usage": "Send notification to watchers"
+      },
+      {
+        "name": "override-editable-flag",
+        "type": "bool",
+        "default": "false",
+        "usage": "Override worklog editable flag"
+      },
+      {
+        "name": "properties-json",
+        "type": "string",
+        "usage": "JSON array of worklog properties"
+      },
+      {
+        "name": "reduce-by",
+        "type": "string",
+        "usage": "Amount to reduce remaining estimate when adjust-estimate is manual"
+      },
+      {
+        "name": "started",
+        "type": "string",
+        "usage": "Worklog start timestamp, e.g. 2026-04-27T10:00:00.000-0500"
+      },
+      {
+        "name": "time-spent",
+        "type": "string",
+        "usage": "Time spent, such as 1h 30m"
+      },
+      {
+        "name": "time-spent-seconds",
+        "type": "int",
+        "default": "0",
+        "usage": "Time spent in seconds"
+      },
+      {
+        "name": "visibility-type",
+        "type": "string",
+        "usage": "Visibility restriction type: group or role"
+      },
+      {
+        "name": "visibility-value",
+        "type": "string",
+        "usage": "Visibility restriction value (group/role name)"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue worklog delete",
+    "use": "delete \u003cissue-key\u003e \u003cworklog-id\u003e",
+    "short": "Delete a worklog",
+    "example": "jira-agent issue worklog delete PROJ-123 12345",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "adjust-estimate",
+        "type": "string",
+        "usage": "Estimate adjustment: auto, leave, manual, new"
+      },
+      {
+        "name": "increase-by",
+        "type": "string",
+        "usage": "Increase remaining estimate when adjust-estimate is manual"
+      },
+      {
+        "name": "new-estimate",
+        "type": "string",
+        "usage": "New remaining estimate when adjust-estimate is new"
+      },
+      {
+        "name": "notify",
+        "type": "bool",
+        "default": "true",
+        "usage": "Send notification to watchers"
+      },
+      {
+        "name": "override-editable-flag",
+        "type": "bool",
+        "default": "false",
+        "usage": "Override worklog editable flag"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue worklog deleted",
+    "use": "deleted",
+    "short": "List deleted worklogs",
+    "example": "jira-agent issue worklog deleted --since 1700000000000",
+    "local_flags": [
+      {
+        "name": "since",
+        "type": "string",
+        "usage": "Unix timestamp in milliseconds"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue worklog edit",
+    "use": "edit \u003cissue-key\u003e \u003cworklog-id\u003e",
+    "short": "Edit an existing worklog",
+    "example": "jira-agent issue worklog edit PROJ-123 12345 --time-spent 3h",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "adjust-estimate",
+        "type": "string",
+        "usage": "Estimate adjustment: auto, leave, manual, new"
+      },
+      {
+        "name": "comment",
+        "type": "string",
+        "usage": "Worklog comment (plain text or ADF JSON)"
+      },
+      {
+        "name": "expand",
+        "type": "string",
+        "usage": "Comma-separated expansions (properties)"
+      },
+      {
+        "name": "new-estimate",
+        "type": "string",
+        "usage": "New remaining estimate when adjust-estimate is new"
+      },
+      {
+        "name": "notify",
+        "type": "bool",
+        "default": "true",
+        "usage": "Send notification to watchers"
+      },
+      {
+        "name": "override-editable-flag",
+        "type": "bool",
+        "default": "false",
+        "usage": "Override worklog editable flag"
+      },
+      {
+        "name": "properties-json",
+        "type": "string",
+        "usage": "JSON array of worklog properties"
+      },
+      {
+        "name": "reduce-by",
+        "type": "string",
+        "usage": "Amount to reduce remaining estimate when adjust-estimate is manual"
+      },
+      {
+        "name": "started",
+        "type": "string",
+        "usage": "Worklog start timestamp, e.g. 2026-04-27T10:00:00.000-0500"
+      },
+      {
+        "name": "time-spent",
+        "type": "string",
+        "usage": "Time spent, such as 1h 30m"
+      },
+      {
+        "name": "time-spent-seconds",
+        "type": "int",
+        "default": "0",
+        "usage": "Time spent in seconds"
+      },
+      {
+        "name": "visibility-type",
+        "type": "string",
+        "usage": "Visibility restriction type: group or role"
+      },
+      {
+        "name": "visibility-value",
+        "type": "string",
+        "usage": "Visibility restriction value (group/role name)"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue worklog get",
+    "use": "get \u003cissue-key\u003e \u003cworklog-id\u003e",
+    "short": "Get a single worklog",
+    "example": "jira-agent issue worklog get PROJ-123 12345",
+    "local_flags": [
+      {
+        "name": "expand",
+        "type": "string",
+        "usage": "Comma-separated expansions (properties)"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue worklog list",
+    "use": "list \u003cissue-key\u003e",
+    "short": "List worklogs on an issue",
+    "example": "jira-agent issue worklog list PROJ-123",
+    "local_flags": [
+      {
+        "name": "expand",
+        "type": "string",
+        "usage": "Comma-separated expansions (properties)"
+      },
+      {
+        "name": "max-results",
+        "type": "int",
+        "default": "20",
+        "usage": "Page size"
+      },
+      {
+        "name": "start-at",
+        "type": "int",
+        "default": "0",
+        "usage": "Pagination offset"
+      },
+      {
+        "name": "started-after",
+        "type": "string",
+        "usage": "Only worklogs started after this Unix timestamp in milliseconds"
+      },
+      {
+        "name": "started-before",
+        "type": "string",
+        "usage": "Only worklogs started before this Unix timestamp in milliseconds"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue worklog list-by-ids",
+    "use": "list-by-ids",
+    "short": "Get worklogs by IDs",
+    "example": "jira-agent issue worklog list-by-ids --ids 12345,67890",
+    "local_flags": [
+      {
+        "name": "expand",
+        "type": "string",
+        "usage": "Comma-separated expansions (properties)"
+      },
+      {
+        "name": "ids",
+        "type": "string",
+        "usage": "Comma-separated worklog IDs (required)"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue worklog updated",
+    "use": "updated",
+    "short": "List updated worklogs",
+    "example": "jira-agent issue worklog updated --since 1700000000000",
+    "local_flags": [
+      {
+        "name": "expand",
+        "type": "string",
+        "usage": "Comma-separated expansions (properties)"
+      },
+      {
+        "name": "since",
+        "type": "string",
+        "usage": "Unix timestamp in milliseconds"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issuetype",
+    "use": "issuetype",
+    "aliases": [
+      "issue-type"
+    ],
+    "short": "Work with Jira issue types",
+    "example": "jira-agent issuetype list\njira-agent issuetype get 10001\njira-agent issuetype project 10001",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
+    "subcommands": [
+      "get",
+      "list",
+      "project"
+    ]
+  },
+  {
+    "path": "jira-agent issuetype get",
+    "use": "get \u003cissue-type-id\u003e",
+    "short": "Get issue type details by ID",
+    "example": "jira-agent issuetype get 10001"
+  },
+  {
+    "path": "jira-agent issuetype list",
+    "use": "list",
+    "short": "List all issue types",
+    "example": "jira-agent issuetype list"
+  },
+  {
+    "path": "jira-agent issuetype project",
+    "use": "project \u003cproject-id\u003e",
+    "short": "List issue types for a project ID",
+    "example": "jira-agent issuetype project 10001"
+  },
+  {
+    "path": "jira-agent jql",
+    "use": "jql",
+    "short": "JQL autocomplete and validation helpers",
+    "example": "jira-agent jql fields\njira-agent jql suggest --field-name status\njira-agent jql validate --query \"project = PROJ AND status = Open\"",
+    "subcommands": [
+      "fields",
+      "suggest",
+      "validate"
+    ]
+  },
+  {
+    "path": "jira-agent jql fields",
+    "use": "fields",
+    "short": "List JQL field reference data (field names, operators, functions, reserved words)",
+    "example": "jira-agent jql fields"
+  },
+  {
+    "path": "jira-agent jql suggest",
+    "use": "suggest",
+    "short": "Get JQL autocomplete suggestions for a field value",
+    "example": "jira-agent jql suggest --field-name status\njira-agent jql suggest --field-name priority --field-value Hi",
+    "local_flags": [
+      {
+        "name": "field-name",
+        "type": "string",
+        "usage": "field to get suggestions for (e.g. reporter, assignee, project)",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      },
+      {
+        "name": "field-value",
+        "type": "string",
+        "usage": "partial value to filter suggestions"
+      },
+      {
+        "name": "predicate-name",
+        "type": "string",
+        "usage": "CHANGED operator predicate (by, from, to)"
+      },
+      {
+        "name": "predicate-value",
+        "type": "string",
+        "usage": "partial predicate value to filter suggestions"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent jql validate",
+    "use": "validate",
+    "short": "Parse and validate one or more JQL queries",
+    "example": "jira-agent jql validate --query \"project = PROJ AND status = Open\"",
+    "local_flags": [
+      {
+        "name": "query",
+        "shorthand": "q",
+        "type": "stringSlice",
+        "default": "[]",
+        "usage": "JQL query to validate (repeatable)",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      },
+      {
+        "name": "validation",
+        "type": "string",
+        "default": "strict",
+        "usage": "validation mode: strict, warn, or none"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent label",
+    "use": "label",
+    "short": "Work with Jira labels",
+    "example": "jira-agent label list",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
+    "subcommands": [
+      "list"
+    ]
+  },
+  {
+    "path": "jira-agent label list",
+    "use": "list",
+    "short": "List labels",
+    "example": "jira-agent label list",
+    "local_flags": [
+      {
+        "name": "max-results",
+        "type": "int",
+        "default": "50",
+        "usage": "Page size"
+      },
+      {
+        "name": "start-at",
+        "type": "int",
+        "default": "0",
+        "usage": "Pagination offset"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent permission",
+    "use": "permission",
+    "short": "Work with Jira permissions",
+    "example": "jira-agent permission check --permissions BROWSE_PROJECTS,CREATE_ISSUES\njira-agent permission list\njira-agent permission schemes list",
+    "subcommands": [
+      "check",
+      "list",
+      "schemes"
+    ]
+  },
+  {
+    "path": "jira-agent permission check",
+    "use": "check",
+    "short": "Check permissions for the current user",
+    "example": "jira-agent permission check --permissions BROWSE_PROJECTS,CREATE_ISSUES\njira-agent permission check --permissions ADMINISTER_PROJECTS --project-key PROJ",
+    "local_flags": [
+      {
+        "name": "comment-id",
+        "type": "string",
+        "usage": "Comment ID context"
+      },
+      {
+        "name": "issue-id",
+        "type": "string",
+        "usage": "Issue ID context"
+      },
+      {
+        "name": "issue-key",
+        "type": "string",
+        "usage": "Issue key context"
+      },
+      {
+        "name": "permissions",
+        "type": "string",
+        "usage": "Comma-separated permission keys",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      },
+      {
+        "name": "project-id",
+        "type": "string",
+        "usage": "Project ID context"
+      },
+      {
+        "name": "project-key",
+        "type": "string",
+        "usage": "Project key context"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent permission list",
+    "use": "list",
+    "short": "List Jira permissions",
+    "example": "jira-agent permission list"
+  },
+  {
+    "path": "jira-agent permission schemes",
+    "use": "schemes",
+    "short": "Work with Jira permission schemes",
+    "example": "jira-agent permission schemes list\njira-agent permission schemes get 10001",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
+    "subcommands": [
+      "get",
+      "list",
+      "project"
+    ]
+  },
+  {
+    "path": "jira-agent permission schemes get",
+    "use": "get",
+    "short": "Get a permission scheme",
+    "example": "jira-agent permission schemes get 10001",
+    "local_flags": [
+      {
+        "name": "expand",
+        "type": "string",
+        "usage": "Comma-separated expansions"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent permission schemes list",
+    "use": "list",
+    "short": "List permission schemes",
+    "example": "jira-agent permission schemes list",
+    "local_flags": [
+      {
+        "name": "expand",
+        "type": "string",
+        "usage": "Comma-separated expansions"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent permission schemes project",
+    "use": "project",
+    "short": "Get the permission scheme assigned to a project",
+    "example": "jira-agent permission schemes project PROJ",
+    "local_flags": [
+      {
+        "name": "expand",
+        "type": "string",
+        "usage": "Comma-separated expansions"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent priority",
+    "use": "priority",
+    "short": "Work with Jira priorities",
+    "example": "jira-agent priority list",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
+    "subcommands": [
+      "list"
+    ]
+  },
+  {
+    "path": "jira-agent priority list",
+    "use": "list",
+    "short": "List all priorities",
+    "example": "jira-agent priority list"
+  },
+  {
+    "path": "jira-agent project",
+    "use": "project",
+    "short": "Project operations (list, get, roles, property, categories)",
+    "example": "jira-agent project list\njira-agent project get PROJ\njira-agent project roles PROJ\njira-agent project roles add-actor PROJ 10000 --user 5b10ac8d82e05b22cc7d4ef5\njira-agent project property get PROJ com.example.flag\njira-agent project categories",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
+    "subcommands": [
+      "categories",
+      "get",
+      "list",
+      "property",
+      "roles"
+    ]
+  },
+  {
+    "path": "jira-agent project categories",
+    "use": "categories",
+    "short": "Project category operations",
+    "example": "jira-agent project categories\njira-agent project categories get 10000",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
+    "subcommands": [
+      "get",
+      "list"
+    ]
+  },
+  {
+    "path": "jira-agent project categories get",
+    "use": "get \u003ccategory-id\u003e",
+    "short": "Get project category details",
+    "example": "jira-agent project categories get 10000"
+  },
+  {
+    "path": "jira-agent project categories list",
+    "use": "list",
+    "short": "List project categories",
+    "example": "jira-agent project categories list"
+  },
+  {
+    "path": "jira-agent project get",
+    "use": "get \u003cproject-key\u003e",
+    "short": "Get project details by key or ID",
+    "example": "jira-agent project get PROJ\njira-agent project get PROJ --expand lead,description",
+    "local_flags": [
+      {
+        "name": "expand",
+        "type": "string",
+        "usage": "Comma-separated expansions (description, issueTypes, lead, projectKeys)"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent project list",
+    "use": "list",
+    "short": "List projects (paginated, filterable)",
+    "example": "jira-agent project list\njira-agent project list --expand lead,description",
+    "local_flags": [
+      {
+        "name": "expand",
+        "type": "string",
+        "usage": "Comma-separated expansions (description, lead, issueTypes, url, insight)"
+      },
+      {
+        "name": "max-results",
+        "type": "int",
+        "default": "50",
+        "usage": "Page size (max 100)"
+      },
+      {
+        "name": "order-by",
+        "type": "string",
+        "usage": "Sort field (category, key, name, owner); prefix with - for descending"
+      },
+      {
+        "name": "query",
+        "shorthand": "q",
+        "type": "string",
+        "usage": "Filter by project name or key (case-insensitive substring match)"
+      },
+      {
+        "name": "start-at",
+        "type": "int",
+        "default": "0",
+        "usage": "Pagination offset"
+      },
+      {
+        "name": "type-key",
+        "type": "string",
+        "usage": "Filter by project type: business, service_desk, software"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent project property",
+    "use": "property",
+    "short": "Manage project properties",
+    "example": "jira-agent project property list PROJ\njira-agent project property get PROJ com.example.flag\njira-agent project property set PROJ com.example.flag --value-json '{\"enabled\":true}'",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
+    "subcommands": [
+      "delete",
+      "get",
+      "list",
+      "set"
+    ]
+  },
+  {
+    "path": "jira-agent project property delete",
+    "use": "delete \u003cproject key\u003e \u003cproperty-key\u003e",
+    "short": "Delete a project property",
+    "example": "jira-agent project property delete PROJ com.example.flag"
+  },
+  {
+    "path": "jira-agent project property get",
+    "use": "get \u003cproject key\u003e \u003cproperty-key\u003e",
+    "short": "Get a project property",
+    "example": "jira-agent project property get PROJ com.example.flag"
+  },
+  {
+    "path": "jira-agent project property list",
+    "use": "list \u003cproject key\u003e",
+    "short": "List project property keys",
+    "example": "jira-agent project property list PROJ"
+  },
+  {
+    "path": "jira-agent project property set",
+    "use": "set \u003cproject key\u003e \u003cproperty-key\u003e",
+    "short": "Set a project property",
+    "example": "jira-agent project property set PROJ com.example.flag --value-json '{\"enabled\":true}'",
+    "local_flags": [
+      {
+        "name": "value-json",
+        "type": "string",
+        "usage": "Property value as raw JSON (required)",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "path": "jira-agent project roles",
+    "use": "roles",
+    "short": "Work with project roles",
+    "example": "jira-agent project roles PROJ\njira-agent project roles get PROJ 10000 --exclude-inactive-users\njira-agent project roles add-actor PROJ 10000 --user 5b10ac8d82e05b22cc7d4ef5\njira-agent project roles remove-actor PROJ 10000 --group-id 952d12c3-5b5b-4d04-bb32-44d383afc4b2",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
+    "subcommands": [
+      "add-actor",
+      "get",
+      "list",
+      "remove-actor"
+    ]
+  },
+  {
+    "path": "jira-agent project roles add-actor",
+    "use": "add-actor \u003cproject-key\u003e \u003crole-id\u003e",
+    "short": "Add actors to a project role",
+    "example": "jira-agent project roles add-actor PROJ 10000 --user 5b10ac8d82e05b22cc7d4ef5\njira-agent project roles add-actor PROJ 10000 --group-id 952d12c3-5b5b-4d04-bb32-44d383afc4b2\njira-agent project roles add-actor PROJ 10000 --group \"jira-developers\"",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "group",
+        "type": "stringSlice",
+        "default": "[]",
+        "usage": "Group name to add (repeatable)"
+      },
+      {
+        "name": "group-id",
+        "type": "stringSlice",
+        "default": "[]",
+        "usage": "Group ID to add (repeatable)"
+      },
+      {
+        "name": "user",
+        "type": "stringSlice",
+        "default": "[]",
+        "usage": "User account ID to add (repeatable)"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent project roles get",
+    "use": "get \u003cproject-key\u003e \u003crole-id\u003e",
+    "short": "Get project role details",
+    "example": "jira-agent project roles get PROJ 10000\njira-agent project roles get PROJ 10000 --exclude-inactive-users",
+    "local_flags": [
+      {
+        "name": "exclude-inactive-users",
+        "type": "bool",
+        "default": "false",
+        "usage": "Exclude inactive users from role actors"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent project roles list",
+    "use": "list \u003cproject-key\u003e",
+    "short": "List project role URLs",
+    "example": "jira-agent project roles list PROJ"
+  },
+  {
+    "path": "jira-agent project roles remove-actor",
+    "use": "remove-actor \u003cproject-key\u003e \u003crole-id\u003e",
+    "short": "Remove an actor from a project role",
+    "example": "jira-agent project roles remove-actor PROJ 10000 --user 5b10ac8d82e05b22cc7d4ef5\njira-agent project roles remove-actor PROJ 10000 --group-id 952d12c3-5b5b-4d04-bb32-44d383afc4b2\njira-agent project roles remove-actor PROJ 10000 --group \"jira-developers\"",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "group",
+        "type": "string",
+        "usage": "Group name to remove"
+      },
+      {
+        "name": "group-id",
+        "type": "string",
+        "usage": "Group ID to remove"
+      },
+      {
+        "name": "user",
+        "type": "string",
+        "usage": "User account ID to remove"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent resolution",
+    "use": "resolution",
+    "short": "Work with Jira resolutions",
+    "example": "jira-agent resolution list",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
+    "subcommands": [
+      "list"
+    ]
+  },
+  {
+    "path": "jira-agent resolution list",
+    "use": "list",
+    "short": "List all resolutions",
+    "example": "jira-agent resolution list"
+  },
+  {
+    "path": "jira-agent role",
+    "use": "role",
+    "short": "Project role definition operations",
+    "example": "jira-agent role list\njira-agent role get 10000",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
+    "subcommands": [
+      "get",
+      "list"
+    ]
+  },
+  {
+    "path": "jira-agent role get",
+    "use": "get",
+    "short": "Get project role definition",
+    "example": "jira-agent role get 10000"
+  },
+  {
+    "path": "jira-agent role list",
+    "use": "list",
+    "short": "List project role definitions",
+    "example": "jira-agent role list"
+  },
+  {
+    "path": "jira-agent server-info",
+    "use": "server-info",
+    "short": "Show Jira server information",
+    "example": "jira-agent server-info"
+  },
+  {
+    "path": "jira-agent sprint",
+    "use": "sprint",
+    "short": "Agile sprint operations (list, get, create, update, delete, issues, move-issues, swap, property)",
+    "example": "jira-agent sprint list --board-id 42\njira-agent sprint get 100\njira-agent sprint issues 100\njira-agent sprint swap 100 101",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
+    "subcommands": [
+      "create",
+      "delete",
+      "get",
+      "issues",
+      "list",
+      "move-issues",
+      "property",
+      "swap",
+      "update"
+    ]
+  },
+  {
+    "path": "jira-agent sprint create",
+    "use": "create",
+    "short": "Create a new sprint",
+    "example": "jira-agent sprint create --board-id 42 --name \"Sprint 5\" --start-date 2025-01-01 --end-date 2025-01-14",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "board-id",
+        "type": "string",
+        "usage": "Board ID to create the sprint on (required)",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      },
+      {
+        "name": "end-date",
+        "type": "string",
+        "usage": "End date (ISO 8601, e.g. 2025-01-29T17:00:00.000Z)"
+      },
+      {
+        "name": "goal",
+        "type": "string",
+        "usage": "Sprint goal"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "usage": "Sprint name (required)",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      },
+      {
+        "name": "start-date",
+        "type": "string",
+        "usage": "Start date (ISO 8601, e.g. 2025-01-15T09:00:00.000Z)"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent sprint delete",
+    "use": "delete",
+    "short": "Delete a sprint",
+    "example": "jira-agent sprint delete 100",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    }
+  },
+  {
+    "path": "jira-agent sprint get",
+    "use": "get",
+    "short": "Get sprint details by ID",
+    "example": "jira-agent sprint get 100"
+  },
+  {
+    "path": "jira-agent sprint issues",
+    "use": "issues",
+    "short": "List issues in a sprint",
+    "example": "jira-agent sprint issues 100\njira-agent sprint issues 100 --jql \"status = Done\"",
+    "local_flags": [
+      {
+        "name": "expand",
+        "type": "string",
+        "usage": "Comma-separated list of expansions"
+      },
+      {
+        "name": "fields",
+        "type": "string",
+        "usage": "Comma-separated list of fields to return"
+      },
+      {
+        "name": "jql",
+        "type": "string",
+        "usage": "JQL filter to apply within the sprint"
+      },
+      {
+        "name": "max-results",
+        "type": "int",
+        "default": "50",
+        "usage": "Page size"
+      },
+      {
+        "name": "start-at",
+        "type": "int",
+        "default": "0",
+        "usage": "Pagination offset"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent sprint list",
+    "use": "list",
+    "short": "List sprints for a board",
+    "example": "jira-agent sprint list --board-id 42\njira-agent sprint list --board-id 42 --state active",
+    "local_flags": [
+      {
+        "name": "board-id",
+        "type": "string",
+        "usage": "Board ID (required)",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      },
+      {
+        "name": "max-results",
+        "type": "int",
+        "default": "50",
+        "usage": "Page size"
+      },
+      {
+        "name": "start-at",
+        "type": "int",
+        "default": "0",
+        "usage": "Pagination offset"
+      },
+      {
+        "name": "state",
+        "type": "string",
+        "usage": "Filter by state: future, active, closed (comma-separated)"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent sprint move-issues",
+    "use": "move-issues",
+    "short": "Move issues to a sprint",
+    "example": "jira-agent sprint move-issues 100 --issues PROJ-1,PROJ-2",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "issues",
+        "type": "string",
+        "usage": "Comma-separated issue keys to move (required)",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      },
+      {
+        "name": "rank-after",
+        "type": "string",
+        "usage": "Issue key or ID to rank moved issues after"
+      },
+      {
+        "name": "rank-before",
+        "type": "string",
+        "usage": "Issue key or ID to rank moved issues before"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent sprint property",
+    "use": "property",
+    "short": "Manage sprint properties",
+    "example": "jira-agent sprint property list 100\njira-agent sprint property get 100 com.example.flag\njira-agent sprint property set 100 com.example.flag --value-json '{\"enabled\":true}'",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
+    "subcommands": [
+      "delete",
+      "get",
+      "list",
+      "set"
+    ]
+  },
+  {
+    "path": "jira-agent sprint property delete",
+    "use": "delete \u003csprint ID\u003e \u003cproperty-key\u003e",
+    "short": "Delete a sprint property",
+    "example": "jira-agent sprint property delete 100 com.example.flag",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    }
+  },
+  {
+    "path": "jira-agent sprint property get",
+    "use": "get \u003csprint ID\u003e \u003cproperty-key\u003e",
+    "short": "Get a sprint property",
+    "example": "jira-agent sprint property get 100 com.example.flag"
+  },
+  {
+    "path": "jira-agent sprint property list",
+    "use": "list \u003csprint ID\u003e",
+    "short": "List sprint property keys",
+    "example": "jira-agent sprint property list 100"
+  },
+  {
+    "path": "jira-agent sprint property set",
+    "use": "set \u003csprint ID\u003e \u003cproperty-key\u003e",
+    "short": "Set a sprint property",
+    "example": "jira-agent sprint property set 100 com.example.flag --value-json '{\"enabled\":true}'",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "value-json",
+        "type": "string",
+        "usage": "Property value as raw JSON (required)",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "path": "jira-agent sprint swap",
+    "use": "swap",
+    "short": "Swap two sprint positions",
+    "example": "jira-agent sprint swap 100 101",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    }
+  },
+  {
+    "path": "jira-agent sprint update",
+    "use": "update",
+    "short": "Update a sprint",
+    "example": "jira-agent sprint update 100 --name \"Sprint 5 (revised)\"\njira-agent sprint update 100 --state closed",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "end-date",
+        "type": "string",
+        "usage": "End date (ISO 8601)"
+      },
+      {
+        "name": "goal",
+        "type": "string",
+        "usage": "Sprint goal"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "usage": "Sprint name"
+      },
+      {
+        "name": "start-date",
+        "type": "string",
+        "usage": "Start date (ISO 8601)"
+      },
+      {
+        "name": "state",
+        "type": "string",
+        "usage": "Sprint state: future, active, closed"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent status",
+    "use": "status",
+    "short": "Work with Jira statuses",
+    "example": "jira-agent status list\njira-agent status get \"In Progress\"\njira-agent status categories",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
+    "subcommands": [
+      "categories",
+      "get",
+      "list"
+    ]
+  },
+  {
+    "path": "jira-agent status categories",
+    "use": "categories",
+    "short": "List status categories",
+    "example": "jira-agent status categories"
+  },
+  {
+    "path": "jira-agent status get",
+    "use": "get \u003cstatus-id-or-name\u003e",
+    "short": "Get status details by ID or name",
+    "example": "jira-agent status get \"In Progress\""
+  },
+  {
+    "path": "jira-agent status list",
+    "use": "list",
+    "short": "List all statuses",
+    "example": "jira-agent status list"
+  },
+  {
+    "path": "jira-agent task",
+    "use": "task",
+    "short": "Work with Jira async tasks",
+    "example": "jira-agent task get 10641\njira-agent task cancel 10641",
+    "annotations": {
+      "jira-agent/default-subcommand": "get"
+    },
+    "subcommands": [
+      "cancel",
+      "get"
+    ]
+  },
+  {
+    "path": "jira-agent task cancel",
+    "use": "cancel \u003ctask-id\u003e",
+    "short": "Cancel an async task",
+    "example": "jira-agent task cancel 10641",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    }
+  },
+  {
+    "path": "jira-agent task get",
+    "use": "get \u003ctask-id\u003e",
+    "short": "Get async task status",
+    "example": "jira-agent task get 10641"
+  },
+  {
+    "path": "jira-agent time-tracking",
+    "use": "time-tracking",
+    "short": "Work with Jira time tracking configuration",
+    "example": "jira-agent time-tracking get\njira-agent time-tracking providers\njira-agent time-tracking select --key JIRA\njira-agent time-tracking options get\njira-agent time-tracking options set --working-hours-per-day 8 --working-days-per-week 5 --time-format pretty --default-unit minute",
+    "annotations": {
+      "jira-agent/default-subcommand": "get"
+    },
+    "subcommands": [
+      "get",
+      "options",
+      "providers",
+      "select"
+    ]
+  },
+  {
+    "path": "jira-agent time-tracking get",
+    "use": "get",
+    "short": "Get selected time tracking provider",
+    "example": "jira-agent time-tracking get"
+  },
+  {
+    "path": "jira-agent time-tracking options",
+    "use": "options",
+    "short": "Work with time tracking settings",
+    "example": "jira-agent time-tracking options get\njira-agent time-tracking options set --working-hours-per-day 8 --working-days-per-week 5 --time-format pretty --default-unit minute",
+    "annotations": {
+      "jira-agent/default-subcommand": "get"
+    },
+    "subcommands": [
+      "get",
+      "set"
+    ]
+  },
+  {
+    "path": "jira-agent time-tracking options get",
+    "use": "get",
+    "short": "Get time tracking settings",
+    "example": "jira-agent time-tracking options get"
+  },
+  {
+    "path": "jira-agent time-tracking options set",
+    "use": "set",
+    "short": "Set time tracking settings",
+    "example": "jira-agent time-tracking options set --working-hours-per-day 8 --working-days-per-week 5 --time-format pretty --default-unit minute",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "default-unit",
+        "type": "string",
+        "usage": "Default time unit: minute, hour, day, or week",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      },
+      {
+        "name": "time-format",
+        "type": "string",
+        "usage": "Time display format: pretty, days, or hours",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      },
+      {
+        "name": "working-days-per-week",
+        "type": "float64",
+        "default": "0",
+        "usage": "Working days in one week",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      },
+      {
+        "name": "working-hours-per-day",
+        "type": "float64",
+        "default": "0",
+        "usage": "Working hours in one day",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "path": "jira-agent time-tracking providers",
+    "use": "providers",
+    "short": "List time tracking providers",
+    "example": "jira-agent time-tracking providers"
+  },
+  {
+    "path": "jira-agent time-tracking select",
+    "use": "select",
+    "short": "Select time tracking provider",
+    "example": "jira-agent time-tracking select --key JIRA",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "key",
+        "type": "string",
+        "usage": "Provider key from time-tracking providers",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "path": "jira-agent user",
+    "use": "user",
+    "short": "Work with Jira users",
+    "example": "jira-agent user search --query \"john\"\njira-agent user get --account-id 5b10a2844c20165700ede21g\njira-agent user groups --account-id 5b10a2844c20165700ede21g",
+    "annotations": {
+      "jira-agent/default-subcommand": "search"
+    },
+    "subcommands": [
+      "get",
+      "groups",
+      "search"
+    ]
+  },
+  {
+    "path": "jira-agent user get",
+    "use": "get",
+    "short": "Get a user by account ID",
+    "example": "jira-agent user get --account-id 5b10a2844c20165700ede21g",
+    "local_flags": [
+      {
+        "name": "account-id",
+        "type": "string",
+        "usage": "User account ID",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      },
+      {
+        "name": "expand",
+        "type": "string",
+        "usage": "Comma-separated expansions"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent user groups",
+    "use": "groups",
+    "short": "List groups for a user",
+    "example": "jira-agent user groups --account-id 5b10a2844c20165700ede21g",
+    "local_flags": [
+      {
+        "name": "account-id",
+        "type": "string",
+        "usage": "User account ID",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "path": "jira-agent user search",
+    "use": "search",
+    "short": "Search users",
+    "example": "jira-agent user search --query \"john\"\njira-agent user search --query \"john.doe@example.com\"",
+    "local_flags": [
+      {
+        "name": "account-id",
+        "type": "string",
+        "usage": "Exact account ID"
+      },
+      {
+        "name": "expand",
+        "type": "string",
+        "usage": "Comma-separated expansions"
+      },
+      {
+        "name": "max-results",
+        "type": "int",
+        "default": "50",
+        "usage": "Page size"
+      },
+      {
+        "name": "query",
+        "type": "string",
+        "usage": "User search query"
+      },
+      {
+        "name": "start-at",
+        "type": "int",
+        "default": "0",
+        "usage": "Pagination offset"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent version",
+    "use": "version",
+    "short": "Project version operations (list, get, create, update, delete, merge, move, issue-counts, unresolved-count)",
+    "example": "jira-agent version list --project PROJ\njira-agent version get 10001\njira-agent version create --project PROJ --name \"v1.0\"",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
+    "subcommands": [
+      "create",
+      "delete",
+      "get",
+      "issue-counts",
+      "list",
+      "merge",
+      "move",
+      "unresolved-count",
+      "update"
+    ]
+  },
+  {
+    "path": "jira-agent version create",
+    "use": "create",
+    "short": "Create a project version",
+    "example": "jira-agent version create --project PROJ --name \"v1.0\"\njira-agent version create --project PROJ --name \"v2.0\" --start-date 2025-01-01 --release-date 2025-06-01",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "archived",
+        "type": "bool",
+        "default": "false",
+        "usage": "Mark version as archived"
+      },
+      {
+        "name": "description",
+        "type": "string",
+        "usage": "Version description"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "usage": "Version name",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      },
+      {
+        "name": "release-date",
+        "type": "string",
+        "usage": "Release date (YYYY-MM-DD)"
+      },
+      {
+        "name": "released",
+        "type": "bool",
+        "default": "false",
+        "usage": "Mark version as released"
+      },
+      {
+        "name": "start-date",
+        "type": "string",
+        "usage": "Start date (YYYY-MM-DD)"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent version delete",
+    "use": "delete \u003cversion-id\u003e",
+    "short": "Delete a project version",
+    "example": "jira-agent version delete 10001",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "move-affected-issues-to",
+        "type": "string",
+        "usage": "Version ID to reassign affectedVersion issues to"
+      },
+      {
+        "name": "move-fix-issues-to",
+        "type": "string",
+        "usage": "Version ID to reassign fixVersion issues to"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent version get",
+    "use": "get \u003cversion-id\u003e",
+    "short": "Get version details by ID",
+    "example": "jira-agent version get 10001",
+    "local_flags": [
+      {
+        "name": "expand",
+        "type": "string",
+        "usage": "Expand additional info: issuesstatus, operations, driver, approvers (comma-separated)"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent version issue-counts",
+    "use": "issue-counts \u003cversion-id\u003e",
+    "short": "Get related issue counts for a version",
+    "example": "jira-agent version issue-counts 10001"
+  },
+  {
+    "path": "jira-agent version list",
+    "use": "list",
+    "short": "List project versions",
+    "example": "jira-agent version list --project PROJ",
+    "local_flags": [
+      {
+        "name": "expand",
+        "type": "string",
+        "usage": "Expand additional info: issuesstatus, operations, driver, approvers (comma-separated)"
+      },
+      {
+        "name": "max-results",
+        "type": "int",
+        "default": "50",
+        "usage": "Page size"
+      },
+      {
+        "name": "order-by",
+        "type": "string",
+        "usage": "Order results by field (name, releaseDate, sequence, startDate, description)"
+      },
+      {
+        "name": "query",
+        "type": "string",
+        "usage": "Filter versions by name or description (case-insensitive)"
+      },
+      {
+        "name": "start-at",
+        "type": "int",
+        "default": "0",
+        "usage": "Pagination offset"
+      },
+      {
+        "name": "status",
+        "type": "string",
+        "usage": "Filter by status: released, unreleased, archived (comma-separated)"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent version merge",
+    "use": "merge \u003csource-version-id\u003e \u003ctarget-version-id\u003e",
+    "short": "Merge a version into another (deletes the source version)",
+    "example": "jira-agent version merge 10001 10002",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    }
+  },
+  {
+    "path": "jira-agent version move",
+    "use": "move \u003cversion-id\u003e",
+    "short": "Move a version's position within the project",
+    "example": "jira-agent version move 10001 --after 10002\njira-agent version move 10001 --position Earlier",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "after",
+        "type": "string",
+        "usage": "URL of the version to place after"
+      },
+      {
+        "name": "position",
+        "type": "string",
+        "usage": "Position keyword: Earlier, Later, First, Last"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent version unresolved-count",
+    "use": "unresolved-count \u003cversion-id\u003e",
+    "short": "Get unresolved issue count for a version",
+    "example": "jira-agent version unresolved-count 10001"
+  },
+  {
+    "path": "jira-agent version update",
+    "use": "update \u003cversion-id\u003e",
+    "short": "Update a project version",
+    "example": "jira-agent version update 10001 --name \"v1.1\"\njira-agent version update 10001 --released",
+    "annotations": {
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "archived",
+        "type": "bool",
+        "default": "false",
+        "usage": "Mark version as archived"
+      },
+      {
+        "name": "description",
+        "type": "string",
+        "usage": "New version description"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "usage": "New version name"
+      },
+      {
+        "name": "release-date",
+        "type": "string",
+        "usage": "Release date (YYYY-MM-DD)"
+      },
+      {
+        "name": "released",
+        "type": "bool",
+        "default": "false",
+        "usage": "Mark version as released"
+      },
+      {
+        "name": "start-date",
+        "type": "string",
+        "usage": "Start date (YYYY-MM-DD)"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent whoami",
+    "use": "whoami",
+    "short": "Display the authenticated Jira user",
+    "example": "jira-agent whoami"
+  },
+  {
+    "path": "jira-agent workflow",
+    "use": "workflow",
+    "short": "Work with Jira workflows",
+    "example": "jira-agent workflow list\njira-agent workflow get wf-10001\njira-agent workflow statuses",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
+    "subcommands": [
+      "get",
+      "list",
+      "scheme",
+      "statuses",
+      "transition-rules"
+    ]
+  },
+  {
+    "path": "jira-agent workflow get",
+    "use": "get \u003cworkflow-id\u003e",
+    "short": "Get a workflow by workflow ID or name",
+    "example": "jira-agent workflow get wf-10001",
+    "local_flags": [
+      {
+        "name": "name",
+        "type": "string",
+        "usage": "Workflow name to read instead of a workflow ID"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent workflow list",
+    "use": "list",
+    "short": "Search workflows",
+    "example": "jira-agent workflow list\njira-agent workflow list --expand transitions",
+    "local_flags": [
+      {
+        "name": "expand",
+        "type": "string",
+        "usage": "Comma-separated expansions, such as values.transitions"
+      },
+      {
+        "name": "is-active",
+        "type": "bool",
+        "default": "false",
+        "usage": "Only return active workflows"
+      },
+      {
+        "name": "max-results",
+        "type": "int",
+        "default": "50",
+        "usage": "Page size"
+      },
+      {
+        "name": "order-by",
+        "type": "string",
+        "usage": "Sort order: name, created, updated, +name, or -name"
+      },
+      {
+        "name": "query",
+        "type": "string",
+        "usage": "Case-insensitive workflow name filter"
+      },
+      {
+        "name": "scope",
+        "type": "string",
+        "usage": "Workflow scope: GLOBAL or PROJECT"
+      },
+      {
+        "name": "start-at",
+        "type": "int",
+        "default": "0",
+        "usage": "Pagination offset"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent workflow scheme",
+    "use": "scheme",
+    "short": "Work with workflow schemes",
+    "example": "jira-agent workflow scheme list\njira-agent workflow scheme get 10001",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
+    "subcommands": [
+      "get",
+      "list",
+      "project"
+    ]
+  },
+  {
+    "path": "jira-agent workflow scheme get",
+    "use": "get \u003cscheme-id\u003e",
+    "short": "Get a workflow scheme",
+    "example": "jira-agent workflow scheme get 10001",
+    "local_flags": [
+      {
+        "name": "return-draft",
+        "type": "bool",
+        "default": "false",
+        "usage": "Return the draft scheme when one exists"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent workflow scheme list",
+    "use": "list",
+    "short": "List workflow schemes",
+    "example": "jira-agent workflow scheme list",
+    "local_flags": [
+      {
+        "name": "max-results",
+        "type": "int",
+        "default": "50",
+        "usage": "Page size"
+      },
+      {
+        "name": "start-at",
+        "type": "int",
+        "default": "0",
+        "usage": "Pagination offset"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent workflow scheme project",
+    "use": "project \u003cproject-id\u003e",
+    "short": "Get workflow scheme associations for a numeric project ID",
+    "example": "jira-agent workflow scheme project 10001"
+  },
+  {
+    "path": "jira-agent workflow statuses",
+    "use": "statuses",
+    "short": "List Jira statuses used by workflows",
+    "example": "jira-agent workflow statuses"
+  },
+  {
+    "path": "jira-agent workflow transition-rules",
+    "use": "transition-rules",
+    "short": "List available workflow transition rule capabilities",
+    "example": "jira-agent workflow transition-rules --workflow-ids wf-10001,wf-10002",
+    "local_flags": [
+      {
+        "name": "issue-type-id",
+        "type": "string",
+        "usage": "Issue type ID context"
+      },
+      {
+        "name": "project-id",
+        "type": "string",
+        "usage": "Numeric project ID context"
+      },
+      {
+        "name": "workflow-id",
+        "type": "string",
+        "usage": "Workflow UUID context"
+      }
+    ]
+  }
+]

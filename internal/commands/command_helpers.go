@@ -14,6 +14,146 @@ import (
 	"github.com/major/jira-agent/internal/output"
 )
 
+const (
+	commandAnnotationDefaultSubcommand = "jira-agent/default-subcommand"
+	commandAnnotationWriteProtected    = "jira-agent/write-protected"
+)
+
+func setCommandAnnotation(cmd *cobra.Command, key, value string) {
+	if cmd.Annotations == nil {
+		cmd.Annotations = map[string]string{}
+	}
+	cmd.Annotations[key] = value
+}
+
+// MarkWriteProtected annotates a command as write-protected without changing
+// its runtime guard. This keeps mutating command metadata discoverable by
+// contract tests and future schema generators.
+func MarkWriteProtected(cmd *cobra.Command) {
+	setCommandAnnotation(cmd, commandAnnotationWriteProtected, "true")
+}
+
+// MarkWriteProtectedCommands annotates every known mutating command in a built
+// command tree. Runtime write protection still lives in writeGuard and
+// requireWriteAccess; this pass exposes that behavior for contract snapshots and
+// future schema generators without changing command execution.
+func MarkWriteProtectedCommands(root *cobra.Command) {
+	rootPath := root.CommandPath()
+	for _, cmd := range allCommands(root) {
+		path := strings.TrimPrefix(cmd.CommandPath(), rootPath+" ")
+		if _, ok := writeProtectedCommandPaths[path]; ok {
+			MarkWriteProtected(cmd)
+		}
+	}
+}
+
+// WriteProtectedCommandPaths returns the configured write-protected command
+// paths in deterministic order for contract tests and schema generation checks.
+func WriteProtectedCommandPaths() []string {
+	paths := make([]string, 0, len(writeProtectedCommandPaths))
+	for path := range writeProtectedCommandPaths {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+	return paths
+}
+
+func allCommands(root *cobra.Command) []*cobra.Command {
+	commands := []*cobra.Command{root}
+	for _, child := range root.Commands() {
+		commands = append(commands, allCommands(child)...)
+	}
+	return commands
+}
+
+var writeProtectedCommandPaths = map[string]struct{}{
+	"backlog move":                   {},
+	"board create":                   {},
+	"board delete":                   {},
+	"board property delete":          {},
+	"board property set":             {},
+	"component create":               {},
+	"component delete":               {},
+	"component update":               {},
+	"dashboard copy":                 {},
+	"dashboard create":               {},
+	"dashboard delete":               {},
+	"dashboard update":               {},
+	"epic move-issues":               {},
+	"epic rank":                      {},
+	"epic remove-issues":             {},
+	"field context create":           {},
+	"field context delete":           {},
+	"field context update":           {},
+	"field option create":            {},
+	"field option delete":            {},
+	"field option reorder":           {},
+	"field option update":            {},
+	"filter create":                  {},
+	"filter default-share-scope set": {},
+	"filter delete":                  {},
+	"filter share":                   {},
+	"filter unshare":                 {},
+	"filter update":                  {},
+	"group add-member":               {},
+	"group create":                   {},
+	"group delete":                   {},
+	"group remove-member":            {},
+	"issue assign":                   {},
+	"issue attachment add":           {},
+	"issue attachment delete":        {},
+	"issue bulk create":              {},
+	"issue bulk delete":              {},
+	"issue bulk edit":                {},
+	"issue bulk move":                {},
+	"issue bulk transition":          {},
+	"issue bulk-create":              {},
+	"issue bulk-delete":              {},
+	"issue bulk-edit":                {},
+	"issue bulk-move":                {},
+	"issue bulk-transition":          {},
+	"issue comment add":              {},
+	"issue comment delete":           {},
+	"issue comment edit":             {},
+	"issue create":                   {},
+	"issue delete":                   {},
+	"issue edit":                     {},
+	"issue link add":                 {},
+	"issue link delete":              {},
+	"issue notify":                   {},
+	"issue property delete":          {},
+	"issue property set":             {},
+	"issue rank":                     {},
+	"issue remote-link add":          {},
+	"issue remote-link delete":       {},
+	"issue remote-link edit":         {},
+	"issue transition":               {},
+	"issue vote add":                 {},
+	"issue vote remove":              {},
+	"issue watcher add":              {},
+	"issue watcher remove":           {},
+	"issue worklog add":              {},
+	"issue worklog delete":           {},
+	"issue worklog edit":             {},
+	"project roles add-actor":        {},
+	"project roles remove-actor":     {},
+	"sprint create":                  {},
+	"sprint delete":                  {},
+	"sprint move-issues":             {},
+	"sprint property delete":         {},
+	"sprint property set":            {},
+	"sprint swap":                    {},
+	"sprint update":                  {},
+	"task cancel":                    {},
+	"time-tracking options set":      {},
+	"time-tracking select":           {},
+	"version create":                 {},
+	"version delete":                 {},
+	"version merge":                  {},
+	"version move":                   {},
+	"version update":                 {},
+}
+
 // requireWriteAccess returns a ValidationError when write operations are not
 // enabled. The error message tells the caller how to enable writes.
 func requireWriteAccess(allowWrites *bool) error {
@@ -331,6 +471,7 @@ func escapePathSegment(value string) string {
 // without a subcommand. This replicates the previous DefaultCommand behavior
 // for the common case where no positional args are passed to the parent.
 func setDefaultSubcommand(parent *cobra.Command, childName string) {
+	setCommandAnnotation(parent, commandAnnotationDefaultSubcommand, childName)
 	parent.RunE = func(cmd *cobra.Command, args []string) error {
 		for _, sub := range parent.Commands() {
 			if sub.Name() == childName {

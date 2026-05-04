@@ -190,7 +190,7 @@ func propertyListCommand(target propertyTarget, w io.Writer, format *output.Form
 func propertyGetCommand(target propertyTarget, w io.Writer, format *output.Format) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "get <" + target.idLabel + "> <property-key>",
-		Short:   fmt.Sprintf("Get a %s property", target.resourceName),
+		Short:   fmt.Sprintf("Get %s %s property", propertyResourceArticle(target.resourceName), target.resourceName),
 		Example: fmt.Sprintf(`jira-agent %s property get %s com.example.flag`, target.resourceName, exampleResourceID(target.resourceName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -210,7 +210,7 @@ func propertyGetCommand(target propertyTarget, w io.Writer, format *output.Forma
 func propertySetCommand(target propertyTarget, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "set <" + target.idLabel + "> <property-key>",
-		Short:   fmt.Sprintf("Set a %s property", target.resourceName),
+		Short:   fmt.Sprintf("Set %s %s property", propertyResourceArticle(target.resourceName), target.resourceName),
 		Example: fmt.Sprintf(`jira-agent %s property set %s com.example.flag --value-json '{"enabled":true}'`, target.resourceName, exampleResourceID(target.resourceName)),
 		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -236,7 +236,7 @@ func propertySetCommand(target propertyTarget, w io.Writer, format *output.Forma
 func propertyDeleteCommand(target propertyTarget, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "delete <" + target.idLabel + "> <property-key>",
-		Short:   fmt.Sprintf("Delete a %s property", target.resourceName),
+		Short:   fmt.Sprintf("Delete %s %s property", propertyResourceArticle(target.resourceName), target.resourceName),
 		Example: fmt.Sprintf(`jira-agent %s property delete %s com.example.flag`, target.resourceName, exampleResourceID(target.resourceName)),
 		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -256,6 +256,13 @@ func propertyDeleteCommand(target propertyTarget, w io.Writer, format *output.Fo
 		}),
 	}
 	return cmd
+}
+
+func propertyResourceArticle(resourceName string) string {
+	if resourceName == "issue" {
+		return "an"
+	}
+	return "a"
 }
 
 func propertyBasePath(target propertyTarget, positionalArgs []string) (basePath, canonicalID string, err error) {
