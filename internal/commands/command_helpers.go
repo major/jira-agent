@@ -47,6 +47,17 @@ func MarkWriteProtectedCommands(root *cobra.Command) {
 	}
 }
 
+// WriteProtectedCommandPaths returns the configured write-protected command
+// paths in deterministic order for contract tests and schema generation checks.
+func WriteProtectedCommandPaths() []string {
+	paths := make([]string, 0, len(writeProtectedCommandPaths))
+	for path := range writeProtectedCommandPaths {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+	return paths
+}
+
 func allCommands(root *cobra.Command) []*cobra.Command {
 	commands := []*cobra.Command{root}
 	for _, child := range root.Commands() {

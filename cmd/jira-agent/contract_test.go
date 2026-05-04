@@ -10,11 +10,15 @@ import (
 	"strings"
 	"testing"
 
+	commandpkg "github.com/major/jira-agent/internal/commands"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
 
 const cliContractSnapshotPath = "cli_contract_snapshot.json"
+
+const writeProtectedAnnotation = "jira-agent/write-protected"
 
 // commandContract captures stable Cobra command metadata that agents rely on.
 type commandContract struct {
@@ -105,6 +109,38 @@ func TestSkillCommandExamplesMatchCLIContract(t *testing.T) {
 	}
 	if examples == 0 {
 		t.Fatal("skill docs contain no jira-agent command examples")
+	}
+}
+
+// TestWriteProtectedCommandsAnnotated keeps the declarative mutation metadata
+// in sync with the configured write-protected command list.
+func TestWriteProtectedCommandsAnnotated(t *testing.T) {
+	t.Parallel()
+
+	app := buildApp(&bytes.Buffer{})
+	contracts := collectCommandContracts(app)
+	annotatedPaths := map[string]struct{}{}
+	for index := range contracts {
+		annotations := contracts[index].Annotations
+		if annotations[writeProtectedAnnotation] == "true" {
+			path := strings.TrimPrefix(contracts[index].Path, "jira-agent ")
+			annotatedPaths[path] = struct{}{}
+		}
+	}
+
+	wantPaths := commandpkg.WriteProtectedCommandPaths()
+	if len(annotatedPaths) != len(wantPaths) {
+		t.Errorf("write-protected annotation count = %d, want %d", len(annotatedPaths), len(wantPaths))
+	}
+	for _, path := range wantPaths {
+		if _, ok := annotatedPaths[path]; !ok {
+			t.Errorf("command %q is missing %s=true", path, writeProtectedAnnotation)
+		}
+	}
+	for path := range annotatedPaths {
+		if _, ok := slices.BinarySearch(wantPaths, path); !ok {
+			t.Errorf("command %q has unexpected %s=true", path, writeProtectedAnnotation)
+		}
 	}
 }
 
@@ -210,7 +246,7 @@ func collectFlagContracts(flags *pflag.FlagSet) []flagContract {
 			Name:        flag.Name,
 			Shorthand:   flag.Shorthand,
 			Type:        flag.Value.Type(),
-			Default:     flag.DefValue,
+			Default:     normalizeFlagDefault(flag),
 			Usage:       flag.Usage,
 			Hidden:      flag.Hidden,
 			Deprecated:  flag.Deprecated,
@@ -221,6 +257,14 @@ func collectFlagContracts(flags *pflag.FlagSet) []flagContract {
 		return compareStrings(a.Name, b.Name)
 	})
 	return contracts
+}
+
+// normalizeFlagDefault removes machine-local values from the golden contract.
+func normalizeFlagDefault(flag *pflag.Flag) string {
+	if flag.Name == "config" {
+		return "${HOME}/.config/jira-agent/config.json"
+	}
+	return flag.DefValue
 }
 
 // sortedCommandAnnotations returns a deterministic copy of Cobra annotations.

@@ -9,7 +9,7 @@
       {
         "name": "config",
         "type": "string",
-        "default": "/home/major/.config/jira-agent/config.json",
+        "default": "${HOME}/.config/jira-agent/config.json",
         "usage": "Path to config file"
       },
       {
@@ -43,7 +43,7 @@
       {
         "name": "config",
         "type": "string",
-        "default": "/home/major/.config/jira-agent/config.json",
+        "default": "${HOME}/.config/jira-agent/config.json",
         "usage": "Path to config file"
       },
       {

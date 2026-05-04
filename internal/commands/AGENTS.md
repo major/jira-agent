@@ -40,10 +40,11 @@ Naming and text:
 ## Write protection
 
 - All mutations must be wrapped with `writeGuard(allowWrites, action)` or explicitly call `requireWriteAccess(allowWrites)` before side effects.
-- Mutating commands must carry `jira-agent/write-protected=true`; root wiring records this through `MarkWriteProtectedCommands`.
+- Mutating commands must carry `jira-agent/write-protected=true`; root wiring records this through the authoritative annotator `MarkWriteProtectedCommands`, which uses the explicit `WriteProtectedCommandPaths` configuration list.
 - Do not add hidden write paths in read-looking commands.
 - Blocked writes must remain validation failures with exit 5 and remediation for config/env write enablement.
 - Mutating commands are identifiable by both their write-protection annotation and the `writeGuard` wrapper or explicit `requireWriteAccess` in their handlers.
+- `TestWriteProtectedCommandsAnnotated` is the CI contract check that keeps `jira-agent/write-protected` annotations aligned with `MarkWriteProtectedCommands`; update the path list and tests together when adding write commands.
 
 ## Validation helpers
 
