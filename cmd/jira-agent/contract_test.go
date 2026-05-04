@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -16,17 +17,18 @@ const cliContractSnapshotPath = "cli_contract_snapshot.json"
 
 // commandContract captures stable Cobra command metadata that agents rely on.
 type commandContract struct {
-	Path            string         `json:"path"`
-	Use             string         `json:"use"`
-	Aliases         []string       `json:"aliases,omitempty"`
-	Short           string         `json:"short"`
-	Long            string         `json:"long,omitempty"`
-	Example         string         `json:"example,omitempty"`
-	Hidden          bool           `json:"hidden,omitempty"`
-	Deprecated      string         `json:"deprecated,omitempty"`
-	LocalFlags      []flagContract `json:"local_flags,omitempty"`
-	PersistentFlags []flagContract `json:"persistent_flags,omitempty"`
-	Subcommands     []string       `json:"subcommands,omitempty"`
+	Path            string            `json:"path"`
+	Use             string            `json:"use"`
+	Aliases         []string          `json:"aliases,omitempty"`
+	Short           string            `json:"short"`
+	Long            string            `json:"long,omitempty"`
+	Example         string            `json:"example,omitempty"`
+	Hidden          bool              `json:"hidden,omitempty"`
+	Deprecated      string            `json:"deprecated,omitempty"`
+	Annotations     map[string]string `json:"annotations,omitempty"`
+	LocalFlags      []flagContract    `json:"local_flags,omitempty"`
+	PersistentFlags []flagContract    `json:"persistent_flags,omitempty"`
+	Subcommands     []string          `json:"subcommands,omitempty"`
 }
 
 // flagContract captures stable flag metadata without runtime parse state.
@@ -93,6 +95,7 @@ func collectCommandContract(cmd *cobra.Command, contracts *[]commandContract) {
 		Example:         cmd.Example,
 		Hidden:          cmd.Hidden,
 		Deprecated:      cmd.Deprecated,
+		Annotations:     sortedCommandAnnotations(cmd.Annotations),
 		LocalFlags:      collectFlagContracts(cmd.LocalFlags()),
 		PersistentFlags: collectFlagContracts(cmd.PersistentFlags()),
 		Subcommands:     sortedCommandNames(cmd.Commands()),
@@ -131,6 +134,17 @@ func collectFlagContracts(flags *pflag.FlagSet) []flagContract {
 		return compareStrings(a.Name, b.Name)
 	})
 	return contracts
+}
+
+// sortedCommandAnnotations returns a deterministic copy of Cobra annotations.
+func sortedCommandAnnotations(annotations map[string]string) map[string]string {
+	if len(annotations) == 0 {
+		return nil
+	}
+
+	sorted := make(map[string]string, len(annotations))
+	maps.Copy(sorted, annotations)
+	return sorted
 }
 
 // sortedAnnotations returns a deterministic copy of pflag annotations.

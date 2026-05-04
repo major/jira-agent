@@ -542,6 +542,37 @@ func TestWriteGuard(t *testing.T) {
 	})
 }
 
+func TestCommandAnnotations(t *testing.T) {
+	t.Parallel()
+
+	t.Run("records default subcommand", func(t *testing.T) {
+		t.Parallel()
+
+		cmd := &cobra.Command{Use: "parent"}
+		setDefaultSubcommand(cmd, "list")
+
+		got := cmd.Annotations[commandAnnotationDefaultSubcommand]
+		if got != "list" {
+			t.Errorf("default subcommand annotation = %q, want list", got)
+		}
+		if cmd.RunE == nil {
+			t.Error("RunE was not set, want default subcommand handler")
+		}
+	})
+
+	t.Run("records write protection", func(t *testing.T) {
+		t.Parallel()
+
+		cmd := &cobra.Command{Use: "write"}
+		MarkWriteProtected(cmd)
+
+		got := cmd.Annotations[commandAnnotationWriteProtected]
+		if got != "true" {
+			t.Errorf("write protection annotation = %q, want true", got)
+		}
+	})
+}
+
 func TestAppendQueryParams(t *testing.T) {
 	t.Parallel()
 

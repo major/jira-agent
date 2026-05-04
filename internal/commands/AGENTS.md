@@ -26,6 +26,7 @@ Every `&cobra.Command{}` needs:
 - `Example`
 - `setDefaultSubcommand(cmd, "name")` on parents when the default is obvious
 - positional argument placeholders in `Use` on leaves with positional args
+- declarative Cobra annotations for behavior that is otherwise hidden in handlers. `setDefaultSubcommand` records `jira-agent/default-subcommand`; use shared annotation helpers rather than ad hoc keys.
 
 Naming and text:
 

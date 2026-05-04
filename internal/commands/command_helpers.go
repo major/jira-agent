@@ -14,6 +14,25 @@ import (
 	"github.com/major/jira-agent/internal/output"
 )
 
+const (
+	commandAnnotationDefaultSubcommand = "jira-agent/default-subcommand"
+	commandAnnotationWriteProtected    = "jira-agent/write-protected"
+)
+
+func setCommandAnnotation(cmd *cobra.Command, key, value string) {
+	if cmd.Annotations == nil {
+		cmd.Annotations = map[string]string{}
+	}
+	cmd.Annotations[key] = value
+}
+
+// MarkWriteProtected annotates a command as write-protected without changing
+// its runtime guard. This keeps mutating command metadata discoverable by
+// contract tests and future schema generators.
+func MarkWriteProtected(cmd *cobra.Command) {
+	setCommandAnnotation(cmd, commandAnnotationWriteProtected, "true")
+}
+
 // requireWriteAccess returns a ValidationError when write operations are not
 // enabled. The error message tells the caller how to enable writes.
 func requireWriteAccess(allowWrites *bool) error {
@@ -331,6 +350,7 @@ func escapePathSegment(value string) string {
 // without a subcommand. This replicates the previous DefaultCommand behavior
 // for the common case where no positional args are passed to the parent.
 func setDefaultSubcommand(parent *cobra.Command, childName string) {
+	setCommandAnnotation(parent, commandAnnotationDefaultSubcommand, childName)
 	parent.RunE = func(cmd *cobra.Command, args []string) error {
 		for _, sub := range parent.Commands() {
 			if sub.Name() == childName {

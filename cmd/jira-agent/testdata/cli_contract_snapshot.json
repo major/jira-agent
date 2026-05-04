@@ -108,6 +108,9 @@
     "use": "audit",
     "short": "Work with Jira audit records",
     "example": "jira-agent audit list\njira-agent audit list --from 2024-01-01T00:00:00.000+0000 --to 2024-12-31T23:59:59.000+0000\njira-agent audit list --filter \"user created\" --limit 25",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
     "subcommands": [
       "list"
     ]
@@ -152,6 +155,9 @@
     "use": "backlog",
     "short": "Agile backlog operations (list, move)",
     "example": "jira-agent backlog list --board-id 42\njira-agent backlog move --issues PROJ-1,PROJ-2",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
     "subcommands": [
       "list",
       "move"
@@ -220,6 +226,9 @@
     "use": "board",
     "short": "Jira Software board operations (list, create, get, filter, delete, properties)",
     "example": "jira-agent board list\njira-agent board create --name \"Team board\" --type scrum --filter 10000\njira-agent board get 42\njira-agent board filter 10000\njira-agent board issues 42 --jql \"status = Open\"\njira-agent board property list 42",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
     "subcommands": [
       "config",
       "create",
@@ -422,6 +431,9 @@
     "use": "property",
     "short": "Manage board properties",
     "example": "jira-agent board property list 42\njira-agent board property get 42 com.example.flag\njira-agent board property set 42 com.example.flag --value-json '{\"enabled\":true}'",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
     "subcommands": [
       "delete",
       "get",
@@ -490,6 +502,9 @@
     "use": "component",
     "short": "Project component operations (list, get, create, update, delete, issue-counts)",
     "example": "jira-agent component list --project PROJ\njira-agent component get 10100\njira-agent component create --project PROJ --name \"Backend\"",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
     "subcommands": [
       "create",
       "delete",
@@ -620,6 +635,9 @@
     "use": "dashboard",
     "short": "Work with Jira dashboards",
     "example": "jira-agent dashboard list\njira-agent dashboard get 10001\njira-agent dashboard gadgets 10001",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
     "subcommands": [
       "copy",
       "create",
@@ -823,6 +841,9 @@
     "use": "epic",
     "short": "Agile epic operations (get, issues, move-issues, orphans, remove-issues, rank)",
     "example": "jira-agent epic get PROJ-50\njira-agent epic issues PROJ-50\njira-agent epic move-issues PROJ-50 --issues PROJ-1,PROJ-2",
+    "annotations": {
+      "jira-agent/default-subcommand": "get"
+    },
     "subcommands": [
       "get",
       "issues",
@@ -960,6 +981,9 @@
     ],
     "short": "Work with Jira fields",
     "example": "jira-agent field list\njira-agent field search --type custom --query \"story points\"",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
     "subcommands": [
       "context",
       "list",
@@ -972,6 +996,9 @@
     "use": "context",
     "short": "Custom field context operations (list, create, update, delete)",
     "example": "jira-agent field context list customfield_10001\njira-agent field context create customfield_10001 --name \"Global context\"",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
     "subcommands": [
       "create",
       "delete",
@@ -1067,6 +1094,9 @@
     "use": "option",
     "short": "Custom field option operations (list, create, update, delete, reorder)",
     "example": "jira-agent field option list customfield_10001 10200\njira-agent field option create customfield_10001 10200 --options-json '[{\"value\":\"Option A\"}]'",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
     "subcommands": [
       "create",
       "delete",
@@ -1221,6 +1251,9 @@
     "use": "filter",
     "short": "Work with Jira filters",
     "example": "jira-agent filter list\njira-agent filter get 10001\njira-agent filter favorites",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
     "subcommands": [
       "create",
       "default-share-scope",
@@ -1278,6 +1311,9 @@
     "use": "default-share-scope",
     "short": "Work with the default filter share scope",
     "example": "jira-agent filter default-share-scope get\njira-agent filter default-share-scope set --scope PRIVATE",
+    "annotations": {
+      "jira-agent/default-subcommand": "get"
+    },
     "subcommands": [
       "get",
       "set"
@@ -1530,6 +1566,9 @@
     "use": "group",
     "short": "Work with Jira groups",
     "example": "jira-agent group list\njira-agent group get --groupname \"jira-users\"\njira-agent group members --groupname \"jira-users\"",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
     "subcommands": [
       "add-member",
       "create",
@@ -1808,6 +1847,9 @@
     "use": "attachment",
     "short": "Attachment operations (list, add, get, delete)",
     "example": "jira-agent issue attachment list PROJ-123\njira-agent issue attachment add PROJ-123 --file report.pdf\njira-agent issue attachment get 10001",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
     "subcommands": [
       "add",
       "delete",
@@ -2285,6 +2327,9 @@
     "use": "comment",
     "short": "Comment operations (list, add, edit, delete)",
     "example": "jira-agent issue comment list PROJ-123\njira-agent issue comment add PROJ-123 --body \"This is a comment\"",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
     "subcommands": [
       "add",
       "delete",
@@ -2643,6 +2688,9 @@
     "use": "link",
     "short": "Issue link operations (list, add, delete, types)",
     "example": "jira-agent issue link list PROJ-123\njira-agent issue link add --type Blocks --inward PROJ-1 --outward PROJ-2\njira-agent issue link types",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
     "subcommands": [
       "add",
       "delete",
@@ -2845,6 +2893,9 @@
     "use": "property",
     "short": "Manage issue properties",
     "example": "jira-agent issue property list PROJ-123\njira-agent issue property get PROJ-123 com.example.flag\njira-agent issue property set PROJ-123 com.example.flag --value-json '{\"enabled\":true}'",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
     "subcommands": [
       "delete",
       "get",
@@ -2924,6 +2975,9 @@
     ],
     "short": "Remote issue link operations (list, add, edit, delete)",
     "example": "jira-agent issue remote-link list PROJ-123\njira-agent issue remote-link add PROJ-123 --url \"https://example.com\" --title \"Docs\"",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
     "subcommands": [
       "add",
       "delete",
@@ -3221,6 +3275,9 @@
     "use": "watcher",
     "short": "Watcher operations (list, add, remove)",
     "example": "jira-agent issue watcher list PROJ-123\njira-agent issue watcher add PROJ-123 --account-id 5b10a284\njira-agent issue watcher remove PROJ-123 --account-id 5b10a284",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
     "subcommands": [
       "add",
       "list",
@@ -3274,6 +3331,9 @@
     "use": "worklog",
     "short": "Worklog operations (list, add, edit, delete)",
     "example": "jira-agent issue worklog list PROJ-123\njira-agent issue worklog add PROJ-123 --time-spent 2h",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
     "subcommands": [
       "add",
       "delete",
@@ -3577,6 +3637,9 @@
     ],
     "short": "Work with Jira issue types",
     "example": "jira-agent issuetype list\njira-agent issuetype get 10001\njira-agent issuetype project 10001",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
     "subcommands": [
       "get",
       "list",
@@ -3682,6 +3745,9 @@
     "use": "label",
     "short": "Work with Jira labels",
     "example": "jira-agent label list",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
     "subcommands": [
       "list"
     ]
@@ -3771,6 +3837,9 @@
     "use": "schemes",
     "short": "Work with Jira permission schemes",
     "example": "jira-agent permission schemes list\njira-agent permission schemes get 10001",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
     "subcommands": [
       "get",
       "list",
@@ -3821,6 +3890,9 @@
     "use": "priority",
     "short": "Work with Jira priorities",
     "example": "jira-agent priority list",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
     "subcommands": [
       "list"
     ]
@@ -3836,6 +3908,9 @@
     "use": "project",
     "short": "Project operations (list, get, roles, property, categories)",
     "example": "jira-agent project list\njira-agent project get PROJ\njira-agent project roles PROJ\njira-agent project roles add-actor PROJ 10000 --user 5b10ac8d82e05b22cc7d4ef5\njira-agent project property get PROJ com.example.flag\njira-agent project categories",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
     "subcommands": [
       "categories",
       "get",
@@ -3849,6 +3924,9 @@
     "use": "categories",
     "short": "Project category operations",
     "example": "jira-agent project categories\njira-agent project categories get 10000",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
     "subcommands": [
       "get",
       "list"
@@ -3925,6 +4003,9 @@
     "use": "property",
     "short": "Manage project properties",
     "example": "jira-agent project property list PROJ\njira-agent project property get PROJ com.example.flag\njira-agent project property set PROJ com.example.flag --value-json '{\"enabled\":true}'",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
     "subcommands": [
       "delete",
       "get",
@@ -3973,6 +4054,9 @@
     "use": "roles",
     "short": "Work with project roles",
     "example": "jira-agent project roles PROJ\njira-agent project roles get PROJ 10000 --exclude-inactive-users\njira-agent project roles add-actor PROJ 10000 --user 5b10ac8d82e05b22cc7d4ef5\njira-agent project roles remove-actor PROJ 10000 --group-id 952d12c3-5b5b-4d04-bb32-44d383afc4b2",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
     "subcommands": [
       "add-actor",
       "get",
@@ -4054,6 +4138,9 @@
     "use": "resolution",
     "short": "Work with Jira resolutions",
     "example": "jira-agent resolution list",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
     "subcommands": [
       "list"
     ]
@@ -4069,6 +4156,9 @@
     "use": "role",
     "short": "Project role definition operations",
     "example": "jira-agent role list\njira-agent role get 10000",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
     "subcommands": [
       "get",
       "list"
@@ -4097,6 +4187,9 @@
     "use": "sprint",
     "short": "Agile sprint operations (list, get, create, update, delete, issues, move-issues, swap, property)",
     "example": "jira-agent sprint list --board-id 42\njira-agent sprint get 100\njira-agent sprint issues 100\njira-agent sprint swap 100 101",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
     "subcommands": [
       "create",
       "delete",
@@ -4267,6 +4360,9 @@
     "use": "property",
     "short": "Manage sprint properties",
     "example": "jira-agent sprint property list 100\njira-agent sprint property get 100 com.example.flag\njira-agent sprint property set 100 com.example.flag --value-json '{\"enabled\":true}'",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
     "subcommands": [
       "delete",
       "get",
@@ -4354,6 +4450,9 @@
     "use": "status",
     "short": "Work with Jira statuses",
     "example": "jira-agent status list\njira-agent status get \"In Progress\"\njira-agent status categories",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
     "subcommands": [
       "categories",
       "get",
@@ -4383,6 +4482,9 @@
     "use": "task",
     "short": "Work with Jira async tasks",
     "example": "jira-agent task get 10641\njira-agent task cancel 10641",
+    "annotations": {
+      "jira-agent/default-subcommand": "get"
+    },
     "subcommands": [
       "cancel",
       "get"
@@ -4405,6 +4507,9 @@
     "use": "time-tracking",
     "short": "Work with Jira time tracking configuration",
     "example": "jira-agent time-tracking get\njira-agent time-tracking providers\njira-agent time-tracking select --key JIRA\njira-agent time-tracking options get\njira-agent time-tracking options set --working-hours-per-day 8 --working-days-per-week 5 --time-format pretty --default-unit minute",
+    "annotations": {
+      "jira-agent/default-subcommand": "get"
+    },
     "subcommands": [
       "get",
       "options",
@@ -4423,6 +4528,9 @@
     "use": "options",
     "short": "Work with time tracking settings",
     "example": "jira-agent time-tracking options get\njira-agent time-tracking options set --working-hours-per-day 8 --working-days-per-week 5 --time-format pretty --default-unit minute",
+    "annotations": {
+      "jira-agent/default-subcommand": "get"
+    },
     "subcommands": [
       "get",
       "set"
@@ -4513,6 +4621,9 @@
     "use": "user",
     "short": "Work with Jira users",
     "example": "jira-agent user search --query \"john\"\njira-agent user get --account-id 5b10a2844c20165700ede21g\njira-agent user groups --account-id 5b10a2844c20165700ede21g",
+    "annotations": {
+      "jira-agent/default-subcommand": "search"
+    },
     "subcommands": [
       "get",
       "groups",
@@ -4600,6 +4711,9 @@
     "use": "version",
     "short": "Project version operations (list, get, create, update, delete, merge, move, issue-counts, unresolved-count)",
     "example": "jira-agent version list --project PROJ\njira-agent version get 10001\njira-agent version create --project PROJ --name \"v1.0\"",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
     "subcommands": [
       "create",
       "delete",
@@ -4815,6 +4929,9 @@
     "use": "workflow",
     "short": "Work with Jira workflows",
     "example": "jira-agent workflow list\njira-agent workflow get wf-10001\njira-agent workflow statuses",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
     "subcommands": [
       "get",
       "list",
@@ -4887,6 +5004,9 @@
     "use": "scheme",
     "short": "Work with workflow schemes",
     "example": "jira-agent workflow scheme list\njira-agent workflow scheme get 10001",
+    "annotations": {
+      "jira-agent/default-subcommand": "list"
+    },
     "subcommands": [
       "get",
       "list",
