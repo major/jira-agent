@@ -1,11 +1,10 @@
 package commands
 
 import (
-	"context"
 	"io"
 	"strconv"
 
-	"github.com/urfave/cli/v3"
+	"github.com/spf13/cobra"
 
 	"github.com/major/jira-agent/internal/client"
 	apperr "github.com/major/jira-agent/internal/errors"
@@ -13,60 +12,44 @@ import (
 )
 
 // BoardCommand returns the top-level "board" command with Jira Software board operations.
-func BoardCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:  "board",
-		Usage: "Jira Software board operations (list, create, get, filter, delete, properties)",
-		UsageText: `jira-agent board list
+func BoardCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "board",
+		Short: "Jira Software board operations (list, create, get, filter, delete, properties)",
+		Example: `jira-agent board list
 jira-agent board create --name "Team board" --type scrum --filter 10000
 jira-agent board get 42
 jira-agent board filter 10000
 jira-agent board issues 42 --jql "status = Open"
 jira-agent board property list 42`,
-		DefaultCommand: "list",
-		Commands: []*cli.Command{
-			boardListCommand(apiClient, w, format),
-			boardCreateCommand(apiClient, w, format, allowWrites),
-			boardGetCommand(apiClient, w, format),
-			boardFilterCommand(apiClient, w, format),
-			boardDeleteCommand(apiClient, w, format, allowWrites),
-			boardConfigCommand(apiClient, w, format),
-			boardEpicsCommand(apiClient, w, format),
-			boardIssuesCommand(apiClient, w, format),
-			boardProjectsCommand(apiClient, w, format),
-			boardVersionsCommand(apiClient, w, format),
-			boardPropertyCommand(apiClient, w, format, allowWrites),
-		},
 	}
+	cmd.AddCommand(
+		boardListCommand(apiClient, w, format),
+		boardCreateCommand(apiClient, w, format, allowWrites),
+		boardGetCommand(apiClient, w, format),
+		boardFilterCommand(apiClient, w, format),
+		boardDeleteCommand(apiClient, w, format, allowWrites),
+		boardConfigCommand(apiClient, w, format),
+		boardEpicsCommand(apiClient, w, format),
+		boardIssuesCommand(apiClient, w, format),
+		boardProjectsCommand(apiClient, w, format),
+		boardVersionsCommand(apiClient, w, format),
+		boardPropertyCommand(apiClient, w, format, allowWrites),
+	)
+	setDefaultSubcommand(cmd, "list")
+	return cmd
 }
 
 // boardCreateCommand creates a Jira Software board from an existing saved filter.
 // POST /rest/agile/1.0/board
-func boardCreateCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:  "create",
-		Usage: "Create a Jira Software board",
-		UsageText: `jira-agent board create --name "Team board" --type scrum --filter 10000
+func boardCreateCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create a Jira Software board",
+		Example: `jira-agent board create --name "Team board" --type scrum --filter 10000
 jira-agent board create --name "Team board" --type kanban --filter 10000 --location-project PROJ`,
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:  "name",
-				Usage: "Board name",
-			},
-			&cli.StringFlag{
-				Name:  "type",
-				Usage: "Board type: scrum or kanban",
-			},
-			&cli.Int64Flag{
-				Name:  "filter",
-				Usage: "Saved filter ID backing the board",
-			},
-			&cli.StringFlag{
-				Name:  "location-project",
-				Usage: "Project key or ID for the board location",
-			},
-		},
-		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
+		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			name, err := requireFlag(cmd, "name")
 			if err != nil {
 				return err
@@ -75,7 +58,7 @@ jira-agent board create --name "Team board" --type kanban --filter 10000 --locat
 			if err != nil {
 				return err
 			}
-			filterID := cmd.Int64("filter")
+			filterID, _ := cmd.Flags().GetInt64("filter")
 			if filterID <= 0 {
 				return apperr.NewValidationError("--filter must be a positive integer", nil)
 			}
@@ -85,7 +68,7 @@ jira-agent board create --name "Team board" --type kanban --filter 10000 --locat
 				"type":     boardType,
 				"filterId": filterID,
 			}
-			if project := cmd.String("location-project"); project != "" {
+			if project, _ := cmd.Flags().GetString("location-project"); project != "" {
 				body["location"] = map[string]any{
 					"type":           "project",
 					"projectKeyOrId": project,
@@ -97,32 +80,24 @@ jira-agent board create --name "Team board" --type kanban --filter 10000 --locat
 			})
 		}),
 	}
+	cmd.Flags().String("name", "", "Board name")
+	cmd.Flags().String("type", "", "Board type: scrum or kanban")
+	cmd.Flags().Int64("filter", 0, "Saved filter ID backing the board")
+	cmd.Flags().String("location-project", "", "Project key or ID for the board location")
+	return cmd
 }
 
 // boardListCommand lists Jira Software boards with pagination and common filters.
 // GET /rest/agile/1.0/board
-func boardListCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:  "list",
-		Usage: "List Jira Software boards",
-		UsageText: `jira-agent board list
+func boardListCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List Jira Software boards",
+		Example: `jira-agent board list
 jira-agent board list --type scrum
 jira-agent board list --project PROJ`,
-		Flags: appendPaginationFlags([]cli.Flag{
-			&cli.StringFlag{
-				Name:  "type",
-				Usage: "Filter by board type: scrum or kanban",
-			},
-			&cli.StringFlag{
-				Name:  "name",
-				Usage: "Filter by board name",
-			},
-			&cli.StringFlag{
-				Name:  "project",
-				Usage: "Filter by project key or ID referenced by the board filter",
-			},
-		}),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			params := buildPaginationParams(cmd, map[string]string{
 				"type":    "type",
 				"name":    "name",
@@ -134,18 +109,23 @@ jira-agent board list --project PROJ`,
 			})
 		},
 	}
+	cmd.Flags().String("type", "", "Filter by board type: scrum or kanban")
+	cmd.Flags().String("name", "", "Filter by board name")
+	cmd.Flags().String("project", "", "Filter by project key or ID referenced by the board filter")
+	appendPaginationFlags(cmd)
+	return cmd
 }
 
 // boardGetCommand fetches a single Jira Software board by ID.
 // GET /rest/agile/1.0/board/{boardId}
-func boardGetCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:      "get",
-		Usage:     "Get Jira Software board details by ID",
-		UsageText: `jira-agent board get 42`,
-		ArgsUsage: "<board-id>",
-		Action: func(ctx context.Context, cmd *cli.Command) error {
-			boardID, err := requireArg(cmd, "board ID")
+func boardGetCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	return &cobra.Command{
+		Use:     "get",
+		Short:   "Get Jira Software board details by ID",
+		Example: `jira-agent board get 42`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			boardID, err := requireArg(args, "board ID")
 			if err != nil {
 				return err
 			}
@@ -163,16 +143,15 @@ func boardGetCommand(apiClient *client.Ref, w io.Writer, format *output.Format) 
 
 // boardFilterCommand lists boards that use a saved filter.
 // GET /rest/agile/1.0/board/filter/{filterId}
-func boardFilterCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:  "filter",
-		Usage: "List boards using a filter",
-		UsageText: `jira-agent board filter 10000
+func boardFilterCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "filter",
+		Short: "List boards using a filter",
+		Example: `jira-agent board filter 10000
 jira-agent board filter 10000 --max-results 25`,
-		ArgsUsage: "<filter-id>",
-		Flags:     appendPaginationFlags(nil),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
-			filterID, err := requireArg(cmd, "filter ID")
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			filterID, err := requireArg(args, "filter ID")
 			if err != nil {
 				return err
 			}
@@ -188,18 +167,20 @@ jira-agent board filter 10000 --max-results 25`,
 			})
 		},
 	}
+	appendPaginationFlags(cmd)
+	return cmd
 }
 
 // boardDeleteCommand deletes a Jira Software board by ID.
 // DELETE /rest/agile/1.0/board/{boardId}
-func boardDeleteCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:      "delete",
-		Usage:     "Delete a Jira Software board",
-		UsageText: `jira-agent board delete 42`,
-		ArgsUsage: "<board-id>",
-		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
-			boardID, err := requireArg(cmd, "board ID")
+func boardDeleteCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	return &cobra.Command{
+		Use:     "delete",
+		Short:   "Delete a Jira Software board",
+		Example: `jira-agent board delete 42`,
+		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			boardID, err := requireArg(args, "board ID")
 			if err != nil {
 				return err
 			}
@@ -232,14 +213,14 @@ func parsePositiveIntID(value, label string) (int64, error) {
 
 // boardConfigCommand fetches the configuration for a Jira Software board.
 // GET /rest/agile/1.0/board/{boardId}/configuration
-func boardConfigCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:      "config",
-		Usage:     "Get board configuration (columns, estimation, ranking)",
-		UsageText: `jira-agent board config 42`,
-		ArgsUsage: "<board-id>",
-		Action: func(ctx context.Context, cmd *cli.Command) error {
-			boardID, err := requireArg(cmd, "board ID")
+func boardConfigCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	return &cobra.Command{
+		Use:     "config",
+		Short:   "Get board configuration (columns, estimation, ranking)",
+		Example: `jira-agent board config 42`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			boardID, err := requireArg(args, "board ID")
 			if err != nil {
 				return err
 			}
@@ -257,20 +238,14 @@ func boardConfigCommand(apiClient *client.Ref, w io.Writer, format *output.Forma
 
 // boardEpicsCommand lists epics associated with a board.
 // GET /rest/agile/1.0/board/{boardId}/epic
-func boardEpicsCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:      "epics",
-		Usage:     "List epics on a board",
-		UsageText: `jira-agent board epics 42`,
-		ArgsUsage: "<board-id>",
-		Flags: appendPaginationFlags([]cli.Flag{
-			&cli.BoolFlag{
-				Name:  "done",
-				Usage: "Include done epics",
-			},
-		}),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
-			boardID, err := requireArg(cmd, "board ID")
+func boardEpicsCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "epics",
+		Short:   "List epics on a board",
+		Example: `jira-agent board epics 42`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			boardID, err := requireArg(args, "board ID")
 			if err != nil {
 				return err
 			}
@@ -287,33 +262,22 @@ func boardEpicsCommand(apiClient *client.Ref, w io.Writer, format *output.Format
 			})
 		},
 	}
+	cmd.Flags().Bool("done", false, "Include done epics")
+	appendPaginationFlags(cmd)
+	return cmd
 }
 
 // boardIssuesCommand lists issues on a board with optional JQL filtering.
 // GET /rest/agile/1.0/board/{boardId}/issue
-func boardIssuesCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:  "issues",
-		Usage: "List issues on a board",
-		UsageText: `jira-agent board issues 42
+func boardIssuesCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "issues",
+		Short: "List issues on a board",
+		Example: `jira-agent board issues 42
 jira-agent board issues 42 --jql "status = Open"`,
-		ArgsUsage: "<board-id>",
-		Flags: appendPaginationFlags([]cli.Flag{
-			&cli.StringFlag{
-				Name:  "jql",
-				Usage: "JQL filter to apply",
-			},
-			&cli.StringFlag{
-				Name:  "fields",
-				Usage: "Comma-separated list of fields to return",
-			},
-			&cli.StringFlag{
-				Name:  "expand",
-				Usage: "Comma-separated list of expansions",
-			},
-		}),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
-			boardID, err := requireArg(cmd, "board ID")
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			boardID, err := requireArg(args, "board ID")
 			if err != nil {
 				return err
 			}
@@ -333,19 +297,23 @@ jira-agent board issues 42 --jql "status = Open"`,
 			})
 		},
 	}
+	cmd.Flags().String("jql", "", "JQL filter to apply")
+	cmd.Flags().String("fields", "", "Comma-separated list of fields to return")
+	cmd.Flags().String("expand", "", "Comma-separated list of expansions")
+	appendPaginationFlags(cmd)
+	return cmd
 }
 
 // boardProjectsCommand lists projects associated with a board.
 // GET /rest/agile/1.0/board/{boardId}/project
-func boardProjectsCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:      "projects",
-		Usage:     "List projects associated with a board",
-		UsageText: `jira-agent board projects 42`,
-		ArgsUsage: "<board-id>",
-		Flags:     appendPaginationFlags(nil),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
-			boardID, err := requireArg(cmd, "board ID")
+func boardProjectsCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "projects",
+		Short:   "List projects associated with a board",
+		Example: `jira-agent board projects 42`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			boardID, err := requireArg(args, "board ID")
 			if err != nil {
 				return err
 			}
@@ -361,19 +329,20 @@ func boardProjectsCommand(apiClient *client.Ref, w io.Writer, format *output.For
 			})
 		},
 	}
+	appendPaginationFlags(cmd)
+	return cmd
 }
 
 // boardVersionsCommand lists versions associated with a board.
 // GET /rest/agile/1.0/board/{boardId}/version
-func boardVersionsCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:      "versions",
-		Usage:     "List versions associated with a board",
-		UsageText: `jira-agent board versions 42`,
-		ArgsUsage: "<board-id>",
-		Flags:     appendPaginationFlags(nil),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
-			boardID, err := requireArg(cmd, "board ID")
+func boardVersionsCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "versions",
+		Short:   "List versions associated with a board",
+		Example: `jira-agent board versions 42`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			boardID, err := requireArg(args, "board ID")
 			if err != nil {
 				return err
 			}
@@ -389,4 +358,6 @@ func boardVersionsCommand(apiClient *client.Ref, w io.Writer, format *output.For
 			})
 		},
 	}
+	appendPaginationFlags(cmd)
+	return cmd
 }

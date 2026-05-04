@@ -1,11 +1,10 @@
 package commands
 
 import (
-	"context"
 	"fmt"
 	"io"
 
-	"github.com/urfave/cli/v3"
+	"github.com/spf13/cobra"
 
 	"github.com/major/jira-agent/internal/client"
 	apperr "github.com/major/jira-agent/internal/errors"
@@ -14,38 +13,38 @@ import (
 
 // fieldOptionCommand returns the "option" subcommand group for custom field
 // context options.
-func fieldOptionCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:  "option",
-		Usage: "Custom field option operations (list, create, update, delete, reorder)",
-		UsageText: `jira-agent field option list customfield_10001 10200
+func fieldOptionCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "option",
+		Short: "Custom field option operations (list, create, update, delete, reorder)",
+		Example: `jira-agent field option list customfield_10001 10200
 jira-agent field option create customfield_10001 10200 --options-json '[{"value":"Option A"}]'`,
-		DefaultCommand: "list",
-		Commands: []*cli.Command{
-			optionListCommand(apiClient, w, format),
-			optionCreateCommand(apiClient, w, format, allowWrites),
-			optionUpdateCommand(apiClient, w, format, allowWrites),
-			optionDeleteCommand(apiClient, w, format, allowWrites),
-			optionReorderCommand(apiClient, w, format, allowWrites),
-		},
 	}
+	cmd.AddCommand(
+		optionListCommand(apiClient, w, format),
+		optionCreateCommand(apiClient, w, format, allowWrites),
+		optionUpdateCommand(apiClient, w, format, allowWrites),
+		optionDeleteCommand(apiClient, w, format, allowWrites),
+		optionReorderCommand(apiClient, w, format, allowWrites),
+	)
+	setDefaultSubcommand(cmd, "list")
+	return cmd
 }
 
 // optionListCommand lists options for a custom field context.
 // GET /rest/api/3/field/{fieldId}/context/{contextId}/option
-func optionListCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:      "list",
-		Usage:     "List options for a custom field context",
-		UsageText: `jira-agent field option list customfield_10001 10200`,
-		ArgsUsage: "<field-id> <context-id>",
-		Flags:     appendPaginationFlags(nil),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
-			args, err := requireArgs(cmd, "field ID", "context ID")
+func optionListCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "list <field-id> <context-id>",
+		Short:   "List options for a custom field context",
+		Example: `jira-agent field option list customfield_10001 10200`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			posArgs, err := requireArgs(args, "field ID", "context ID")
 			if err != nil {
 				return err
 			}
-			fieldID, contextID := args[0], args[1]
+			fieldID, contextID := posArgs[0], posArgs[1]
 
 			params := buildPaginationParams(cmd, nil)
 
@@ -55,31 +54,27 @@ func optionListCommand(apiClient *client.Ref, w io.Writer, format *output.Format
 			})
 		},
 	}
+	appendPaginationFlags(cmd)
+	return cmd
 }
 
 // optionCreateCommand creates options for a custom field context.
 // POST /rest/api/3/field/{fieldId}/context/{contextId}/option
-func optionCreateCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:      "create",
-		Usage:     "Create options for a custom field context",
-		UsageText: `jira-agent field option create customfield_10001 10200 --options-json '[{"value":"Option A"},{"value":"Option B"}]'`,
-		ArgsUsage: "<field-id> <context-id>",
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:     "values",
-				Usage:    "Comma-separated option values to create",
-				Required: true,
-			},
-		},
-		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
-			args, err := requireArgs(cmd, "field ID", "context ID")
+func optionCreateCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "create <field-id> <context-id>",
+		Short:   "Create options for a custom field context",
+		Example: `jira-agent field option create customfield_10001 10200 --options-json '[{"value":"Option A"},{"value":"Option B"}]'`,
+		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			posArgs, err := requireArgs(args, "field ID", "context ID")
 			if err != nil {
 				return err
 			}
-			fieldID, contextID := args[0], args[1]
+			fieldID, contextID := posArgs[0], posArgs[1]
 
-			values := splitTrimmed(cmd.String("values"))
+			valuesStr, _ := cmd.Flags().GetString("values")
+			values := splitTrimmed(valuesStr)
 			options := make([]map[string]any, 0, len(values))
 			for _, v := range values {
 				options = append(options, map[string]any{"value": v})
@@ -93,45 +88,35 @@ func optionCreateCommand(apiClient *client.Ref, w io.Writer, format *output.Form
 			})
 		}),
 	}
+	cmd.Flags().String("values", "", "Comma-separated option values to create")
+	_ = cmd.MarkFlagRequired("values")
+	return cmd
 }
 
 // optionUpdateCommand updates options for a custom field context.
 // PUT /rest/api/3/field/{fieldId}/context/{contextId}/option
-func optionUpdateCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:      "update",
-		Usage:     "Update options for a custom field context",
-		UsageText: `jira-agent field option update customfield_10001 10200 --options-json '[{"id":"10300","value":"Updated option"}]'`,
-		ArgsUsage: "<field-id> <context-id>",
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:     "option-id",
-				Usage:    "ID of the option to update",
-				Required: true,
-			},
-			&cli.StringFlag{
-				Name:     "value",
-				Usage:    "New option value",
-				Required: true,
-			},
-			&cli.BoolFlag{
-				Name:  "disabled",
-				Usage: "Disable the option",
-			},
-		},
-		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
-			args, err := requireArgs(cmd, "field ID", "context ID")
+func optionUpdateCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "update <field-id> <context-id>",
+		Short:   "Update options for a custom field context",
+		Example: `jira-agent field option update customfield_10001 10200 --options-json '[{"id":"10300","value":"Updated option"}]'`,
+		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			posArgs, err := requireArgs(args, "field ID", "context ID")
 			if err != nil {
 				return err
 			}
-			fieldID, contextID := args[0], args[1]
+			fieldID, contextID := posArgs[0], posArgs[1]
 
+			optionID, _ := cmd.Flags().GetString("option-id")
+			value, _ := cmd.Flags().GetString("value")
 			option := map[string]any{
-				"id":    cmd.String("option-id"),
-				"value": cmd.String("value"),
+				"id":    optionID,
+				"value": value,
 			}
-			if cmd.IsSet("disabled") {
-				option["disabled"] = cmd.Bool("disabled")
+			if cmd.Flags().Changed("disabled") {
+				disabled, _ := cmd.Flags().GetBool("disabled")
+				option["disabled"] = disabled
 			}
 
 			body := map[string]any{
@@ -144,22 +129,28 @@ func optionUpdateCommand(apiClient *client.Ref, w io.Writer, format *output.Form
 			})
 		}),
 	}
+	cmd.Flags().String("option-id", "", "ID of the option to update")
+	_ = cmd.MarkFlagRequired("option-id")
+	cmd.Flags().String("value", "", "New option value")
+	_ = cmd.MarkFlagRequired("value")
+	cmd.Flags().Bool("disabled", false, "Disable the option")
+	return cmd
 }
 
 // optionDeleteCommand deletes a custom field option.
 // DELETE /rest/api/3/field/{fieldId}/context/{contextId}/option/{optionId}
-func optionDeleteCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:      "delete",
-		Usage:     "Delete a custom field option",
-		UsageText: `jira-agent field option delete customfield_10001 10200 10300`,
-		ArgsUsage: "<field-id> <context-id> <option-id>",
-		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
-			args, err := requireArgs(cmd, "field ID", "context ID", "option ID")
+func optionDeleteCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "delete <field-id> <context-id> <option-id>",
+		Short:   "Delete a custom field option",
+		Example: `jira-agent field option delete customfield_10001 10200 10300`,
+		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			posArgs, err := requireArgs(args, "field ID", "context ID", "option ID")
 			if err != nil {
 				return err
 			}
-			fieldID, contextID, optionID := args[0], args[1], args[2]
+			fieldID, contextID, optionID := posArgs[0], posArgs[1], posArgs[2]
 
 			path := fmt.Sprintf("/field/%s/context/%s/option/%s", fieldID, contextID, optionID)
 			if err := apiClient.Delete(ctx, path, nil); err != nil {
@@ -174,48 +165,34 @@ func optionDeleteCommand(apiClient *client.Ref, w io.Writer, format *output.Form
 			}, *format)
 		}),
 	}
+	return cmd
 }
 
 // optionReorderCommand reorders custom field options within a context.
 // PUT /rest/api/3/field/{fieldId}/context/{contextId}/option/move
-func optionReorderCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:      "reorder",
-		Usage:     "Reorder custom field options",
-		UsageText: `jira-agent field option reorder customfield_10001 10200 --option-ids 10300,10301,10302
+func optionReorderCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "reorder <field-id> <context-id>",
+		Short: "Reorder custom field options",
+		Example: `jira-agent field option reorder customfield_10001 10200 --option-ids 10300,10301,10302
 jira-agent field option reorder customfield_10001 10200 --option-ids 10301 --after 10300`,
-		ArgsUsage: "<field-id> <context-id>",
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:     "option-ids",
-				Usage:    "Comma-separated option IDs to move (in desired order)",
-				Required: true,
-			},
-			&cli.StringFlag{
-				Name:     "position",
-				Usage:    "Position: First, Last, Before, After",
-				Required: true,
-			},
-			&cli.StringFlag{
-				Name:  "anchor",
-				Usage: "Anchor option ID (required for Before/After positions)",
-			},
-		},
-		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
-			args, err := requireArgs(cmd, "field ID", "context ID")
+		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			posArgs, err := requireArgs(args, "field ID", "context ID")
 			if err != nil {
 				return err
 			}
-			fieldID, contextID := args[0], args[1]
+			fieldID, contextID := posArgs[0], posArgs[1]
 
-			position := cmd.String("position")
+			optionIDs, _ := cmd.Flags().GetString("option-ids")
+			position, _ := cmd.Flags().GetString("position")
 			body := map[string]any{
-				"customFieldOptionIds": splitTrimmed(cmd.String("option-ids")),
+				"customFieldOptionIds": splitTrimmed(optionIDs),
 				"position":             position,
 			}
 
 			if position == "Before" || position == "After" {
-				anchor := cmd.String("anchor")
+				anchor, _ := cmd.Flags().GetString("anchor")
 				if anchor == "" {
 					return apperr.NewValidationError(
 						"--anchor is required for Before/After positions",
@@ -237,4 +214,10 @@ jira-agent field option reorder customfield_10001 10200 --option-ids 10301 --aft
 			}, *format)
 		}),
 	}
+	cmd.Flags().String("option-ids", "", "Comma-separated option IDs to move (in desired order)")
+	_ = cmd.MarkFlagRequired("option-ids")
+	cmd.Flags().String("position", "", "Position: First, Last, Before, After")
+	_ = cmd.MarkFlagRequired("position")
+	cmd.Flags().String("anchor", "", "Anchor option ID (required for Before/After positions)")
+	return cmd
 }

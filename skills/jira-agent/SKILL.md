@@ -57,20 +57,17 @@ Blocked writes return exit 5 with remediation. Read-only commands always work. `
 | `--verbose` | `-v` | off | Verbose logging to stderr |
 | `--config` | | | Config file path override |
 
-## Schema Discovery
+## Command Discovery
 
-Use schema before guessing flags. Start compact, drill into what you need:
+Use `--help` to explore commands and flags before guessing:
 
 ```bash
-jira-agent schema --compact                          # command index for routing
-jira-agent schema --category issue --required-only   # one command family
-jira-agent schema --command "issue create"            # full details for one command
-jira-agent schema --command "issue link"              # subtree: returns link + all leaves
+jira-agent --help                  # top-level command list
+jira-agent issue --help            # issue subcommands
+jira-agent issue create --help     # flags for a specific command
 ```
 
-Parent command filters return descendant commands, so `--command "issue link"` covers `list`, `add`, `delete`, `types`.
-
-For reads/searches, request only needed fields: `--fields key,summary,status`. See **JSON shape** for default compaction and raw-output guidance. Use schema discovery to verify command-level flag availability before using `--raw`. Use CSV/TSV for simple tables, JSON for updates or nested data.
+For reads/searches, request only needed fields: `--fields key,summary,status`. See **JSON shape** for default compaction and raw-output guidance. Use CSV/TSV for simple tables, JSON for updates or nested data.
 
 ## Output
 
@@ -113,9 +110,8 @@ Flat rows with header, no envelope. Nested values become inline JSON in cells.
 - **Project flag**: Command-level `--project` overrides root `-p`.
 - **Type resolution**: Issue type matching is case-insensitive.
 - **Transition resolution**: `issue transition --to` matches status/transition name case-insensitively. Use `--transition-id` when you already know Jira's numeric transition ID.
-- **Schema output**: Raw JSON, not wrapped in success envelope.
 - **Pagination**: `issue search` uses `--next-page-token` (cursor). Most other list commands use `--start-at` (offset).
-- **JSON shape**: Default JSON removes common Jira metadata noise, including `self`, `expand`, `avatarUrls`, `iconUrl`, and nested `statusCategory` objects. `issue search` additionally flattens common objects to useful scalar values, for example `status` to its name and `assignee` to display name. `issue get --raw` and `issue search --raw` restore Jira's nested response and bypass description conversion; use schema discovery to check future command support.
+- **JSON shape**: Default JSON removes common Jira metadata noise, including `self`, `expand`, `avatarUrls`, `iconUrl`, and nested `statusCategory` objects. `issue search` additionally flattens common objects to useful scalar values, for example `status` to its name and `assignee` to display name. `issue get --raw` and `issue search --raw` restore Jira's nested response and bypass description conversion; use `--help` to check flag availability on any command.
 - **Assignment**: `issue assign` accepts account ID, not email. `--unassign` clears, `--default` uses project default.
 - **Visibility**: Both `--visibility-type` and `--visibility-value` must be set together.
 - **Write protection**: All writes blocked unless `JIRA_ALLOW_WRITES=true` or config set. Exit 5 with remediation.

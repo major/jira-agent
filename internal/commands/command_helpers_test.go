@@ -1,18 +1,22 @@
 package commands
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"reflect"
 	"strings"
 	"testing"
 
-	"github.com/urfave/cli/v3"
+	"github.com/spf13/cobra"
 
 	apperr "github.com/major/jira-agent/internal/errors"
 	"github.com/major/jira-agent/internal/output"
 )
+
+func runCobraTestCommand(cmd *cobra.Command, args []string) error {
+	cmd.SetArgs(args)
+	return cmd.Execute()
+}
 
 func TestRequireArgs(t *testing.T) {
 	t.Parallel()
@@ -44,15 +48,16 @@ func TestRequireArgs(t *testing.T) {
 
 			var got []string
 			var gotErr error
-			cmd := &cli.Command{
-				Name: "test",
-				Action: func(_ context.Context, cmd *cli.Command) error {
-					got, gotErr = requireArgs(cmd, tt.labels...)
+			cmd := &cobra.Command{
+				Use: "test",
+				RunE: func(cmd *cobra.Command, args []string) error {
+					got, gotErr = requireArgs(args, tt.labels...)
 					return nil
 				},
 			}
 
-			if err := cmd.Run(context.Background(), append([]string{"test"}, tt.args...)); err != nil {
+			cmd.SetArgs(tt.args)
+			if err := cmd.Execute(); err != nil {
 				t.Fatalf("command failed: %v", err)
 			}
 			if tt.wantErr != "" {
@@ -103,13 +108,9 @@ func TestRequireFlag(t *testing.T) {
 
 			var got string
 			var gotErr error
-			cmd := &cli.Command{
-				Name: "test",
-				Flags: []cli.Flag{
-					&cli.StringFlag{Name: "jql"},
-					&cli.StringFlag{Name: "project"},
-				},
-				Action: func(_ context.Context, cmd *cli.Command) error {
+			cmd := &cobra.Command{
+				Use: "test",
+				RunE: func(cmd *cobra.Command, args []string) error {
 					if tt.wantDetails != "" {
 						got, gotErr = requireFlagWithDetails(cmd, "project", tt.wantDetails)
 						return nil
@@ -118,8 +119,11 @@ func TestRequireFlag(t *testing.T) {
 					return nil
 				},
 			}
+			cmd.Flags().String("jql", "", "")
+			cmd.Flags().String("project", "", "")
 
-			if err := cmd.Run(context.Background(), append([]string{"test"}, tt.args...)); err != nil {
+			cmd.SetArgs(tt.args)
+			if err := cmd.Execute(); err != nil {
 				t.Fatalf("command failed: %v", err)
 			}
 			if tt.wantErr != "" {
@@ -222,15 +226,9 @@ func TestBuildPaginationParams(t *testing.T) {
 	t.Parallel()
 
 	var got map[string]string
-	cmd := &cli.Command{
-		Name: "test",
-		Flags: []cli.Flag{
-			&cli.IntFlag{Name: "max-results", Value: 25},
-			&cli.IntFlag{Name: "start-at", Value: 10},
-			&cli.StringFlag{Name: "query"},
-			&cli.StringFlag{Name: "order-by"},
-		},
-		Action: func(_ context.Context, cmd *cli.Command) error {
+	cmd := &cobra.Command{
+		Use: "test",
+		RunE: func(cmd *cobra.Command, args []string) error {
 			got = buildPaginationParams(cmd, map[string]string{
 				"query":    "query",
 				"order-by": "orderBy",
@@ -238,8 +236,12 @@ func TestBuildPaginationParams(t *testing.T) {
 			return nil
 		},
 	}
+	cmd.Flags().Int("max-results", 25, "")
+	cmd.Flags().Int("start-at", 10, "")
+	cmd.Flags().String("query", "", "")
+	cmd.Flags().String("order-by", "", "")
 
-	err := cmd.Run(context.Background(), []string{"test", "--query", "agent", "--order-by", "name"})
+	err := runCobraTestCommand(cmd, []string{"--query", "agent", "--order-by", "name"})
 	if err != nil {
 		t.Fatalf("command failed: %v", err)
 	}
@@ -259,19 +261,17 @@ func TestBuildMaxResultsParams(t *testing.T) {
 	t.Parallel()
 
 	var got map[string]string
-	cmd := &cli.Command{
-		Name: "test",
-		Flags: []cli.Flag{
-			&cli.IntFlag{Name: "max-results", Value: 25},
-			&cli.StringFlag{Name: "query"},
-		},
-		Action: func(_ context.Context, cmd *cli.Command) error {
+	cmd := &cobra.Command{
+		Use: "test",
+		RunE: func(cmd *cobra.Command, args []string) error {
 			got = buildMaxResultsParams(cmd, map[string]string{"query": "query"})
 			return nil
 		},
 	}
+	cmd.Flags().Int("max-results", 25, "")
+	cmd.Flags().String("query", "", "")
 
-	err := cmd.Run(context.Background(), []string{"test", "--query", "agent"})
+	err := runCobraTestCommand(cmd, []string{"--query", "agent"})
 	if err != nil {
 		t.Fatalf("command failed: %v", err)
 	}
@@ -289,13 +289,9 @@ func TestAddOptionalParams(t *testing.T) {
 	t.Parallel()
 
 	var got map[string]string
-	cmd := &cli.Command{
-		Name: "test",
-		Flags: []cli.Flag{
-			&cli.StringFlag{Name: "query"},
-			&cli.StringFlag{Name: "expand"},
-		},
-		Action: func(_ context.Context, cmd *cli.Command) error {
+	cmd := &cobra.Command{
+		Use: "test",
+		RunE: func(cmd *cobra.Command, args []string) error {
 			got = map[string]string{"existing": "value"}
 			addOptionalParams(cmd, got, map[string]string{
 				"query":  "queryString",
@@ -304,8 +300,10 @@ func TestAddOptionalParams(t *testing.T) {
 			return nil
 		},
 	}
+	cmd.Flags().String("query", "", "")
+	cmd.Flags().String("expand", "", "")
 
-	if err := cmd.Run(context.Background(), []string{"test", "--query", "agent"}); err != nil {
+	if err := runCobraTestCommand(cmd, []string{"--query", "agent"}); err != nil {
 		t.Fatalf("command failed: %v", err)
 	}
 
@@ -342,18 +340,16 @@ func TestAddBoolParam(t *testing.T) {
 			t.Parallel()
 
 			got := map[string]string{}
-			cmd := &cli.Command{
-				Name: "test",
-				Flags: []cli.Flag{
-					&cli.BoolFlag{Name: "case-insensitive"},
-				},
-				Action: func(_ context.Context, cmd *cli.Command) error {
+			cmd := &cobra.Command{
+				Use: "test",
+				RunE: func(cmd *cobra.Command, args []string) error {
 					addBoolParam(cmd, got, "case-insensitive", "caseInsensitive")
 					return nil
 				},
 			}
+			cmd.Flags().Bool("case-insensitive", false, "")
 
-			if err := cmd.Run(context.Background(), append([]string{"test"}, tt.args...)); err != nil {
+			if err := runCobraTestCommand(cmd, tt.args); err != nil {
 				t.Fatalf("command failed: %v", err)
 			}
 			if !reflect.DeepEqual(got, tt.want) {
@@ -418,21 +414,19 @@ func TestRequireVisibilityFlags(t *testing.T) {
 
 			var got string
 			var gotErr error
-			cmd := &cli.Command{
-				Name: "test",
-				Flags: []cli.Flag{
-					&cli.StringFlag{Name: "visibility-type"},
-					&cli.StringFlag{Name: "visibility-value"},
-				},
-				Action: func(_ context.Context, cmd *cli.Command) error {
+			cmd := &cobra.Command{
+				Use: "test",
+				RunE: func(cmd *cobra.Command, args []string) error {
 					_, value, err := requireVisibilityFlags(cmd)
 					got = value
 					gotErr = err
 					return nil
 				},
 			}
+			cmd.Flags().String("visibility-type", "", "")
+			cmd.Flags().String("visibility-value", "", "")
 
-			if err := cmd.Run(context.Background(), append([]string{"test"}, tt.args...)); err != nil {
+			if err := runCobraTestCommand(cmd, tt.args); err != nil {
 				t.Fatalf("command failed: %v", err)
 			}
 			if tt.wantErr != "" {
@@ -509,16 +503,15 @@ func TestWriteGuard(t *testing.T) {
 
 		called := false
 		allow := false
-		wrapped := writeGuard(&allow, func(_ context.Context, _ *cli.Command) error {
+		wrapped := writeGuard(&allow, func(_ *cobra.Command, _ []string) error {
 			called = true
 			return nil
 		})
-		cmd := &cli.Command{
-			Name:           "test",
-			Action:         wrapped,
-			ExitErrHandler: func(_ context.Context, _ *cli.Command, _ error) {},
+		cmd := &cobra.Command{
+			Use:  "test",
+			RunE: wrapped,
 		}
-		err := cmd.Run(context.Background(), []string{"test"})
+		err := runCobraTestCommand(cmd, nil)
 		if err == nil {
 			t.Fatal("writeGuard(false) = nil, want error")
 		}
@@ -532,16 +525,15 @@ func TestWriteGuard(t *testing.T) {
 
 		called := false
 		allow := true
-		wrapped := writeGuard(&allow, func(_ context.Context, _ *cli.Command) error {
+		wrapped := writeGuard(&allow, func(_ *cobra.Command, _ []string) error {
 			called = true
 			return nil
 		})
-		cmd := &cli.Command{
-			Name:           "test",
-			Action:         wrapped,
-			ExitErrHandler: func(_ context.Context, _ *cli.Command, _ error) {},
+		cmd := &cobra.Command{
+			Use:  "test",
+			RunE: wrapped,
 		}
-		if err := cmd.Run(context.Background(), []string{"test"}); err != nil {
+		if err := runCobraTestCommand(cmd, nil); err != nil {
 			t.Fatalf("writeGuard(true) = %v, want nil", err)
 		}
 		if !called {

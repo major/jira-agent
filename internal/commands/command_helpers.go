@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net/url"
@@ -9,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/urfave/cli/v3"
+	"github.com/spf13/cobra"
 
 	apperr "github.com/major/jira-agent/internal/errors"
 	"github.com/major/jira-agent/internal/output"
@@ -30,23 +29,26 @@ func requireWriteAccess(allowWrites *bool) error {
 	return nil
 }
 
-// writeGuard wraps a cli action so it returns a write-protection error unless
+// writeGuard wraps a cobra action so it returns a write-protection error unless
 // writes are explicitly enabled in the configuration.
-func writeGuard(allowWrites *bool, action cli.ActionFunc) cli.ActionFunc {
-	return func(ctx context.Context, cmd *cli.Command) error {
+func writeGuard(allowWrites *bool, action func(*cobra.Command, []string) error) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, args []string) error {
 		if err := requireWriteAccess(allowWrites); err != nil {
 			return err
 		}
-		return action(ctx, cmd)
+		return action(cmd, args)
 	}
 }
 
 // requireArgs extracts positional arguments in order and returns a
 // ValidationError naming the first missing label.
-func requireArgs(cmd *cli.Command, labels ...string) ([]string, error) {
+func requireArgs(args []string, labels ...string) ([]string, error) {
 	values := make([]string, 0, len(labels))
 	for i, label := range labels {
-		value := cmd.Args().Get(i)
+		var value string
+		if i < len(args) {
+			value = args[i]
+		}
 		if value == "" {
 			return nil, apperr.NewValidationError(label+" is required", nil)
 		}
@@ -57,25 +59,24 @@ func requireArgs(cmd *cli.Command, labels ...string) ([]string, error) {
 
 // requireArg extracts the first positional argument and returns a
 // ValidationError if it is missing.
-func requireArg(cmd *cli.Command, label string) (string, error) {
-	v := cmd.Args().First()
-	if v == "" {
+func requireArg(args []string, label string) (string, error) {
+	if len(args) == 0 || args[0] == "" {
 		return "", apperr.NewValidationError(label+" is required", nil)
 	}
-	return v, nil
+	return args[0], nil
 }
 
 // requireFlag returns a non-empty string flag value or a ValidationError using
 // the repository's existing "--flag is required" message convention.
-func requireFlag(cmd *cli.Command, flagName string) (string, error) {
+func requireFlag(cmd *cobra.Command, flagName string) (string, error) {
 	return requireFlagWithDetails(cmd, flagName, "")
 }
 
 // requireFlagWithDetails returns a non-empty string flag value or a
 // ValidationError with remediation details. It keeps command validation terse
 // without changing the user-facing error contract.
-func requireFlagWithDetails(cmd *cli.Command, flagName, details string) (string, error) {
-	value := cmd.String(flagName)
+func requireFlagWithDetails(cmd *cobra.Command, flagName, details string) (string, error) {
+	value, _ := cmd.Flags().GetString(flagName)
 	if value != "" {
 		return value, nil
 	}
@@ -170,31 +171,31 @@ type paginationFlagUsage struct {
 	startAt    string
 }
 
-func appendPaginationFlags(flags []cli.Flag) []cli.Flag {
-	return appendPaginationFlagsWithUsage(flags, paginationFlagUsage{
+func appendPaginationFlags(cmd *cobra.Command) {
+	appendPaginationFlagsWithUsage(cmd, paginationFlagUsage{
 		maxResults: "Page size",
 		startAt:    "Pagination offset",
 	})
 }
 
-func appendPaginationFlagsWithUsage(flags []cli.Flag, usage paginationFlagUsage) []cli.Flag {
-	return append(flags,
-		&cli.IntFlag{Name: "max-results", Usage: usage.maxResults, Value: 50},
-		&cli.IntFlag{Name: "start-at", Usage: usage.startAt, Value: 0},
-	)
+func appendPaginationFlagsWithUsage(cmd *cobra.Command, usage paginationFlagUsage) {
+	cmd.Flags().Int("max-results", 50, usage.maxResults)
+	cmd.Flags().Int("start-at", 0, usage.startAt)
 }
 
-func addBoolParam(cmd *cli.Command, params map[string]string, flagName, paramName string) {
-	if cmd.Bool(flagName) {
+func addBoolParam(cmd *cobra.Command, params map[string]string, flagName, paramName string) {
+	val, _ := cmd.Flags().GetBool(flagName)
+	if val {
 		params[paramName] = "true"
 	}
 }
 
 // buildMaxResultsParams returns Jira query parameters for picker endpoints that
 // support a page size but not an offset.
-func buildMaxResultsParams(cmd *cli.Command, optionalFlags map[string]string) map[string]string {
+func buildMaxResultsParams(cmd *cobra.Command, optionalFlags map[string]string) map[string]string {
+	maxResults, _ := cmd.Flags().GetInt("max-results")
 	params := map[string]string{
-		"maxResults": strconv.Itoa(cmd.Int("max-results")),
+		"maxResults": strconv.Itoa(maxResults),
 	}
 	addOptionalParams(cmd, params, optionalFlags)
 	return params
@@ -202,19 +203,22 @@ func buildMaxResultsParams(cmd *cli.Command, optionalFlags map[string]string) ma
 
 // buildPaginationParams returns standard Jira pagination parameters and any
 // optional string flags mapped from CLI flag name to REST query parameter name.
-func buildPaginationParams(cmd *cli.Command, optionalFlags map[string]string) map[string]string {
+func buildPaginationParams(cmd *cobra.Command, optionalFlags map[string]string) map[string]string {
+	maxResults, _ := cmd.Flags().GetInt("max-results")
+	startAt, _ := cmd.Flags().GetInt("start-at")
 	params := map[string]string{
-		"maxResults": strconv.Itoa(cmd.Int("max-results")),
-		"startAt":    strconv.Itoa(cmd.Int("start-at")),
+		"maxResults": strconv.Itoa(maxResults),
+		"startAt":    strconv.Itoa(startAt),
 	}
 	addOptionalParams(cmd, params, optionalFlags)
 	return params
 }
 
 // addOptionalParams copies non-empty string flags into REST query parameters.
-func addOptionalParams(cmd *cli.Command, params, optionalFlags map[string]string) {
+func addOptionalParams(cmd *cobra.Command, params, optionalFlags map[string]string) {
 	for flagName, paramName := range optionalFlags {
-		if value := cmd.String(flagName); value != "" {
+		value, _ := cmd.Flags().GetString(flagName)
+		if value != "" {
 			params[paramName] = value
 		}
 	}
@@ -269,9 +273,9 @@ func extractFieldArray(result map[string]any, fieldName string) ([]any, error) {
 
 // requireVisibilityFlags returns the visibility type and value when both are
 // set. If only one visibility flag is set, it returns a validation error.
-func requireVisibilityFlags(cmd *cli.Command) (visibilityType, visibilityValue string, err error) {
-	visibilityType = cmd.String("visibility-type")
-	visibilityValue = cmd.String("visibility-value")
+func requireVisibilityFlags(cmd *cobra.Command) (visibilityType, visibilityValue string, err error) {
+	visibilityType, _ = cmd.Flags().GetString("visibility-type")
+	visibilityValue, _ = cmd.Flags().GetString("visibility-value")
 	switch {
 	case visibilityType == "" && visibilityValue == "":
 		return "", "", nil
@@ -321,4 +325,21 @@ func appendQueryParams(path string, params map[string]string) string {
 // appendQueryParams.
 func escapePathSegment(value string) string {
 	return url.PathEscape(value)
+}
+
+// setDefaultSubcommand configures parent to run childName's RunE when invoked
+// without a subcommand. This replicates the previous DefaultCommand behavior
+// for the common case where no positional args are passed to the parent.
+func setDefaultSubcommand(parent *cobra.Command, childName string) {
+	parent.RunE = func(cmd *cobra.Command, args []string) error {
+		for _, sub := range parent.Commands() {
+			if sub.Name() == childName {
+				return sub.RunE(sub, args)
+			}
+		}
+		return apperr.NewValidationError(
+			fmt.Sprintf("default subcommand %q not found in %q", childName, parent.Name()),
+			nil,
+		)
+	}
 }

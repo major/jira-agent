@@ -1,13 +1,12 @@
 package commands
 
 import (
-	"context"
 	"errors"
 	"reflect"
 	"strings"
 	"testing"
 
-	"github.com/urfave/cli/v3"
+	"github.com/spf13/cobra"
 
 	apperr "github.com/major/jira-agent/internal/errors"
 )
@@ -19,17 +18,13 @@ func TestBuildWorklogBody(t *testing.T) {
 		t.Parallel()
 
 		var got map[string]any
-		cmd := &cli.Command{
-			Name:  "test",
-			Flags: worklogMutationFlags(),
-			Action: func(_ context.Context, cmd *cli.Command) error {
-				var err error
-				got, err = buildWorklogBody(cmd, true)
-				return err
-			},
-		}
+		cmd := newBodyBuilderTestCommand(func(cmd *cobra.Command) error {
+			var err error
+			got, err = buildWorklogBody(cmd, true)
+			return err
+		})
+		addTestWorklogMutationFlags(cmd)
 		args := []string{
-			"test",
 			"--started", "2026-04-27T10:00:00.000-0500",
 			"--time-spent", "1h 30m",
 			"--time-spent-seconds", "5400",
@@ -38,7 +33,8 @@ func TestBuildWorklogBody(t *testing.T) {
 			"--visibility-value", "jira-users",
 			"--properties-json", `[{"key":"source","value":"agent"}]`,
 		}
-		if err := cmd.Run(context.Background(), args); err != nil {
+		cmd.SetArgs(args)
+		if err := cmd.Execute(); err != nil {
 			t.Fatalf("command failed: %v", err)
 		}
 
@@ -65,16 +61,13 @@ func TestBuildWorklogBody(t *testing.T) {
 	t.Run("requires core fields for create", func(t *testing.T) {
 		t.Parallel()
 
-		cmd := &cli.Command{
-			Name:  "test",
-			Flags: worklogMutationFlags(),
-			Action: func(_ context.Context, cmd *cli.Command) error {
-				_, err := buildWorklogBody(cmd, true)
-				return err
-			},
-		}
-		cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
-		err := cmd.Run(context.Background(), []string{"test", "--time-spent", "1h"})
+		cmd := newBodyBuilderTestCommand(func(cmd *cobra.Command) error {
+			_, err := buildWorklogBody(cmd, true)
+			return err
+		})
+		addTestWorklogMutationFlags(cmd)
+		cmd.SetArgs([]string{"--time-spent", "1h"})
+		err := cmd.Execute()
 		if err == nil {
 			t.Fatal("buildWorklogBody() error = nil, want error")
 		}
@@ -90,16 +83,13 @@ func TestBuildWorklogBody(t *testing.T) {
 	t.Run("requires at least one edit field", func(t *testing.T) {
 		t.Parallel()
 
-		cmd := &cli.Command{
-			Name:  "test",
-			Flags: worklogMutationFlags(),
-			Action: func(_ context.Context, cmd *cli.Command) error {
-				_, err := buildWorklogBody(cmd, false)
-				return err
-			},
-		}
-		cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
-		err := cmd.Run(context.Background(), []string{"test"})
+		cmd := newBodyBuilderTestCommand(func(cmd *cobra.Command) error {
+			_, err := buildWorklogBody(cmd, false)
+			return err
+		})
+		addTestWorklogMutationFlags(cmd)
+		cmd.SetArgs(nil)
+		err := cmd.Execute()
 		if err == nil {
 			t.Fatal("buildWorklogBody() error = nil, want error")
 		}
@@ -117,24 +107,21 @@ func TestBuildFilterShareBody(t *testing.T) {
 		t.Parallel()
 
 		var got map[string]any
-		cmd := &cli.Command{
-			Name:  "test",
-			Flags: filterShareBodyFlags(),
-			Action: func(_ context.Context, cmd *cli.Command) error {
-				var err error
-				got, err = buildFilterShareBody(cmd)
-				return err
-			},
-		}
+		cmd := newBodyBuilderTestCommand(func(cmd *cobra.Command) error {
+			var err error
+			got, err = buildFilterShareBody(cmd)
+			return err
+		})
+		addTestFilterShareBodyFlags(cmd)
 		args := []string{
-			"test",
 			"--body-json", `{"type":"global","rights":1}`,
 			"--with", "project:10000",
 			"--type", "projectRole",
 			"--project-role-id", "20000",
 			"--rights", "3",
 		}
-		if err := cmd.Run(context.Background(), args); err != nil {
+		cmd.SetArgs(args)
+		if err := cmd.Execute(); err != nil {
 			t.Fatalf("command failed: %v", err)
 		}
 
@@ -152,16 +139,13 @@ func TestBuildFilterShareBody(t *testing.T) {
 	t.Run("requires share type", func(t *testing.T) {
 		t.Parallel()
 
-		cmd := &cli.Command{
-			Name:  "test",
-			Flags: filterShareBodyFlags(),
-			Action: func(_ context.Context, cmd *cli.Command) error {
-				_, err := buildFilterShareBody(cmd)
-				return err
-			},
-		}
-		cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
-		err := cmd.Run(context.Background(), []string{"test"})
+		cmd := newBodyBuilderTestCommand(func(cmd *cobra.Command) error {
+			_, err := buildFilterShareBody(cmd)
+			return err
+		})
+		addTestFilterShareBodyFlags(cmd)
+		cmd.SetArgs(nil)
+		err := cmd.Execute()
 		if err == nil {
 			t.Fatal("buildFilterShareBody() error = nil, want error")
 		}
@@ -174,16 +158,13 @@ func TestBuildFilterShareBody(t *testing.T) {
 	t.Run("rejects invalid raw JSON", func(t *testing.T) {
 		t.Parallel()
 
-		cmd := &cli.Command{
-			Name:  "test",
-			Flags: filterShareBodyFlags(),
-			Action: func(_ context.Context, cmd *cli.Command) error {
-				_, err := buildFilterShareBody(cmd)
-				return err
-			},
-		}
-		cmd.ExitErrHandler = func(_ context.Context, _ *cli.Command, _ error) {}
-		err := cmd.Run(context.Background(), []string{"test", "--body-json", "not-json"})
+		cmd := newBodyBuilderTestCommand(func(cmd *cobra.Command) error {
+			_, err := buildFilterShareBody(cmd)
+			return err
+		})
+		addTestFilterShareBodyFlags(cmd)
+		cmd.SetArgs([]string{"--body-json", "not-json"})
+		err := cmd.Execute()
 		if err == nil {
 			t.Fatal("buildFilterShareBody() error = nil, want error")
 		}
@@ -194,16 +175,33 @@ func TestBuildFilterShareBody(t *testing.T) {
 	})
 }
 
-func filterShareBodyFlags() []cli.Flag {
-	return []cli.Flag{
-		&cli.StringFlag{Name: "body-json"},
-		&cli.StringFlag{Name: "with"},
-		&cli.StringFlag{Name: "type"},
-		&cli.StringFlag{Name: "account-id"},
-		&cli.StringFlag{Name: "group-id"},
-		&cli.StringFlag{Name: "groupname"},
-		&cli.StringFlag{Name: "project-id"},
-		&cli.StringFlag{Name: "project-role-id"},
-		&cli.IntFlag{Name: "rights"},
+func newBodyBuilderTestCommand(run func(*cobra.Command) error) *cobra.Command {
+	return &cobra.Command{
+		Use: "test",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return run(cmd)
+		},
 	}
+}
+
+func addTestWorklogMutationFlags(cmd *cobra.Command) {
+	cmd.Flags().String("started", "", "")
+	cmd.Flags().String("time-spent", "", "")
+	cmd.Flags().Int("time-spent-seconds", 0, "")
+	cmd.Flags().String("comment", "", "")
+	cmd.Flags().String("visibility-type", "", "")
+	cmd.Flags().String("visibility-value", "", "")
+	cmd.Flags().String("properties-json", "", "")
+}
+
+func addTestFilterShareBodyFlags(cmd *cobra.Command) {
+	cmd.Flags().String("body-json", "", "")
+	cmd.Flags().String("with", "", "")
+	cmd.Flags().String("type", "", "")
+	cmd.Flags().String("account-id", "", "")
+	cmd.Flags().String("group-id", "", "")
+	cmd.Flags().String("groupname", "", "")
+	cmd.Flags().String("project-id", "", "")
+	cmd.Flags().String("project-role-id", "", "")
+	cmd.Flags().Int("rights", 0, "")
 }

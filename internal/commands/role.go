@@ -1,56 +1,58 @@
 package commands
 
 import (
-	"context"
 	"io"
 	"strconv"
 
-	"github.com/urfave/cli/v3"
+	"github.com/spf13/cobra"
 
 	"github.com/major/jira-agent/internal/client"
 	"github.com/major/jira-agent/internal/output"
 )
 
 // RoleCommand returns the top-level "role" command for global project role definitions.
-func RoleCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:  "role",
-		Usage: "Project role definition operations",
-		UsageText: `jira-agent role list
+func RoleCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "role",
+		Short: "Project role definition operations",
+		Example: `jira-agent role list
 jira-agent role get 10000`,
-		DefaultCommand: "list",
-		Commands: []*cli.Command{
-			roleListCommand(apiClient, w, format),
-			roleGetCommand(apiClient, w, format),
-		},
 	}
+	cmd.AddCommand(
+		roleListCommand(apiClient, w, format),
+		roleGetCommand(apiClient, w, format),
+	)
+	setDefaultSubcommand(cmd, "list")
+	return cmd
 }
 
 // roleListCommand lists global project role definitions.
 // GET /rest/api/3/role
-func roleListCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:      "list",
-		Usage:     "List project role definitions",
-		UsageText: `jira-agent role list`,
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+func roleListCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "list",
+		Short:   "List project role definitions",
+		Example: `jira-agent role list`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			return writeArrayAPIResult(w, *format, func(result any) error {
 				return apiClient.Get(ctx, "/role", nil, result)
 			})
 		},
 	}
+	return cmd
 }
 
 // roleGetCommand fetches one global project role definition by ID.
 // GET /rest/api/3/role/{id}
-func roleGetCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:      "get",
-		Usage:     "Get project role definition",
-		UsageText: `jira-agent role get 10000`,
-		ArgsUsage: "<role-id>",
-		Action: func(ctx context.Context, cmd *cli.Command) error {
-			roleID, err := requireArg(cmd, "role ID")
+func roleGetCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "get",
+		Short:   "Get project role definition",
+		Example: `jira-agent role get 10000`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			roleID, err := requireArg(args, "role ID")
 			if err != nil {
 				return err
 			}
@@ -64,4 +66,5 @@ func roleGetCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *
 			})
 		},
 	}
+	return cmd
 }

@@ -1,48 +1,45 @@
 package commands
 
 import (
-	"context"
 	"fmt"
 	"io"
 
-	"github.com/urfave/cli/v3"
+	"github.com/spf13/cobra"
 
 	"github.com/major/jira-agent/internal/client"
 	"github.com/major/jira-agent/internal/output"
 )
 
 // issueCommentCommand returns the "comment" subcommand group for issues.
-func issueCommentCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:  "comment",
-		Usage: "Comment operations (list, add, edit, delete)",
-		UsageText: `jira-agent issue comment list PROJ-123
+func issueCommentCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "comment",
+		Short: "Comment operations (list, add, edit, delete)",
+		Example: `jira-agent issue comment list PROJ-123
 jira-agent issue comment add PROJ-123 --body "This is a comment"`,
-		DefaultCommand: "list",
-		Commands: []*cli.Command{
-			commentListCommand(apiClient, w, format),
-			commentGetCommand(apiClient, w, format),
-			commentListByIDsCommand(apiClient, w, format),
-			commentAddCommand(apiClient, w, format, allowWrites),
-			commentEditCommand(apiClient, w, format, allowWrites),
-			commentDeleteCommand(apiClient, w, format, allowWrites),
-		},
 	}
+	cmd.AddCommand(
+		commentListCommand(apiClient, w, format),
+		commentGetCommand(apiClient, w, format),
+		commentListByIDsCommand(apiClient, w, format),
+		commentAddCommand(apiClient, w, format, allowWrites),
+		commentEditCommand(apiClient, w, format, allowWrites),
+		commentDeleteCommand(apiClient, w, format, allowWrites),
+	)
+	setDefaultSubcommand(cmd, "list")
+	return cmd
 }
 
 // commentGetCommand gets a single comment by ID.
 // GET /rest/api/3/issue/{issueIdOrKey}/comment/{id}
-func commentGetCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:      "get",
-		Usage:     "Get a single comment",
-		UsageText: `jira-agent issue comment get PROJ-123 10001`,
-		ArgsUsage: "<issue-key> <comment-id>",
-		Flags: []cli.Flag{
-			&cli.StringFlag{Name: "expand", Usage: "Comma-separated expansions (renderedBody, properties)"},
-		},
-		Action: func(ctx context.Context, cmd *cli.Command) error {
-			args, err := requireArgs(cmd, "issue key", "comment ID")
+func commentGetCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "get <issue-key> <comment-id>",
+		Short:   "Get a single comment",
+		Example: `jira-agent issue comment get PROJ-123 10001`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			args, err := requireArgs(args, "issue key", "comment ID")
 			if err != nil {
 				return err
 			}
@@ -56,21 +53,19 @@ func commentGetCommand(apiClient *client.Ref, w io.Writer, format *output.Format
 			})
 		},
 	}
+	cmd.Flags().String("expand", "", "Comma-separated expansions (renderedBody, properties)")
+	return cmd
 }
 
 // commentListByIDsCommand gets comments across issues by comment ID.
 // POST /rest/api/3/comment/list
-func commentListByIDsCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:      "list-by-ids",
-		Usage:     "Get comments by IDs",
-		UsageText: `jira-agent issue comment list-by-ids --ids 10001,10002`,
-		Metadata:  requiredFlagMetadata("ids"),
-		Flags: []cli.Flag{
-			&cli.StringFlag{Name: "ids", Usage: "Comma-separated comment IDs (required)"},
-			&cli.StringFlag{Name: "expand", Usage: "Comma-separated expansions (renderedBody, properties)"},
-		},
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+func commentListByIDsCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "list-by-ids",
+		Short:   "Get comments by IDs",
+		Example: `jira-agent issue comment list-by-ids --ids 10001,10002`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			idsFlag, err := requireFlag(cmd, "ids")
 			if err != nil {
 				return err
@@ -89,29 +84,22 @@ func commentListByIDsCommand(apiClient *client.Ref, w io.Writer, format *output.
 			})
 		},
 	}
+	cmd.Flags().String("ids", "", "Comma-separated comment IDs (required)")
+	cmd.Flags().String("expand", "", "Comma-separated expansions (renderedBody, properties)")
+	return cmd
 }
 
 // commentListCommand lists comments on an issue with pagination.
 // GET /rest/api/3/issue/{issueIdOrKey}/comment
-func commentListCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:  "list",
-		Usage: "List comments on an issue",
-		UsageText: `jira-agent issue comment list PROJ-123
+func commentListCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "list <issue-key>",
+		Short: "List comments on an issue",
+		Example: `jira-agent issue comment list PROJ-123
 jira-agent issue comment list PROJ-123 --order-by -created`,
-		ArgsUsage: "<issue-key>",
-		Flags: appendPaginationFlags([]cli.Flag{
-			&cli.StringFlag{
-				Name:  "order-by",
-				Usage: "Sort order: created, -created, +created",
-			},
-			&cli.StringFlag{
-				Name:  "expand",
-				Usage: "Comma-separated expansions (renderedBody)",
-			},
-		}),
-		Action: func(ctx context.Context, cmd *cli.Command) error {
-			key, err := requireArg(cmd, "issue key")
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			key, err := requireArg(args, "issue key")
 			if err != nil {
 				return err
 			}
@@ -126,45 +114,26 @@ jira-agent issue comment list PROJ-123 --order-by -created`,
 			})
 		},
 	}
+	return cmd
 }
 
 // commentAddCommand adds a comment to an issue.
 // POST /rest/api/3/issue/{issueIdOrKey}/comment
-func commentAddCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:  "add",
-		Usage: "Add a comment to an issue",
-		UsageText: `jira-agent issue comment add PROJ-123 --body "This is a comment"
+func commentAddCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "add <issue-key>",
+		Short: "Add a comment to an issue",
+		Example: `jira-agent issue comment add PROJ-123 --body "This is a comment"
 jira-agent issue comment add PROJ-123 --body "Internal note" --visibility-type role --visibility-value Developers`,
-		ArgsUsage: "<issue-key>",
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:     "body",
-				Aliases:  []string{"b"},
-				Usage:    "Comment body (plain text or ADF JSON)",
-				Required: true,
-			},
-			&cli.StringFlag{
-				Name:  "visibility-type",
-				Usage: "Visibility restriction type: group or role",
-			},
-			&cli.StringFlag{
-				Name:  "visibility-value",
-				Usage: "Visibility restriction value (group/role name)",
-			},
-			&cli.StringFlag{
-				Name:  "expand",
-				Usage: "Comma-separated expansions (renderedBody)",
-			},
-		},
-		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
-			key, err := requireArg(cmd, "issue key")
+		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			key, err := requireArg(args, "issue key")
 			if err != nil {
 				return err
 			}
 
 			body := map[string]any{
-				"body": toADF(cmd.String("body")),
+				"body": toADF(mustGetString(cmd, "body")),
 			}
 
 			vt, vv, err := requireVisibilityFlags(cmd)
@@ -187,55 +156,32 @@ jira-agent issue comment add PROJ-123 --body "Internal note" --visibility-type r
 			})
 		}),
 	}
+	cmd.Flags().StringP("body", "b", "", "Comment body (plain text or ADF JSON)")
+	_ = cmd.MarkFlagRequired("body")
+	cmd.Flags().String("visibility-type", "", "Visibility restriction type: group or role")
+	cmd.Flags().String("visibility-value", "", "Visibility restriction value (group/role name)")
+	cmd.Flags().String("expand", "", "Comma-separated expansions (renderedBody)")
+	return cmd
 }
 
 // commentEditCommand updates an existing comment.
 // PUT /rest/api/3/issue/{issueIdOrKey}/comment/{id}
-func commentEditCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:  "edit",
-		Usage: "Edit an existing comment",
-		UsageText: `jira-agent issue comment edit PROJ-123 10001 --body "Updated comment"
+func commentEditCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "edit <issue-key> <comment-id>",
+		Short: "Edit an existing comment",
+		Example: `jira-agent issue comment edit PROJ-123 10001 --body "Updated comment"
 jira-agent issue comment edit PROJ-123 10001 --body "Updated" --notify=false`,
-		ArgsUsage: "<issue-key> <comment-id>",
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:     "body",
-				Aliases:  []string{"b"},
-				Usage:    "New comment body (plain text or ADF JSON)",
-				Required: true,
-			},
-			&cli.StringFlag{
-				Name:  "visibility-type",
-				Usage: "Visibility restriction type: group or role",
-			},
-			&cli.StringFlag{
-				Name:  "visibility-value",
-				Usage: "Visibility restriction value (group/role name)",
-			},
-			&cli.BoolFlag{
-				Name:  "notify",
-				Usage: "Send notification to watchers",
-				Value: true,
-			},
-			&cli.BoolFlag{
-				Name:  "override-editable-flag",
-				Usage: "Override comment editable flag",
-			},
-			&cli.StringFlag{
-				Name:  "expand",
-				Usage: "Comma-separated expansions (renderedBody)",
-			},
-		},
-		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
-			args, err := requireArgs(cmd, "issue key", "comment ID")
+		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			args, err := requireArgs(args, "issue key", "comment ID")
 			if err != nil {
 				return err
 			}
 			key, commentID := args[0], args[1]
 
 			body := map[string]any{
-				"body": toADF(cmd.String("body")),
+				"body": toADF(mustGetString(cmd, "body")),
 			}
 
 			vt, vv, err := requireVisibilityFlags(cmd)
@@ -250,7 +196,7 @@ jira-agent issue comment edit PROJ-123 10001 --body "Updated" --notify=false`,
 			}
 
 			params := map[string]string{}
-			if !cmd.Bool("notify") {
+			if !mustGetBool(cmd, "notify") {
 				params["notifyUsers"] = "false"
 			}
 			addBoolParam(cmd, params, "override-editable-flag", "overrideEditableFlag")
@@ -262,18 +208,26 @@ jira-agent issue comment edit PROJ-123 10001 --body "Updated" --notify=false`,
 			})
 		}),
 	}
+	cmd.Flags().StringP("body", "b", "", "New comment body (plain text or ADF JSON)")
+	_ = cmd.MarkFlagRequired("body")
+	cmd.Flags().String("visibility-type", "", "Visibility restriction type: group or role")
+	cmd.Flags().String("visibility-value", "", "Visibility restriction value (group/role name)")
+	cmd.Flags().Bool("notify", true, "Send notification to watchers")
+	cmd.Flags().Bool("override-editable-flag", false, "Override comment editable flag")
+	cmd.Flags().String("expand", "", "Comma-separated expansions (renderedBody)")
+	return cmd
 }
 
 // commentDeleteCommand deletes a comment from an issue.
 // DELETE /rest/api/3/issue/{issueIdOrKey}/comment/{id}
-func commentDeleteCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:      "delete",
-		Usage:     "Delete a comment",
-		UsageText: `jira-agent issue comment delete PROJ-123 10001`,
-		ArgsUsage: "<issue-key> <comment-id>",
-		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
-			args, err := requireArgs(cmd, "issue key", "comment ID")
+func commentDeleteCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "delete <issue-key> <comment-id>",
+		Short:   "Delete a comment",
+		Example: `jira-agent issue comment delete PROJ-123 10001`,
+		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			args, err := requireArgs(args, "issue key", "comment ID")
 			if err != nil {
 				return err
 			}
@@ -291,4 +245,5 @@ func commentDeleteCommand(apiClient *client.Ref, w io.Writer, format *output.For
 			}, *format)
 		}),
 	}
+	return cmd
 }

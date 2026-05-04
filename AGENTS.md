@@ -1,6 +1,6 @@
 # jira-agent agent guide
 
-Generated: Tue Apr 28 2026. Source state: branch `main`, commit `ed66075`.
+Generated: Mon May 04 2026. Source state: branch `refactor/cobra-migration`, commit `3387a7b`.
 
 ## Purpose and audience
 
@@ -12,7 +12,7 @@ Keep this file and any nested `AGENTS.md` files current anytime code changes. Ev
 
 | Path | Role |
 | --- | --- |
-| `cmd/jira-agent/main.go` | Real executable entrypoint, root CLI wiring, global flags, auth `Before` hook, command registration, schema command attachment. |
+| `cmd/jira-agent/main.go` | Real executable entrypoint, root CLI wiring, global flags, `PersistentPreRunE` auth hook, command registration. |
 | `internal/commands` | Domain command tree. See `internal/commands/AGENTS.md` before changing commands. |
 | `internal/client` | Jira REST API v3 and Agile API HTTP client, Basic auth headers, content-type checks, typed error mapping. |
 | `internal/output` | All user-visible envelopes and CSV/TSV serialization. Output is an LLM-facing contract. |
@@ -21,7 +21,7 @@ Keep this file and any nested `AGENTS.md` files current anytime code changes. Ev
 | `internal/testhelpers` | Shared test HTTP helpers. |
 | `skills/jira-agent` | Embedded LLM skill docs. See `skills/jira-agent/AGENTS.md` before changing skill files. |
 
-Module: `github.com/major/jira-agent`. Go version: `1.26`. CLI framework: `github.com/urfave/cli/v3`.
+Module: `github.com/major/jira-agent`. Go version: `1.26`. CLI framework: `github.com/spf13/cobra`.
 
 ## OpenAPI references
 
@@ -30,8 +30,6 @@ Module: `github.com/major/jira-agent`. Go version: `1.26`. CLI framework: `githu
 
 ## LLM-first CLI contract
 
-- Agents should discover before guessing: `jira-agent schema --compact`, then narrow with `jira-agent schema --command "issue create" --required-only` or `jira-agent schema --category issue --required-only --depth 1`.
-- `schema --compact` emits token-efficient metadata keyed by canonical command path. `--command` and `--category` accept aliases but emit canonical paths.
 - Prefer canonical paths in docs and examples, not legacy aliases. Examples: `issue bulk <action>`, `issue remote-link`.
 - Output must be organized so an LLM can parse it without scraping help text or human prose.
 - Bounded output matters. Prefer commands and examples that request only needed fields, for example `--fields key,summary,status`.
@@ -41,10 +39,11 @@ Module: `github.com/major/jira-agent`. Go version: `1.26`. CLI framework: `githu
 
 ## Root CLI invariants
 
-- `buildAppWithDeps` pre-allocates `apiClient := &client.Ref{}` and fills it in the root `Before` hook. Do not replace this with per-command clients; command closures share that reference intentionally.
+- `buildAppWithDeps` pre-allocates `apiClient := &client.Ref{}` and fills it in the root `PersistentPreRunE` hook. Do not replace this with per-command clients; command closures share that reference intentionally.
 - `outputFormat` and `allowWrites` are shared pointers set during root initialization and consumed by commands.
-- `schema`, `help`, `--version`, and empty root invocation must not load auth. Jira project-version commands require auth.
+- `help`, `--version`, and empty root invocation must not load auth. Jira project-version commands require auth.
 - Root flags include `--project/-p` from `JIRA_PROJECT`, `--output/-o` as `json|csv|tsv`, `--pretty`, `--verbose/-v`, and `--config`.
+- cobra uses `SilenceErrors = true` and `SilenceUsage = true` on the root command; error output goes through `output.WriteError` in `main`.
 - Verbose logging uses JSON slog to stderr. Data output stays on the configured writer.
 
 ## Auth, config, and writes
@@ -62,7 +61,6 @@ Module: `github.com/major/jira-agent`. Go version: `1.26`. CLI framework: `githu
 - The JSON success envelope has `data`, optional `errors`, and `metadata`. Do not document or add a stale `status` field unless the code changes.
 - `metadata` carries `timestamp`, `total`, `returned`, `start_at`, and `max_results` when available.
 - JSON encoders must call `SetEscapeHTML(false)` so Jira URLs and text stay LLM-readable.
-- `schema` is the exception: it emits raw JSON, not the success envelope.
 - CSV/TSV output is flat rows with deterministic sorted headers; nested values serialize as inline JSON strings.
 - Exit codes: not found 2, auth 3, API 4, validation 5, unknown 1.
 

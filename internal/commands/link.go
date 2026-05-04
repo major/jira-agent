@@ -1,62 +1,63 @@
 package commands
 
 import (
-	"context"
 	"fmt"
 	"io"
 
-	"github.com/urfave/cli/v3"
+	"github.com/spf13/cobra"
 
 	"github.com/major/jira-agent/internal/client"
 	apperr "github.com/major/jira-agent/internal/errors"
 	"github.com/major/jira-agent/internal/output"
 )
 
-func issueLinkCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:  "link",
-		Usage: "Issue link operations (list, add, delete, types)",
-		UsageText: `jira-agent issue link list PROJ-123
+func issueLinkCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "link",
+		Short: "Issue link operations (list, add, delete, types)",
+		Example: `jira-agent issue link list PROJ-123
 jira-agent issue link add --type Blocks --inward PROJ-1 --outward PROJ-2
 jira-agent issue link types`,
-		DefaultCommand: "list",
-		Commands: []*cli.Command{
-			issueLinkListCommand(apiClient, w, format),
-			issueLinkGetCommand(apiClient, w, format),
-			issueLinkAddCommand(apiClient, w, format, allowWrites),
-			issueLinkDeleteCommand(apiClient, w, format, allowWrites),
-			issueLinkTypesCommand(apiClient, w, format),
-		},
 	}
+	cmd.AddCommand(
+		issueLinkListCommand(apiClient, w, format),
+		issueLinkGetCommand(apiClient, w, format),
+		issueLinkAddCommand(apiClient, w, format, allowWrites),
+		issueLinkDeleteCommand(apiClient, w, format, allowWrites),
+		issueLinkTypesCommand(apiClient, w, format),
+	)
+	setDefaultSubcommand(cmd, "list")
+	return cmd
 }
 
-func issueRemoteLinkCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:    "remote-link",
+func issueRemoteLinkCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "remote-link",
 		Aliases: []string{"remotelink"},
-		Usage:   "Remote issue link operations (list, add, edit, delete)",
-		UsageText: `jira-agent issue remote-link list PROJ-123
+		Short:   "Remote issue link operations (list, add, edit, delete)",
+		Example: `jira-agent issue remote-link list PROJ-123
 jira-agent issue remote-link add PROJ-123 --url "https://example.com" --title "Docs"`,
-		DefaultCommand: "list",
-		Commands: []*cli.Command{
-			remoteLinkListCommand(apiClient, w, format),
-			remoteLinkGetCommand(apiClient, w, format),
-			remoteLinkAddCommand(apiClient, w, format, allowWrites),
-			remoteLinkEditCommand(apiClient, w, format, allowWrites),
-			remoteLinkDeleteCommand(apiClient, w, format, allowWrites),
-		},
 	}
+	cmd.AddCommand(
+		remoteLinkListCommand(apiClient, w, format),
+		remoteLinkGetCommand(apiClient, w, format),
+		remoteLinkAddCommand(apiClient, w, format, allowWrites),
+		remoteLinkEditCommand(apiClient, w, format, allowWrites),
+		remoteLinkDeleteCommand(apiClient, w, format, allowWrites),
+	)
+	setDefaultSubcommand(cmd, "list")
+	return cmd
 }
 
 // GET /rest/api/3/issue/{issueIdOrKey}?fields=issuelinks
-func issueLinkListCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:      "list",
-		Usage:     "List issue links on an issue",
-		UsageText: `jira-agent issue link list PROJ-123`,
-		ArgsUsage: "<issue-key>",
-		Action: func(ctx context.Context, cmd *cli.Command) error {
-			key, err := requireArg(cmd, "issue key")
+func issueLinkListCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "list <issue-key>",
+		Short:   "List issue links on an issue",
+		Example: `jira-agent issue link list PROJ-123`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			key, err := requireArg(args, "issue key")
 			if err != nil {
 				return err
 			}
@@ -76,17 +77,18 @@ func issueLinkListCommand(apiClient *client.Ref, w io.Writer, format *output.For
 			return output.WriteSuccess(w, links, meta, *format)
 		},
 	}
+	return cmd
 }
 
 // GET /rest/api/3/issueLink/{linkId}
-func issueLinkGetCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:      "get",
-		Usage:     "Get an issue link",
-		UsageText: `jira-agent issue link get 12345`,
-		ArgsUsage: "<link-id>",
-		Action: func(ctx context.Context, cmd *cli.Command) error {
-			linkID, err := requireArg(cmd, "link ID")
+func issueLinkGetCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "get <link-id>",
+		Short:   "Get an issue link",
+		Example: `jira-agent issue link get 12345`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			linkID, err := requireArg(args, "link ID")
 			if err != nil {
 				return err
 			}
@@ -96,24 +98,18 @@ func issueLinkGetCommand(apiClient *client.Ref, w io.Writer, format *output.Form
 			})
 		},
 	}
+	return cmd
 }
 
 // POST /rest/api/3/issueLink
-func issueLinkAddCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:  "add",
-		Usage: "Add a link between two issues",
-		UsageText: `jira-agent issue link add --type Blocks --inward PROJ-1 --outward PROJ-2
+func issueLinkAddCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "add",
+		Short: "Add a link between two issues",
+		Example: `jira-agent issue link add --type Blocks --inward PROJ-1 --outward PROJ-2
 jira-agent issue link add --type-id 10001 --inward PROJ-1 --outward PROJ-2`,
-		Metadata: writeCommandMetadata(),
-		Flags: []cli.Flag{
-			&cli.StringFlag{Name: "type", Usage: "Issue link type name, such as Blocks"},
-			&cli.StringFlag{Name: "type-id", Usage: "Issue link type ID"},
-			&cli.StringFlag{Name: "inward", Usage: "Inward issue key or ID", Required: true},
-			&cli.StringFlag{Name: "outward", Usage: "Outward issue key or ID", Required: true},
-			&cli.StringFlag{Name: "comment", Usage: "Comment to add with the issue link"},
-		},
-		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
+		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			body, err := buildIssueLinkBody(cmd)
 			if err != nil {
 				return err
@@ -124,18 +120,25 @@ jira-agent issue link add --type-id 10001 --inward PROJ-1 --outward PROJ-2`,
 			})
 		}),
 	}
+	cmd.Flags().String("type", "", "Issue link type name, such as Blocks")
+	cmd.Flags().String("type-id", "", "Issue link type ID")
+	cmd.Flags().String("inward", "", "Inward issue key or ID")
+	_ = cmd.MarkFlagRequired("inward")
+	cmd.Flags().String("outward", "", "Outward issue key or ID")
+	_ = cmd.MarkFlagRequired("outward")
+	cmd.Flags().String("comment", "", "Comment to add with the issue link")
+	return cmd
 }
 
 // DELETE /rest/api/3/issueLink/{linkId}
-func issueLinkDeleteCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:      "delete",
-		Usage:     "Delete an issue link",
-		UsageText: `jira-agent issue link delete 12345`,
-		Metadata:  writeCommandMetadata(),
-		ArgsUsage: "<link-id>",
-		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
-			linkID, err := requireArg(cmd, "link ID")
+func issueLinkDeleteCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "delete <link-id>",
+		Short:   "Delete an issue link",
+		Example: `jira-agent issue link delete 12345`,
+		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			linkID, err := requireArg(args, "link ID")
 			if err != nil {
 				return err
 			}
@@ -146,15 +149,17 @@ func issueLinkDeleteCommand(apiClient *client.Ref, w io.Writer, format *output.F
 			return output.WriteResult(w, map[string]any{"linkId": linkID, "deleted": true}, *format)
 		}),
 	}
+	return cmd
 }
 
 // GET /rest/api/3/issueLinkType
-func issueLinkTypesCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:      "types",
-		Usage:     "List issue link types",
-		UsageText: `jira-agent issue link types`,
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+func issueLinkTypesCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "types",
+		Short:   "List issue link types",
+		Example: `jira-agent issue link types`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			var result map[string]any
 			if err := apiClient.Get(ctx, "/issueLinkType", nil, &result); err != nil {
 				return err
@@ -167,20 +172,18 @@ func issueLinkTypesCommand(apiClient *client.Ref, w io.Writer, format *output.Fo
 			return output.WriteSuccess(w, result, meta, *format)
 		},
 	}
+	return cmd
 }
 
 // GET /rest/api/3/issue/{issueIdOrKey}/remotelink
-func remoteLinkListCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:      "list",
-		Usage:     "List remote links on an issue",
-		UsageText: `jira-agent issue remote-link list PROJ-123`,
-		ArgsUsage: "<issue-key>",
-		Flags: []cli.Flag{
-			&cli.StringFlag{Name: "global-id", Usage: "Filter by stable global ID"},
-		},
-		Action: func(ctx context.Context, cmd *cli.Command) error {
-			key, err := requireArg(cmd, "issue key")
+func remoteLinkListCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "list <issue-key>",
+		Short:   "List remote links on an issue",
+		Example: `jira-agent issue remote-link list PROJ-123`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			key, err := requireArg(args, "issue key")
 			if err != nil {
 				return err
 			}
@@ -199,17 +202,19 @@ func remoteLinkListCommand(apiClient *client.Ref, w io.Writer, format *output.Fo
 			return output.WriteSuccess(w, result, meta, *format)
 		},
 	}
+	cmd.Flags().String("global-id", "", "Filter by stable global ID")
+	return cmd
 }
 
 // GET /rest/api/3/issue/{issueIdOrKey}/remotelink/{linkId}
-func remoteLinkGetCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cli.Command {
-	return &cli.Command{
-		Name:      "get",
-		Usage:     "Get a remote issue link",
-		UsageText: `jira-agent issue remote-link get PROJ-123 10001`,
-		ArgsUsage: "<issue-key> <remote-link-id>",
-		Action: func(ctx context.Context, cmd *cli.Command) error {
-			args, err := requireArgs(cmd, "issue key", "remote link ID")
+func remoteLinkGetCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "get <issue-key> <remote-link-id>",
+		Short:   "Get a remote issue link",
+		Example: `jira-agent issue remote-link get PROJ-123 10001`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			args, err := requireArgs(args, "issue key", "remote link ID")
 			if err != nil {
 				return err
 			}
@@ -220,19 +225,18 @@ func remoteLinkGetCommand(apiClient *client.Ref, w io.Writer, format *output.For
 			})
 		},
 	}
+	return cmd
 }
 
 // POST /rest/api/3/issue/{issueIdOrKey}/remotelink
-func remoteLinkAddCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:      "add",
-		Usage:     "Add a remote link to an issue",
-		UsageText: `jira-agent issue remote-link add PROJ-123 --url "https://example.com" --title "Related doc"`,
-		Metadata:  writeCommandMetadata(),
-		ArgsUsage: "<issue-key>",
-		Flags:     remoteLinkFlags(),
-		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
-			key, err := requireArg(cmd, "issue key")
+func remoteLinkAddCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "add <issue-key>",
+		Short:   "Add a remote link to an issue",
+		Example: `jira-agent issue remote-link add PROJ-123 --url "https://example.com" --title "Related doc"`,
+		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			key, err := requireArg(args, "issue key")
 			if err != nil {
 				return err
 			}
@@ -243,19 +247,19 @@ func remoteLinkAddCommand(apiClient *client.Ref, w io.Writer, format *output.For
 			})
 		}),
 	}
+	appendRemoteLinkFlags(cmd)
+	return cmd
 }
 
 // PUT /rest/api/3/issue/{issueIdOrKey}/remotelink/{linkId}
-func remoteLinkEditCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:      "edit",
-		Usage:     "Edit a remote link on an issue",
-		UsageText: `jira-agent issue remote-link edit PROJ-123 10001 --url "https://example.com/updated" --title "Updated doc"`,
-		Metadata:  writeCommandMetadata(),
-		ArgsUsage: "<issue-key> <remote-link-id>",
-		Flags:     remoteLinkFlags(),
-		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
-			args, err := requireArgs(cmd, "issue key", "remote link ID")
+func remoteLinkEditCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "edit <issue-key> <remote-link-id>",
+		Short:   "Edit a remote link on an issue",
+		Example: `jira-agent issue remote-link edit PROJ-123 10001 --url "https://example.com/updated" --title "Updated doc"`,
+		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			args, err := requireArgs(args, "issue key", "remote link ID")
 			if err != nil {
 				return err
 			}
@@ -268,31 +272,29 @@ func remoteLinkEditCommand(apiClient *client.Ref, w io.Writer, format *output.Fo
 			})
 		}),
 	}
+	appendRemoteLinkFlags(cmd)
+	return cmd
 }
 
 // DELETE /rest/api/3/issue/{issueIdOrKey}/remotelink/{linkId}
-func remoteLinkDeleteCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cli.Command {
-	return &cli.Command{
-		Name:  "delete",
-		Usage: "Delete a remote link from an issue",
-		UsageText: `jira-agent issue remote-link delete PROJ-123 10001
+func remoteLinkDeleteCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "delete <issue-key> [remote-link-id]",
+		Short: "Delete a remote link from an issue",
+		Example: `jira-agent issue remote-link delete PROJ-123 10001
 jira-agent issue remote-link delete PROJ-123 --global-id system=https://example.com&id=123`,
-		Metadata:  writeCommandMetadata(),
-		ArgsUsage: "<issue-key> [remote-link-id]",
-		Flags: []cli.Flag{
-			&cli.StringFlag{Name: "global-id", Usage: "Delete by stable global ID instead of remote link ID"},
-		},
-		Action: writeGuard(allowWrites, func(ctx context.Context, cmd *cli.Command) error {
-			key, err := requireArg(cmd, "issue key")
+		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			key, err := requireArg(args, "issue key")
 			if err != nil {
 				return err
 			}
 			linkID := ""
 			path := "/issue/" + key + "/remotelink"
-			if globalID := cmd.String("global-id"); globalID != "" {
+			if globalID := mustGetString(cmd, "global-id"); globalID != "" {
 				path = appendQueryParams(path, map[string]string{"globalId": globalID})
 			} else {
-				args := cmd.Args().Slice()
+				args := args
 				if len(args) < 2 {
 					return apperr.NewValidationError("remote link ID or --global-id is required", nil)
 				}
@@ -306,11 +308,13 @@ jira-agent issue remote-link delete PROJ-123 --global-id system=https://example.
 			return output.WriteResult(w, map[string]any{"key": key, "remoteLinkId": linkID, "deleted": true}, *format)
 		}),
 	}
+	cmd.Flags().String("global-id", "", "Delete by stable global ID instead of remote link ID")
+	return cmd
 }
 
-func buildIssueLinkBody(cmd *cli.Command) (map[string]any, error) {
-	typeName := cmd.String("type")
-	typeID := cmd.String("type-id")
+func buildIssueLinkBody(cmd *cobra.Command) (map[string]any, error) {
+	typeName := mustGetString(cmd, "type")
+	typeID := mustGetString(cmd, "type-id")
 	if typeName == "" && typeID == "" {
 		return nil, apperr.NewValidationError("--type or --type-id is required", nil)
 	}
@@ -327,36 +331,36 @@ func buildIssueLinkBody(cmd *cli.Command) (map[string]any, error) {
 
 	body := map[string]any{
 		"type":         linkType,
-		"inwardIssue":  map[string]any{"key": cmd.String("inward")},
-		"outwardIssue": map[string]any{"key": cmd.String("outward")},
+		"inwardIssue":  map[string]any{"key": mustGetString(cmd, "inward")},
+		"outwardIssue": map[string]any{"key": mustGetString(cmd, "outward")},
 	}
-	if comment := cmd.String("comment"); comment != "" {
+	if comment := mustGetString(cmd, "comment"); comment != "" {
 		body["comment"] = map[string]any{"body": toADF(comment)}
 	}
 
 	return body, nil
 }
 
-func remoteLinkFlags() []cli.Flag {
-	return []cli.Flag{
-		&cli.StringFlag{Name: "url", Usage: "Remote object URL", Required: true},
-		&cli.StringFlag{Name: "title", Usage: "Remote object title", Required: true},
-		&cli.StringFlag{Name: "global-id", Usage: "Stable global ID for the remote link"},
-		&cli.StringFlag{Name: "relationship", Usage: "Relationship description, such as mentioned in"},
-	}
+func appendRemoteLinkFlags(cmd *cobra.Command) {
+	cmd.Flags().String("url", "", "Remote object URL")
+	_ = cmd.MarkFlagRequired("url")
+	cmd.Flags().String("title", "", "Remote object title")
+	_ = cmd.MarkFlagRequired("title")
+	cmd.Flags().String("global-id", "", "Stable global ID for the remote link")
+	cmd.Flags().String("relationship", "", "Relationship description, such as mentioned in")
 }
 
-func buildRemoteLinkBody(cmd *cli.Command) map[string]any {
+func buildRemoteLinkBody(cmd *cobra.Command) map[string]any {
 	body := map[string]any{
 		"object": map[string]any{
-			"url":   cmd.String("url"),
-			"title": cmd.String("title"),
+			"url":   mustGetString(cmd, "url"),
+			"title": mustGetString(cmd, "title"),
 		},
 	}
-	if globalID := cmd.String("global-id"); globalID != "" {
+	if globalID := mustGetString(cmd, "global-id"); globalID != "" {
 		body["globalId"] = globalID
 	}
-	if relationship := cmd.String("relationship"); relationship != "" {
+	if relationship := mustGetString(cmd, "relationship"); relationship != "" {
 		body["relationship"] = relationship
 	}
 	return body
