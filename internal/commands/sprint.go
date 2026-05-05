@@ -181,16 +181,16 @@ jira-agent sprint summarize 42 --story-points-field customfield_10016`,
 				spFieldID = discovered
 			}
 
-			statusCounts, spByStatus, totalIssues, totalSP, hasStoryPoints, err := summarizeSprintIssues(ctx, apiClient, sprintID, spFieldID)
+			summary, err := summarizeSprintIssues(ctx, apiClient, sprintID, spFieldID)
 			if err != nil {
 				return err
 			}
 
 			var spResult any
-			if spFieldID != "" && hasStoryPoints {
+			if spFieldID != "" && summary.hasStoryPoints {
 				spResult = map[string]any{
-					"total":     totalSP,
-					"by_status": spByStatus,
+					"total":     summary.totalSP,
+					"by_status": summary.spByStatus,
 					"field":     spFieldID,
 				}
 			}
@@ -205,8 +205,8 @@ jira-agent sprint summarize 42 --story-points-field customfield_10016`,
 					"complete_date": sprintData["completeDate"],
 				},
 				"issues": map[string]any{
-					"total":     totalIssues,
-					"by_status": statusCounts,
+					"total":     summary.totalIssues,
+					"by_status": summary.statusCounts,
 				},
 				"story_points": spResult,
 			}
@@ -250,12 +250,20 @@ func discoverStoryPointsField(ctx context.Context, apiClient *client.Ref) (strin
 	return "", nil
 }
 
-func summarizeSprintIssues(ctx context.Context, apiClient *client.Ref, sprintID int64, spFieldID string) (map[string]int, map[string]float64, int, float64, bool, error) {
-	statusCounts := map[string]int{}
-	spByStatus := map[string]float64{}
-	totalIssues := 0
-	totalSP := 0.0
-	hasStoryPoints := false
+// sprintIssueSummaryResult holds aggregated sprint issue data.
+type sprintIssueSummaryResult struct {
+	statusCounts   map[string]int
+	spByStatus     map[string]float64
+	totalIssues    int
+	totalSP        float64
+	hasStoryPoints bool
+}
+
+func summarizeSprintIssues(ctx context.Context, apiClient *client.Ref, sprintID int64, spFieldID string) (sprintIssueSummaryResult, error) {
+	r := sprintIssueSummaryResult{
+		statusCounts: map[string]int{},
+		spByStatus:   map[string]float64{},
+	}
 	startAt := 0
 
 	fields := []string{"status"}
@@ -272,11 +280,11 @@ func summarizeSprintIssues(ctx context.Context, apiClient *client.Ref, sprintID 
 		}
 		var result map[string]any
 		if err := apiClient.Post(ctx, "/search/jql", body, &result); err != nil {
-			return nil, nil, 0, 0, false, err
+			return r, err
 		}
 
 		if total, ok := numberFromAny(result["total"]); ok {
-			totalIssues = int(total)
+			r.totalIssues = int(total)
 		}
 
 		issues := resultList(result, "issues")
@@ -285,39 +293,39 @@ func summarizeSprintIssues(ctx context.Context, apiClient *client.Ref, sprintID 
 			if statusName == "" {
 				continue
 			}
-			statusCounts[statusName]++
+			r.statusCounts[statusName]++
 			if hasSP {
-				hasStoryPoints = true
-				totalSP += spValue
-				spByStatus[statusName] += spValue
+				r.hasStoryPoints = true
+				r.totalSP += spValue
+				r.spByStatus[statusName] += spValue
 			}
 		}
 
 		startAt += len(issues)
-		if len(issues) == 0 || startAt >= totalIssues {
+		if len(issues) == 0 || startAt >= r.totalIssues {
 			break
 		}
 	}
 
-	return statusCounts, spByStatus, totalIssues, totalSP, hasStoryPoints, nil
+	return r, nil
 }
 
-func sprintIssueSummaryValues(issue any, spFieldID string) (string, float64, bool) {
+func sprintIssueSummaryValues(issue any, spFieldID string) (statusName string, spValue float64, hasSP bool) {
 	issueMap, ok := issue.(map[string]any)
 	if !ok {
-		return "", 0, false
+		return
 	}
 	fields, ok := issueMap["fields"].(map[string]any)
 	if !ok {
-		return "", 0, false
+		return
 	}
 	status, _ := fields["status"].(map[string]any)
-	statusName, _ := status["name"].(string)
+	statusName, _ = status["name"].(string)
 	if spFieldID == "" {
-		return statusName, 0, false
+		return
 	}
-	spValue, hasSP := numberFromAny(fields[spFieldID])
-	return statusName, spValue, hasSP
+	spValue, hasSP = numberFromAny(fields[spFieldID])
+	return
 }
 
 func resultList(result any, key string) []any {
