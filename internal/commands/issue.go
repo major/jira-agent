@@ -65,6 +65,7 @@ jira-agent issue transition PROJ-123 --to "In Progress"`,
 		issuePropertyCommand(apiClient, w, format, allowWrites),
 		issueStartWorkCommand(apiClient, w, format, allowWrites, dryRun),
 		issueCloseCommand(apiClient, w, format, allowWrites, dryRun),
+		issueCreateAndLinkCommand(apiClient, w, format, allowWrites, dryRun),
 	)
 	return cmd
 }

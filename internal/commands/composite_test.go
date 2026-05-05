@@ -825,3 +825,308 @@ func TestStartWork(t *testing.T) {
 		}
 	})
 }
+
+func TestCreateAndLink(t *testing.T) {
+	t.Parallel()
+
+	t.Run("happy path", func(t *testing.T) {
+		t.Parallel()
+
+		var createBody, linkBody map[string]any
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch {
+			case r.Method == http.MethodPost && r.URL.Path == "/issue":
+				createBody = testhelpers.DecodeJSONBody(t, r)
+				testhelpers.WriteJSONResponse(t, w, `{"id":"10001","key":"PROJ-456","self":"https://example.atlassian.net/rest/api/3/issue/10001"}`)
+			case r.Method == http.MethodPost && r.URL.Path == "/issueLink":
+				linkBody = testhelpers.DecodeJSONBody(t, r)
+				w.WriteHeader(http.StatusCreated)
+			default:
+				t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+			}
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		cmd := issueCreateAndLinkCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites(), testDryRun())
+		prepareCommandForTest(cmd)
+		cmd.SetArgs([]string{
+			"--project", "PROJ", "--type", "Story", "--summary", "New feature",
+			"--link-type", "Blocks", "--link-target", "PROJ-100",
+		})
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("cmd.Execute() error = %v", err)
+		}
+
+		// Verify create payload.
+		fields, ok := createBody["fields"].(map[string]any)
+		if !ok {
+			t.Fatal("create body missing fields")
+		}
+		if fields["summary"] != "New feature" {
+			t.Errorf("summary = %v, want New feature", fields["summary"])
+		}
+		project, ok := fields["project"].(map[string]any)
+		if !ok {
+			t.Fatal("create body missing project")
+		}
+		if project["key"] != "PROJ" {
+			t.Errorf("project key = %v, want PROJ", project["key"])
+		}
+
+		// Verify link payload.
+		linkType, ok := linkBody["type"].(map[string]any)
+		if !ok {
+			t.Fatal("link body missing type")
+		}
+		if linkType["name"] != "Blocks" {
+			t.Errorf("link type = %v, want Blocks", linkType["name"])
+		}
+		outward, ok := linkBody["outwardIssue"].(map[string]any)
+		if !ok {
+			t.Fatal("link body missing outwardIssue")
+		}
+		if outward["key"] != "PROJ-456" {
+			t.Errorf("outward key = %v, want PROJ-456", outward["key"])
+		}
+		inward, ok := linkBody["inwardIssue"].(map[string]any)
+		if !ok {
+			t.Fatal("link body missing inwardIssue")
+		}
+		if inward["key"] != "PROJ-100" {
+			t.Errorf("inward key = %v, want PROJ-100", inward["key"])
+		}
+
+		// Verify output envelope.
+		var envelope output.Envelope
+		if err := json.Unmarshal(buf.Bytes(), &envelope); err != nil {
+			t.Fatalf("json.Unmarshal() error = %v", err)
+		}
+		data, ok := envelope.Data.(map[string]any)
+		if !ok {
+			t.Fatalf("data type = %T, want map[string]any", envelope.Data)
+		}
+		if data["key"] != "PROJ-456" {
+			t.Errorf("key = %v, want PROJ-456", data["key"])
+		}
+		if data["linked"] != true {
+			t.Errorf("linked = %v, want true", data["linked"])
+		}
+	})
+
+	t.Run("partial failure", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch {
+			case r.Method == http.MethodPost && r.URL.Path == "/issue":
+				testhelpers.WriteJSONResponse(t, w, `{"id":"10001","key":"PROJ-456","self":"https://example.atlassian.net/rest/api/3/issue/10001"}`)
+			case r.Method == http.MethodPost && r.URL.Path == "/issueLink":
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(`{"errorMessages":["Link type not found"]}`))
+			default:
+				t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+			}
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		cmd := issueCreateAndLinkCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites(), testDryRun())
+		prepareCommandForTest(cmd)
+		cmd.SetArgs([]string{
+			"--project", "PROJ", "--type", "Story", "--summary", "New feature",
+			"--link-type", "Blocks", "--link-target", "PROJ-100",
+		})
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("cmd.Execute() error = %v", err)
+		}
+
+		var envelope output.Envelope
+		if err := json.Unmarshal(buf.Bytes(), &envelope); err != nil {
+			t.Fatalf("json.Unmarshal() error = %v", err)
+		}
+		data, ok := envelope.Data.(map[string]any)
+		if !ok {
+			t.Fatalf("data type = %T, want map[string]any", envelope.Data)
+		}
+		if data["key"] != "PROJ-456" {
+			t.Errorf("key = %v, want PROJ-456", data["key"])
+		}
+		if data["linked"] != false {
+			t.Errorf("linked = %v, want false", data["linked"])
+		}
+		if data["next_command"] == nil {
+			t.Error("next_command = nil, want remediation command")
+		}
+		if len(envelope.Errors) == 0 {
+			t.Error("errors = empty, want at least one error")
+		}
+	})
+
+	t.Run("link direction inward", func(t *testing.T) {
+		t.Parallel()
+
+		var linkBody map[string]any
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch {
+			case r.Method == http.MethodPost && r.URL.Path == "/issue":
+				testhelpers.WriteJSONResponse(t, w, `{"id":"10001","key":"PROJ-456","self":"https://example.atlassian.net/rest/api/3/issue/10001"}`)
+			case r.Method == http.MethodPost && r.URL.Path == "/issueLink":
+				linkBody = testhelpers.DecodeJSONBody(t, r)
+				w.WriteHeader(http.StatusCreated)
+			default:
+				t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+			}
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		cmd := issueCreateAndLinkCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites(), testDryRun())
+		prepareCommandForTest(cmd)
+		cmd.SetArgs([]string{
+			"--project", "PROJ", "--type", "Story", "--summary", "New feature",
+			"--link-type", "Blocks", "--link-target", "PROJ-100",
+			"--link-direction", "inward",
+		})
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("cmd.Execute() error = %v", err)
+		}
+
+		// Inward: new issue is inwardIssue, target is outwardIssue.
+		inward, ok := linkBody["inwardIssue"].(map[string]any)
+		if !ok {
+			t.Fatal("link body missing inwardIssue")
+		}
+		if inward["key"] != "PROJ-456" {
+			t.Errorf("inward key = %v, want PROJ-456 (new issue)", inward["key"])
+		}
+		outward, ok := linkBody["outwardIssue"].(map[string]any)
+		if !ok {
+			t.Fatal("link body missing outwardIssue")
+		}
+		if outward["key"] != "PROJ-100" {
+			t.Errorf("outward key = %v, want PROJ-100 (target)", outward["key"])
+		}
+	})
+
+	t.Run("link direction outward", func(t *testing.T) {
+		t.Parallel()
+
+		var linkBody map[string]any
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch {
+			case r.Method == http.MethodPost && r.URL.Path == "/issue":
+				testhelpers.WriteJSONResponse(t, w, `{"id":"10001","key":"PROJ-456","self":"https://example.atlassian.net/rest/api/3/issue/10001"}`)
+			case r.Method == http.MethodPost && r.URL.Path == "/issueLink":
+				linkBody = testhelpers.DecodeJSONBody(t, r)
+				w.WriteHeader(http.StatusCreated)
+			default:
+				t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+			}
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		cmd := issueCreateAndLinkCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites(), testDryRun())
+		prepareCommandForTest(cmd)
+		cmd.SetArgs([]string{
+			"--project", "PROJ", "--type", "Story", "--summary", "New feature",
+			"--link-type", "Blocks", "--link-target", "PROJ-100",
+			"--link-direction", "outward",
+		})
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("cmd.Execute() error = %v", err)
+		}
+
+		// Outward (default): new issue is outwardIssue, target is inwardIssue.
+		outward, ok := linkBody["outwardIssue"].(map[string]any)
+		if !ok {
+			t.Fatal("link body missing outwardIssue")
+		}
+		if outward["key"] != "PROJ-456" {
+			t.Errorf("outward key = %v, want PROJ-456 (new issue)", outward["key"])
+		}
+		inward, ok := linkBody["inwardIssue"].(map[string]any)
+		if !ok {
+			t.Fatal("link body missing inwardIssue")
+		}
+		if inward["key"] != "PROJ-100" {
+			t.Errorf("inward key = %v, want PROJ-100 (target)", inward["key"])
+		}
+	})
+
+	t.Run("dry run", func(t *testing.T) {
+		t.Parallel()
+
+		var requests int
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requests++
+			t.Errorf("unexpected request %d: %s %s (dry-run should not make API calls)", requests, r.Method, r.URL.Path)
+		}))
+		defer server.Close()
+
+		dryRunEnabled := true
+		var buf bytes.Buffer
+		cmd := issueCreateAndLinkCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites(), &dryRunEnabled)
+		prepareCommandForTest(cmd)
+		cmd.SetArgs([]string{
+			"--project", "PROJ", "--type", "Story", "--summary", "New feature",
+			"--link-type", "Blocks", "--link-target", "PROJ-100",
+		})
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("cmd.Execute() error = %v", err)
+		}
+
+		var envelope output.Envelope
+		if err := json.Unmarshal(buf.Bytes(), &envelope); err != nil {
+			t.Fatalf("json.Unmarshal() error = %v", err)
+		}
+		data, ok := envelope.Data.(map[string]any)
+		if !ok {
+			t.Fatalf("data type = %T, want map[string]any", envelope.Data)
+		}
+		if data["command"] != "issue create-and-link" {
+			t.Errorf("command = %v, want issue create-and-link", data["command"])
+		}
+		if data["issue_key"] != "(new)" {
+			t.Errorf("issue_key = %v, want (new)", data["issue_key"])
+		}
+
+		diffRaw, ok := data["diff"].([]any)
+		if !ok {
+			t.Fatalf("diff type = %T, want []any", data["diff"])
+		}
+		if len(diffRaw) < 4 {
+			t.Errorf("diff length = %d, want at least 4 (summary, type, link_type, link_target)", len(diffRaw))
+		}
+
+		if requests != 0 {
+			t.Errorf("requests = %d, want 0 (dry-run should not call API)", requests)
+		}
+	})
+
+	t.Run("write blocked", func(t *testing.T) {
+		t.Parallel()
+
+		writesDisabled := false
+		dryRunDisabled := false
+		var buf bytes.Buffer
+		cmd := issueCreateAndLinkCommand(testCommandClient("http://unused"), &buf, testCommandFormat(), &writesDisabled, &dryRunDisabled)
+		prepareCommandForTest(cmd)
+		cmd.SetArgs([]string{
+			"--project", "PROJ", "--type", "Story", "--summary", "New feature",
+			"--link-type", "Blocks", "--link-target", "PROJ-100",
+		})
+
+		err := cmd.Execute()
+		if err == nil {
+			t.Fatal("cmd.Execute() = nil, want validation error")
+		}
+
+		var valErr *apperr.ValidationError
+		if !errors.As(err, &valErr) {
+			t.Errorf("error type = %T, want *apperr.ValidationError", err)
+		}
+	})
+}

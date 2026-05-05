@@ -2160,6 +2160,7 @@
       "comment",
       "count",
       "create",
+      "create-and-link",
       "delete",
       "edit",
       "get",
@@ -3083,6 +3084,160 @@
         "annotations": {
           "cobra_annotation_mutually_exclusive": [
             "payload-json labels"
+          ]
+        }
+      },
+      {
+        "name": "parent",
+        "type": "string",
+        "usage": "Parent issue key (for subtasks/child issues)",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "payload-json parent"
+          ]
+        }
+      },
+      {
+        "name": "payload-json",
+        "type": "string",
+        "usage": "Full JSON issue create payload, merged after field flags",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "payload-json assignee",
+            "payload-json components",
+            "payload-json description",
+            "payload-json labels",
+            "payload-json parent",
+            "payload-json priority",
+            "payload-json summary",
+            "payload-json type"
+          ]
+        }
+      },
+      {
+        "name": "priority",
+        "type": "string",
+        "usage": "Priority name (e.g. High, Medium, Low)",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "payload-json priority"
+          ]
+        }
+      },
+      {
+        "name": "summary",
+        "type": "string",
+        "usage": "Issue summary",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "payload-json summary"
+          ]
+        }
+      },
+      {
+        "name": "type",
+        "type": "string",
+        "usage": "Issue type name (e.g. Story, Bug, Task)",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "payload-json type"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue create-and-link",
+    "use": "create-and-link",
+    "short": "Create an issue and link it to an existing issue in one step",
+    "example": "jira-agent issue create-and-link --project PROJ --type Story --summary \"New feature\" --link-type Blocks --link-target PROJ-100\njira-agent issue create-and-link --project PROJ --type Bug --summary \"Fix\" --link-type \"is blocked by\" --link-target PROJ-200 --link-direction inward\njira-agent issue create-and-link --payload-json '{\"fields\":{\"project\":{\"key\":\"PROJ\"},\"issuetype\":{\"name\":\"Task\"},\"summary\":\"Task\"}}' --link-type Blocks --link-target PROJ-100",
+    "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/flag-groups": "[{\"type\":\"mutually_exclusive\",\"flags\":[\"payload-json\",\"summary\"]},{\"type\":\"mutually_exclusive\",\"flags\":[\"payload-json\",\"type\"]},{\"type\":\"mutually_exclusive\",\"flags\":[\"payload-json\",\"description\"]},{\"type\":\"mutually_exclusive\",\"flags\":[\"payload-json\",\"assignee\"]},{\"type\":\"mutually_exclusive\",\"flags\":[\"payload-json\",\"priority\"]},{\"type\":\"mutually_exclusive\",\"flags\":[\"payload-json\",\"labels\"]},{\"type\":\"mutually_exclusive\",\"flags\":[\"payload-json\",\"components\"]},{\"type\":\"mutually_exclusive\",\"flags\":[\"payload-json\",\"parent\"]}]",
+      "jira-agent/requires-auth": "true",
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "assignee",
+        "type": "string",
+        "usage": "Assignee account ID",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "payload-json assignee"
+          ]
+        }
+      },
+      {
+        "name": "components",
+        "type": "string",
+        "usage": "Comma-separated component names",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "payload-json components"
+          ]
+        }
+      },
+      {
+        "name": "description",
+        "type": "string",
+        "usage": "Description text, ADF JSON, or wiki markup with --description-format",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "payload-json description"
+          ]
+        }
+      },
+      {
+        "name": "description-format",
+        "type": "string",
+        "default": "auto",
+        "usage": "Description input format: auto, plain, adf, or wiki"
+      },
+      {
+        "name": "field",
+        "type": "stringToString",
+        "default": "[]",
+        "usage": "Custom field value (key=value, repeatable)"
+      },
+      {
+        "name": "fields-json",
+        "type": "string",
+        "usage": "JSON object of fields (alternative to individual flags)"
+      },
+      {
+        "name": "labels",
+        "type": "string",
+        "usage": "Comma-separated labels",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "payload-json labels"
+          ]
+        }
+      },
+      {
+        "name": "link-direction",
+        "type": "string",
+        "default": "outward",
+        "usage": "Link direction: outward (default) or inward"
+      },
+      {
+        "name": "link-target",
+        "type": "string",
+        "usage": "Issue key to link to (e.g. PROJ-100)",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      },
+      {
+        "name": "link-type",
+        "type": "string",
+        "usage": "Link type name (e.g. Blocks, \"is blocked by\")",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
           ]
         }
       },

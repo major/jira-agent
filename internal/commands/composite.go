@@ -382,6 +382,237 @@ func extractCloseState(issueData any) map[string]any {
 	return state
 }
 
+// createAndLinkParams holds the parsed flags for the create-and-link composite command.
+type createAndLinkParams struct {
+	project       string
+	issueType     string
+	summary       string
+	payloadJSON   string
+	linkType      string
+	linkTarget    string
+	linkDirection string
+}
+
+// issueCreateAndLinkCommand returns a composite command that creates an issue
+// and links it to an existing issue in a single invocation.
+func issueCreateAndLinkCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites, dryRun *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "create-and-link",
+		Short: "Create an issue and link it to an existing issue in one step",
+		Example: `jira-agent issue create-and-link --project PROJ --type Story --summary "New feature" --link-type Blocks --link-target PROJ-100
+jira-agent issue create-and-link --project PROJ --type Bug --summary "Fix" --link-type "is blocked by" --link-target PROJ-200 --link-direction inward
+jira-agent issue create-and-link --payload-json '{"fields":{"project":{"key":"PROJ"},"issuetype":{"name":"Task"},"summary":"Task"}}' --link-type Blocks --link-target PROJ-100`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			isDry := IsDryRun(dryRun)
+			if !isDry {
+				if err := requireWriteAccess(allowWrites); err != nil {
+					return err
+				}
+			}
+
+			p := createAndLinkParams{
+				project:       resolveProject(cmd),
+				issueType:     mustGetString(cmd, "type"),
+				summary:       mustGetString(cmd, "summary"),
+				payloadJSON:   mustGetString(cmd, "payload-json"),
+				linkType:      mustGetString(cmd, "link-type"),
+				linkTarget:    mustGetString(cmd, "link-target"),
+				linkDirection: mustGetString(cmd, "link-direction"),
+			}
+
+		// Validate required fields when not using full payload mode.
+		if p.payloadJSON == "" {
+			if p.summary == "" {
+				return apperr.NewValidationError("--summary is required when not using --payload-json", nil)
+			}
+			if p.issueType == "" {
+				return apperr.NewValidationError("--type is required when not using --payload-json", nil)
+			}
+		}
+
+		opts := CompactOptsFromCmd(cmd)
+		if isDry {
+			return createAndLinkDryRun(w, *format, &p, opts...)
+		}
+			return createAndLinkExecute(cmd, cmd.Context(), apiClient, w, *format, &p, opts...)
+		},
+	}
+	cmd.Flags().String("type", "", "Issue type name (e.g. Story, Bug, Task)")
+	cmd.Flags().String("summary", "", "Issue summary")
+	cmd.Flags().String("description", "", "Description text, ADF JSON, or wiki markup with --description-format")
+	cmd.Flags().String("description-format", "auto", "Description input format: auto, plain, adf, or wiki")
+	cmd.Flags().String("assignee", "", "Assignee account ID")
+	cmd.Flags().String("priority", "", "Priority name (e.g. High, Medium, Low)")
+	cmd.Flags().String("labels", "", "Comma-separated labels")
+	cmd.Flags().String("components", "", "Comma-separated component names")
+	cmd.Flags().String("parent", "", "Parent issue key (for subtasks/child issues)")
+	cmd.Flags().StringToString("field", map[string]string{}, "Custom field value (key=value, repeatable)")
+	cmd.Flags().String("fields-json", "", "JSON object of fields (alternative to individual flags)")
+	cmd.Flags().String("payload-json", "", "Full JSON issue create payload (mutually exclusive with individual field flags)")
+	cmd.Flags().String("link-type", "", "Link type name (e.g. Blocks, \"is blocked by\")")
+	_ = cmd.MarkFlagRequired("link-type")
+	cmd.Flags().String("link-target", "", "Issue key to link to (e.g. PROJ-100)")
+	_ = cmd.MarkFlagRequired("link-target")
+	cmd.Flags().String("link-direction", "outward", "Link direction: outward (default) or inward")
+	for _, flag := range []string{"summary", "type", "description", "assignee", "priority", "labels", "components", "parent", "field", "fields-json"} {
+		markMutuallyExclusive(cmd, "payload-json", flag)
+	}
+	return cmd
+}
+
+// createAndLinkDryRun outputs what would be created and linked without making
+// any API calls.
+func createAndLinkDryRun(w io.Writer, format output.Format, p *createAndLinkParams, opts ...output.WriteOption) error {
+	before := map[string]any{}
+	after := map[string]any{
+		"link_type":   p.linkType,
+		"link_target": p.linkTarget,
+	}
+	if p.payloadJSON != "" {
+		after["payload_json"] = "(provided)"
+	} else {
+		after["summary"] = p.summary
+		after["type"] = p.issueType
+	}
+	if p.project != "" {
+		after["project"] = p.project
+	}
+	return WriteDryRunResult(w, DryRunResult{
+		Command:  "issue create-and-link",
+		IssueKey: "(new)",
+		Before:   before,
+		After:    after,
+		Diff:     ComputeFieldDiff(before, after),
+	}, format, opts...)
+}
+
+// createAndLinkExecute creates an issue and then links it to the target. If the
+// create succeeds but the link fails, a partial result is returned with a
+// remediation command.
+func createAndLinkExecute(cmd *cobra.Command, ctx context.Context, apiClient *client.Ref, w io.Writer, format output.Format, p *createAndLinkParams, opts ...output.WriteOption) error {
+	// Build create payload.
+	body, err := buildCreatePayload(cmd, p)
+	if err != nil {
+		return err
+	}
+
+	// POST /rest/api/3/issue
+	var createResult map[string]any
+	if err := apiClient.Post(ctx, "/issue", body, &createResult); err != nil {
+		return err
+	}
+
+	newKey, _ := createResult["key"].(string)
+	if newKey == "" {
+		return apperr.NewAPIError("create response missing issue key", 0, "", nil)
+	}
+
+	// Build and POST /rest/api/3/issueLink.
+	linkBody := buildLinkPayload(p.linkType, newKey, p.linkTarget, p.linkDirection)
+	if err := apiClient.Post(ctx, "/issueLink", linkBody, nil); err != nil {
+		// Partial failure: issue created, link failed.
+		result := map[string]any{
+			"key":    newKey,
+			"linked": false,
+			"next_command": fmt.Sprintf(
+				"jira-agent issue link add --type %q --inward %s --outward %s",
+				p.linkType, linkInwardKey(newKey, p.linkTarget, p.linkDirection), linkOutwardKey(newKey, p.linkTarget, p.linkDirection),
+			),
+		}
+		return output.WritePartial(w, result, []string{"link: " + err.Error()}, output.NewMetadata(), format, opts...)
+	}
+
+	result := map[string]any{
+		"key":         newKey,
+		"linked":      true,
+		"link_type":   p.linkType,
+		"link_target": p.linkTarget,
+	}
+	return output.WriteResult(w, result, format, opts...)
+}
+
+// buildCreatePayload constructs the issue create body from command flags or
+// --payload-json, reusing the same helpers as issueCreateCommand.
+func buildCreatePayload(cmd *cobra.Command, p *createAndLinkParams) (map[string]any, error) {
+	if p.payloadJSON != "" {
+		body := map[string]any{}
+		if err := mergePayloadJSON(body, p.payloadJSON); err != nil {
+			return nil, err
+		}
+		// Inject project when the payload omits it.
+		if p.project != "" {
+			fields, ok := body["fields"].(map[string]any)
+			if !ok {
+				fields = map[string]any{}
+				body["fields"] = fields
+			}
+			if _, hasProject := fields["project"]; !hasProject {
+				fields["project"] = map[string]any{"key": p.project}
+			}
+		}
+		return body, nil
+	}
+
+	// Individual flags mode requires project, type, and summary.
+	if p.project == "" {
+		return nil, apperr.NewValidationError(
+			"--project is required",
+			nil,
+			apperr.WithDetails("use --project flag or set JIRA_PROJECT env var"),
+		)
+	}
+	if p.issueType == "" {
+		return nil, apperr.NewValidationError("--type is required", nil)
+	}
+	if p.summary == "" {
+		return nil, apperr.NewValidationError("--summary is required", nil)
+	}
+
+	fields := map[string]any{
+		"project":   map[string]any{"key": p.project},
+		"issuetype": map[string]any{"name": p.issueType},
+		"summary":   p.summary,
+	}
+
+	if err := applyCommonFields(fields, cmd); err != nil {
+		return nil, err
+	}
+	if err := applyMerges(fields, cmd); err != nil {
+		return nil, err
+	}
+
+	return map[string]any{"fields": fields}, nil
+}
+
+// buildLinkPayload constructs the issue link body for POST /issueLink.
+func buildLinkPayload(linkType, newKey, targetKey, direction string) map[string]any {
+	return map[string]any{
+		"type":         map[string]any{"name": linkType},
+		"inwardIssue":  map[string]any{"key": linkInwardKey(newKey, targetKey, direction)},
+		"outwardIssue": map[string]any{"key": linkOutwardKey(newKey, targetKey, direction)},
+	}
+}
+
+// linkInwardKey returns the key that should appear as inwardIssue based on
+// direction. For "inward", the new issue is inward; for "outward" (default),
+// the target is inward.
+func linkInwardKey(newKey, targetKey, direction string) string {
+	if direction == "inward" {
+		return newKey
+	}
+	return targetKey
+}
+
+// linkOutwardKey returns the key that should appear as outwardIssue based on
+// direction. For "outward" (default), the new issue is outward; for "inward",
+// the target is outward.
+func linkOutwardKey(newKey, targetKey, direction string) string {
+	if direction == "inward" {
+		return targetKey
+	}
+	return newKey
+}
+
 // extractIssueState extracts status name and assignee account ID from a Jira
 // issue response for use in dry-run diff computation.
 func extractIssueState(issueData any) map[string]any {
