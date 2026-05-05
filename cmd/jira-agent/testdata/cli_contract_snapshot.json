@@ -2156,6 +2156,7 @@
       "bulk-transition",
       "bulk-transitions",
       "changelog",
+      "close",
       "comment",
       "count",
       "create",
@@ -2797,6 +2798,36 @@
         "name": "ids",
         "type": "string",
         "usage": "Comma-separated changelog IDs (required)"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue close",
+    "use": "close \u003cissue-key\u003e",
+    "short": "Transition an issue to a closed status with resolution",
+    "example": "jira-agent issue close PROJ-123\njira-agent issue close PROJ-123 --resolution \"Won't Do\"\njira-agent issue close PROJ-123 --status \"Closed\" --resolution \"Duplicate\" --comment \"Duplicate of PROJ-100\"",
+    "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "comment",
+        "type": "string",
+        "usage": "Comment to add after transition"
+      },
+      {
+        "name": "resolution",
+        "type": "string",
+        "default": "Done",
+        "usage": "Resolution value (e.g. Done, Won't Do, Duplicate)"
+      },
+      {
+        "name": "status",
+        "type": "string",
+        "default": "Done",
+        "usage": "Target status for transition"
       }
     ]
   },
