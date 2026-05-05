@@ -92,11 +92,12 @@ func buildRecentJQL(since string) string {
 }
 
 // buildShortcutSearchBody constructs the POST body for a shortcut search
-// command from the JQL string and standard flags (--fields, --max-results).
+// command from the JQL string and standard search flags.
 func buildShortcutSearchBody(cmd *cobra.Command, jql string) map[string]any {
 	body := map[string]any{
 		"jql":        jql,
 		"maxResults": mustGetInt(cmd, "max-results"),
+		"startAt":    mustGetInt(cmd, "start-at"),
 	}
 	if f := issueSearchFields(mustGetString(cmd, "fields")); len(f) > 0 {
 		body["fields"] = f

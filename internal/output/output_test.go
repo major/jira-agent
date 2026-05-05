@@ -590,7 +590,7 @@ func TestWriteErrorRemediation(t *testing.T) {
 	}{
 		{
 			name:            "validation error includes next_command",
-			err:             apperr.NewValidationError("write access is disabled", nil),
+			err:             apperr.NewValidationError("write access is disabled", nil, apperr.WithWriteBlocked()),
 			wantNextCommand: "export JIRA_ALLOW_WRITES=true",
 		},
 		{

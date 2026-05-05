@@ -263,8 +263,9 @@ func issueSearchCommand(apiClient *client.Ref, w io.Writer, format *output.Forma
 		Use:   "search",
 		Short: "Search issues via JQL",
 		Example: `jira-agent issue search --jql "project = PROJ AND status = Open"
+jira-agent issue search --assignee me --status "In Progress"
+jira-agent issue search --assignee me --sprint current --fields-preset triage
 jira-agent issue search --jql "assignee = currentUser()" --fields key,summary,status
-jira-agent issue search --jql "assignee = currentUser()" --fields-preset triage
 jira-agent issue search --jql "project = PROJ" --fields key,description --description-output-format markdown
 jira-agent issue search --jql "project = PROJ" --max-results 10 --order-by created --order desc
 jira-agent issue search --jql "project = PROJ" --raw`,
@@ -273,6 +274,23 @@ jira-agent issue search --jql "project = PROJ" --raw`,
 
 			if err := applyFieldsPreset(cmd); err != nil {
 				return err
+			}
+
+			// Build JQL from semantic flags when --jql is not set.
+			if !cmd.Flags().Changed("jql") {
+				labels, _ := cmd.Flags().GetStringArray("label")
+				jql := buildJQLFromFlags(
+					mustGetString(cmd, "assignee"),
+					mustGetString(cmd, "status"),
+					mustGetString(cmd, "type"),
+					mustGetString(cmd, "priority"),
+					mustGetString(cmd, "sprint"),
+					mustGetString(cmd, "updated-since"),
+					labels,
+				)
+				if jql != "" {
+					_ = cmd.Flags().Set("jql", jql)
+				}
 			}
 
 			jql, body, err := buildIssueSearchBody(cmd)
@@ -317,7 +335,20 @@ jira-agent issue search --jql "project = PROJ" --raw`,
 	cmd.Flags().String("order-by", "", "Sort field (appended to JQL as ORDER BY clause)")
 	cmd.Flags().String("order", "", "Sort direction: asc or desc (used with --order-by)")
 	cmd.Flags().Bool("raw", false, "Return the unmodified Jira API response for JSON output")
+
+	// Semantic JQL flags: convenience alternatives to writing raw JQL.
+	cmd.Flags().String("assignee", "", `Assignee filter ("me" for currentUser())`)
+	cmd.Flags().String("status", "", "Status filter")
+	cmd.Flags().String("type", "", "Issue type filter (maps to issuetype in JQL)")
+	cmd.Flags().String("priority", "", "Priority filter")
+	cmd.Flags().StringArray("label", nil, "Label filter (repeatable, multiple labels become AND conditions)")
+	cmd.Flags().String("sprint", "", `Sprint filter ("current" for openSprints())`)
+	cmd.Flags().String("updated-since", "", `Updated-since filter (e.g. "7d" for updated >= "-7d")`)
+
 	markMutuallyExclusive(cmd, "fields-preset", "fields")
+	for _, flag := range []string{"assignee", "status", "type", "priority", "label", "sprint", "updated-since"} {
+		markMutuallyExclusive(cmd, "jql", flag)
+	}
 	return cmd
 }
 

@@ -122,8 +122,8 @@ func TestSprintCurrentCommand(t *testing.T) {
 		if !errors.As(err, &notFound) {
 			t.Fatalf("error type = %T, want *apperr.NotFoundError", err)
 		}
-		if notFound.Details() == "" {
-			t.Error("expected non-empty details with remediation hint")
+		if notFound.NextCommand() == "" {
+			t.Error("expected non-empty next_command with remediation hint")
 		}
 	})
 

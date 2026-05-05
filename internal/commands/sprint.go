@@ -106,7 +106,7 @@ func sprintCurrentCommand(apiClient *client.Ref, w io.Writer, format *output.For
 				return apperr.NewNotFoundError(
 					fmt.Sprintf("no active sprint found for board %d", boardID),
 					nil,
-					apperr.WithDetails(fmt.Sprintf("try: jira-agent sprint list --board-id %d --state active", boardID)),
+					apperr.WithNextCommand(fmt.Sprintf("jira-agent sprint list --board-id %d --state active", boardID)),
 				)
 			}
 

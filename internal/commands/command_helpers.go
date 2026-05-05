@@ -267,6 +267,7 @@ func requireWriteAccess(allowWrites *bool) error {
 			apperr.WithDetails(
 				`set "i-too-like-to-live-dangerously": true in config file or JIRA_ALLOW_WRITES=true env var to enable write operations`,
 			),
+			apperr.WithWriteBlocked(),
 		)
 	}
 	return nil

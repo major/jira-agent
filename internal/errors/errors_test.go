@@ -94,7 +94,7 @@ func TestErrorRemediation(t *testing.T) {
 	}{
 		{
 			name:                 "validation error provides write-enable command",
-			err:                  NewValidationError("write access is disabled", nil),
+			err:                  NewValidationError("write access is disabled", nil, WithWriteBlocked()),
 			wantNextCommand:      "export JIRA_ALLOW_WRITES=true",
 			wantAvailableActions: nil,
 		},

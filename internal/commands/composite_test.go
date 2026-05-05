@@ -1130,3 +1130,313 @@ func TestCreateAndLink(t *testing.T) {
 		}
 	})
 }
+
+func TestMoveToSprint(t *testing.T) {
+	t.Parallel()
+
+	t.Run("move only", func(t *testing.T) {
+		t.Parallel()
+
+		var requests int
+		var agileBody map[string]any
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requests++
+			switch {
+			case r.Method == http.MethodPost && r.URL.Path == "/sprint/42/issue":
+				agileBody = testhelpers.DecodeJSONBody(t, r)
+				w.WriteHeader(http.StatusNoContent)
+			default:
+				t.Errorf("unexpected request %d: %s %s", requests, r.Method, r.URL.Path)
+			}
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		runCommandAction(
+			t,
+			issueMoveToSprintCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites(), testDryRun()),
+			"--sprint-id", "42", "PROJ-123",
+		)
+
+		// Verify Agile API payload.
+		issues, ok := agileBody["issues"].([]any)
+		if !ok {
+			t.Fatalf("agile body issues type = %T, want []any", agileBody["issues"])
+		}
+		if len(issues) != 1 || issues[0] != "PROJ-123" {
+			t.Errorf("issues = %v, want [PROJ-123]", issues)
+		}
+
+		var envelope output.Envelope
+		if err := json.Unmarshal(buf.Bytes(), &envelope); err != nil {
+			t.Fatalf("json.Unmarshal() error = %v", err)
+		}
+		data, ok := envelope.Data.(map[string]any)
+		if !ok {
+			t.Fatalf("data type = %T, want map[string]any", envelope.Data)
+		}
+		if data["key"] != "PROJ-123" {
+			t.Errorf("key = %v, want PROJ-123", data["key"])
+		}
+		if data["moved_to_sprint"] != float64(42) {
+			t.Errorf("moved_to_sprint = %v, want 42", data["moved_to_sprint"])
+		}
+		if requests != 1 {
+			t.Errorf("requests = %d, want 1 (POST sprint only)", requests)
+		}
+	})
+
+	t.Run("move with transition", func(t *testing.T) {
+		t.Parallel()
+
+		var requests int
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requests++
+			switch requests {
+			case 1:
+				if r.Method != http.MethodPost || r.URL.Path != "/sprint/42/issue" {
+					t.Errorf("request 1: got %s %s, want POST /sprint/42/issue", r.Method, r.URL.Path)
+				}
+				w.WriteHeader(http.StatusNoContent)
+			case 2:
+				if r.Method != http.MethodGet || r.URL.Path != "/issue/PROJ-123/transitions" {
+					t.Errorf("request 2: got %s %s, want GET /issue/PROJ-123/transitions", r.Method, r.URL.Path)
+				}
+				testhelpers.WriteJSONResponse(t, w, `{"transitions":[{"id":"21","name":"In Progress","to":{"name":"In Progress"}}]}`)
+			case 3:
+				if r.Method != http.MethodPost || r.URL.Path != "/issue/PROJ-123/transitions" {
+					t.Errorf("request 3: got %s %s, want POST /issue/PROJ-123/transitions", r.Method, r.URL.Path)
+				}
+				body := testhelpers.DecodeJSONBody(t, r)
+				transition := body["transition"].(map[string]any)
+				if transition["id"] != "21" {
+					t.Errorf("transition id = %v, want 21", transition["id"])
+				}
+				w.WriteHeader(http.StatusNoContent)
+			default:
+				t.Errorf("unexpected request %d: %s %s", requests, r.Method, r.URL.Path)
+			}
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		runCommandAction(
+			t,
+			issueMoveToSprintCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites(), testDryRun()),
+			"--sprint-id", "42", "--status", "In Progress", "PROJ-123",
+		)
+
+		var envelope output.Envelope
+		if err := json.Unmarshal(buf.Bytes(), &envelope); err != nil {
+			t.Fatalf("json.Unmarshal() error = %v", err)
+		}
+		data, ok := envelope.Data.(map[string]any)
+		if !ok {
+			t.Fatalf("data type = %T, want map[string]any", envelope.Data)
+		}
+		if data["transitioned"] != true {
+			t.Errorf("transitioned = %v, want true", data["transitioned"])
+		}
+		if data["to"] != "In Progress" {
+			t.Errorf("to = %v, want In Progress", data["to"])
+		}
+		if requests != 3 {
+			t.Errorf("requests = %d, want 3", requests)
+		}
+	})
+
+	t.Run("move succeeds transition fails partial", func(t *testing.T) {
+		t.Parallel()
+
+		var requests int
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requests++
+			switch requests {
+			case 1:
+				w.WriteHeader(http.StatusNoContent)
+			case 2:
+				testhelpers.WriteJSONResponse(t, w, `{"transitions":[{"id":"21","name":"In Progress","to":{"name":"In Progress"}}]}`)
+			case 3:
+				// Transition fails.
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(`{"errorMessages":["Transition not allowed"]}`))
+			default:
+				t.Errorf("unexpected request %d: %s %s", requests, r.Method, r.URL.Path)
+			}
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		runCommandAction(
+			t,
+			issueMoveToSprintCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites(), testDryRun()),
+			"--sprint-id", "42", "--status", "In Progress", "PROJ-123",
+		)
+
+		var envelope output.Envelope
+		if err := json.Unmarshal(buf.Bytes(), &envelope); err != nil {
+			t.Fatalf("json.Unmarshal() error = %v", err)
+		}
+		data, ok := envelope.Data.(map[string]any)
+		if !ok {
+			t.Fatalf("data type = %T, want map[string]any", envelope.Data)
+		}
+		if data["moved_to_sprint"] != float64(42) {
+			t.Errorf("moved_to_sprint = %v, want 42", data["moved_to_sprint"])
+		}
+		if data["transitioned"] != false {
+			t.Errorf("transitioned = %v, want false", data["transitioned"])
+		}
+		if len(envelope.Errors) == 0 {
+			t.Error("errors = empty, want at least one error for failed transition")
+		}
+	})
+
+	t.Run("dry run", func(t *testing.T) {
+		t.Parallel()
+
+		var requests int
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requests++
+			switch requests {
+			case 1:
+				if r.Method != http.MethodGet || r.URL.Path != "/issue/PROJ-123" {
+					t.Errorf("request 1: got %s %s, want GET /issue/PROJ-123", r.Method, r.URL.Path)
+				}
+				testhelpers.WriteJSONResponse(t, w, `{"fields":{"status":{"name":"Open"}}}`)
+			default:
+				t.Errorf("unexpected request %d: %s %s (dry-run should only GET)", requests, r.Method, r.URL.Path)
+			}
+		}))
+		defer server.Close()
+
+		dryRunEnabled := true
+		var buf bytes.Buffer
+		runCommandAction(
+			t,
+			issueMoveToSprintCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites(), &dryRunEnabled),
+			"--sprint-id", "42", "PROJ-123",
+		)
+
+		var envelope output.Envelope
+		if err := json.Unmarshal(buf.Bytes(), &envelope); err != nil {
+			t.Fatalf("json.Unmarshal() error = %v", err)
+		}
+		data, ok := envelope.Data.(map[string]any)
+		if !ok {
+			t.Fatalf("data type = %T, want map[string]any", envelope.Data)
+		}
+		if data["command"] != "issue move-to-sprint" {
+			t.Errorf("command = %v, want issue move-to-sprint", data["command"])
+		}
+		if data["issue_key"] != "PROJ-123" {
+			t.Errorf("issue_key = %v, want PROJ-123", data["issue_key"])
+		}
+		diffRaw, ok := data["diff"].([]any)
+		if !ok {
+			t.Fatalf("diff type = %T, want []any", data["diff"])
+		}
+		if len(diffRaw) < 1 {
+			t.Errorf("diff length = %d, want at least 1 (sprint)", len(diffRaw))
+		}
+		if requests != 1 {
+			t.Errorf("requests = %d, want 1 (only GET issue)", requests)
+		}
+	})
+
+	t.Run("write blocked", func(t *testing.T) {
+		t.Parallel()
+
+		writesDisabled := false
+		dryRunDisabled := false
+		var buf bytes.Buffer
+		cmd := issueMoveToSprintCommand(testCommandClient("http://unused"), &buf, testCommandFormat(), &writesDisabled, &dryRunDisabled)
+		prepareCommandForTest(cmd)
+		cmd.SetArgs([]string{"--sprint-id", "42", "PROJ-123"})
+
+		err := cmd.Execute()
+		if err == nil {
+			t.Fatal("cmd.Execute() = nil, want validation error")
+		}
+
+		var valErr *apperr.ValidationError
+		if !errors.As(err, &valErr) {
+			t.Errorf("error type = %T, want *apperr.ValidationError", err)
+		}
+	})
+
+	t.Run("move with comment", func(t *testing.T) {
+		t.Parallel()
+
+		var requests int
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requests++
+			switch requests {
+			case 1:
+				w.WriteHeader(http.StatusNoContent)
+			case 2:
+				if r.Method != http.MethodPost || r.URL.Path != "/issue/PROJ-123/comment" {
+					t.Errorf("request 2: got %s %s, want POST /issue/PROJ-123/comment", r.Method, r.URL.Path)
+				}
+				body := testhelpers.DecodeJSONBody(t, r)
+				if body["body"] == nil {
+					t.Error("comment body = nil, want ADF content")
+				}
+				testhelpers.WriteJSONResponse(t, w, `{"id":"10001"}`)
+			default:
+				t.Errorf("unexpected request %d: %s %s", requests, r.Method, r.URL.Path)
+			}
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		runCommandAction(
+			t,
+			issueMoveToSprintCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites(), testDryRun()),
+			"--sprint-id", "42", "--comment", "Moved to sprint 42", "PROJ-123",
+		)
+
+		var envelope output.Envelope
+		if err := json.Unmarshal(buf.Bytes(), &envelope); err != nil {
+			t.Fatalf("json.Unmarshal() error = %v", err)
+		}
+		data, ok := envelope.Data.(map[string]any)
+		if !ok {
+			t.Fatalf("data type = %T, want map[string]any", envelope.Data)
+		}
+		if data["commented"] != true {
+			t.Errorf("commented = %v, want true", data["commented"])
+		}
+		if requests != 2 {
+			t.Errorf("requests = %d, want 2", requests)
+		}
+	})
+
+	t.Run("move with rank before", func(t *testing.T) {
+		t.Parallel()
+
+		var agileBody map[string]any
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch {
+			case r.Method == http.MethodPost && r.URL.Path == "/sprint/42/issue":
+				agileBody = testhelpers.DecodeJSONBody(t, r)
+				w.WriteHeader(http.StatusNoContent)
+			default:
+				t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+			}
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		runCommandAction(
+			t,
+			issueMoveToSprintCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites(), testDryRun()),
+			"--sprint-id", "42", "--rank-before", "PROJ-100", "PROJ-123",
+		)
+
+		if agileBody["rankBeforeIssue"] != "PROJ-100" {
+			t.Errorf("rankBeforeIssue = %v, want PROJ-100", agileBody["rankBeforeIssue"])
+		}
+	})
+}

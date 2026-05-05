@@ -25,6 +25,17 @@ func WithDetails(d string) ErrorOption {
 	return func(e *JiraError) { e.details = d }
 }
 
+// WithNextCommand sets a concrete follow-up command for agent remediation.
+func WithNextCommand(cmd string) ErrorOption {
+	return func(e *JiraError) { e.nextCommand = cmd }
+}
+
+// WithWriteBlocked marks a validation error as a write-access failure so
+// NextCommand can suggest the correct remediation.
+func WithWriteBlocked() ErrorOption {
+	return func(e *JiraError) { e.writeBlocked = true }
+}
+
 // WithResourceKey sets the resource identifier (e.g. issue key) on the error
 // so remediation can suggest a follow-up command referencing it.
 func WithResourceKey(key string) ErrorOption {
@@ -43,8 +54,10 @@ type JiraError struct {
 	Message          string
 	Cause            error
 	details          string
+	nextCommand      string
 	resourceKey      string
 	availableActions []string
+	writeBlocked     bool
 }
 
 // Details returns the human-readable hint or remediation message, if any.
@@ -63,8 +76,12 @@ func (e *JiraError) AvailableActions() []string {
 }
 
 // NextCommand returns a suggested follow-up CLI command. The base implementation
-// returns an empty string; subtypes override this with context-specific commands.
+// returns a configured command when present; subtypes override this with
+// context-specific fallbacks.
 func (e *JiraError) NextCommand() string {
+	if e.nextCommand != "" {
+		return e.nextCommand
+	}
 	return ""
 }
 
@@ -132,6 +149,9 @@ func (e *NotFoundError) ExitCode() int {
 // NextCommand returns a search command to help locate the missing resource.
 // Returns an empty string when no resource key was provided.
 func (e *NotFoundError) NextCommand() string {
+	if e.nextCommand != "" {
+		return e.nextCommand
+	}
 	if e.resourceKey == "" {
 		return ""
 	}
@@ -174,9 +194,13 @@ func (e *ValidationError) ExitCode() int {
 	return 5
 }
 
-// NextCommand returns the command to enable write access.
+// NextCommand returns the command to enable write access when writes are
+// blocked. Otherwise it falls back to any custom hint set via WithNextCommand.
 func (e *ValidationError) NextCommand() string {
-	return "export JIRA_ALLOW_WRITES=true"
+	if e.writeBlocked {
+		return "export JIRA_ALLOW_WRITES=true"
+	}
+	return e.JiraError.NextCommand()
 }
 
 // exitCoder is an interface for types that can provide an exit code.

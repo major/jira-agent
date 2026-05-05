@@ -613,6 +613,205 @@ func linkOutwardKey(newKey, targetKey, direction string) string {
 	return newKey
 }
 
+// moveToSprintParams holds the parsed flags for the move-to-sprint composite command.
+type moveToSprintParams struct {
+	key          string
+	sprintID     int64
+	targetStatus string
+	comment      string
+	rankBefore   string
+	rankAfter    string
+}
+
+// issueMoveToSprintCommand returns a composite command that moves an issue to a
+// sprint using the Agile API, with optional status transition and comment.
+func issueMoveToSprintCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites, dryRun *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "move-to-sprint <issue-key>",
+		Short: "Move an issue to a sprint with optional transition and comment",
+		Example: `jira-agent issue move-to-sprint PROJ-123 --sprint-id 42
+jira-agent issue move-to-sprint PROJ-123 --sprint-id 42 --status "In Progress"
+jira-agent issue move-to-sprint PROJ-123 --sprint-id 42 --comment "Moved to sprint" --rank-before PROJ-100`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			key, err := requireArg(args, "issue key")
+			if err != nil {
+				return err
+			}
+
+			sprintIDStr, err := requireFlag(cmd, "sprint-id")
+			if err != nil {
+				return err
+			}
+			sprintID, err := parseSprintID(sprintIDStr)
+			if err != nil {
+				return err
+			}
+
+			isDry := IsDryRun(dryRun)
+			if !isDry {
+				if err := requireWriteAccess(allowWrites); err != nil {
+					return err
+				}
+			}
+
+			p := moveToSprintParams{
+				key:          key,
+				sprintID:     sprintID,
+				targetStatus: mustGetString(cmd, "status"),
+				comment:      mustGetString(cmd, "comment"),
+				rankBefore:   mustGetString(cmd, "rank-before"),
+				rankAfter:    mustGetString(cmd, "rank-after"),
+			}
+
+			opts := CompactOptsFromCmd(cmd)
+			ctx := cmd.Context()
+			if isDry {
+				before, err := moveToSprintPrepare(ctx, apiClient, p.key)
+				if err != nil {
+					return err
+				}
+				// Validate transition exists when --status is set so
+				// dry-run does not preview a status the live path would
+				// reject after the sprint move has already happened.
+				if p.targetStatus != "" {
+					var transitions any
+					if err := apiClient.Get(ctx, "/issue/"+p.key+"/transitions", nil, &transitions); err != nil {
+						return err
+					}
+					if _, err := findTransitionID(transitions, p.targetStatus); err != nil {
+						return err
+					}
+				}
+				return moveToSprintDryRun(w, *format, &p, before, opts...)
+			}
+			return moveToSprintExecute(ctx, apiClient, w, *format, &p, opts...)
+		},
+	}
+	cmd.Flags().String("sprint-id", "", "Sprint ID to move the issue to (required)")
+	_ = cmd.MarkFlagRequired("sprint-id")
+	cmd.Flags().String("status", "", "Transition issue to this status after moving")
+	cmd.Flags().String("comment", "", "Add a comment after the operation")
+	cmd.Flags().String("rank-before", "", "Rank issue before this issue key in the sprint")
+	cmd.Flags().String("rank-after", "", "Rank issue after this issue key in the sprint")
+	return cmd
+}
+
+// moveToSprintPrepare fetches the current issue state for dry-run diff.
+func moveToSprintPrepare(ctx context.Context, apiClient *client.Ref, key string) (map[string]any, error) {
+	var issueData any
+	if err := apiClient.Get(ctx, "/issue/"+key, map[string]string{"fields": "status"}, &issueData); err != nil {
+		return nil, err
+	}
+	return extractMoveToSprintState(issueData), nil
+}
+
+// moveToSprintDryRun computes the expected diff and writes a dry-run result.
+func moveToSprintDryRun(w io.Writer, format output.Format, p *moveToSprintParams, before map[string]any, opts ...output.WriteOption) error {
+	after := maps.Clone(before)
+	after["sprint"] = p.sprintID
+	if p.targetStatus != "" {
+		after["status"] = p.targetStatus
+	}
+	if p.comment != "" {
+		after["comment"] = p.comment
+	}
+	return WriteDryRunResult(w, DryRunResult{
+		Command:  "issue move-to-sprint",
+		IssueKey: p.key,
+		Before:   before,
+		After:    after,
+		Diff:     ComputeFieldDiff(before, after),
+	}, format, opts...)
+}
+
+// moveToSprintExecute performs the sprint move, optional transition, and
+// optional comment. Sprint move failure is fatal; transition and comment
+// failures are partial.
+func moveToSprintExecute(ctx context.Context, apiClient *client.Ref, w io.Writer, format output.Format, p *moveToSprintParams, opts ...output.WriteOption) error {
+	result := map[string]any{"key": p.key}
+
+	// Sprint move is the primary operation; failure is fatal.
+	body := map[string]any{"issues": []string{p.key}}
+	if p.rankBefore != "" {
+		body["rankBeforeIssue"] = p.rankBefore
+	}
+	if p.rankAfter != "" {
+		body["rankAfterIssue"] = p.rankAfter
+	}
+	sprintPath := fmt.Sprintf("/sprint/%d/issue", p.sprintID)
+	if err := apiClient.AgilePost(ctx, sprintPath, body, nil); err != nil {
+		return err
+	}
+	result["moved_to_sprint"] = p.sprintID
+
+	var errMsgs []string
+
+	// Optional transition after sprint move.
+	if p.targetStatus != "" {
+		if err := moveToSprintTransition(ctx, apiClient, p.key, p.targetStatus); err != nil {
+			errMsgs = append(errMsgs, fmt.Sprintf("transition: %v", err))
+			result["transitioned"] = false
+			result["next_command"] = fmt.Sprintf("jira-agent issue transition %s --to %q", p.key, p.targetStatus)
+		} else {
+			result["transitioned"] = true
+			result["to"] = p.targetStatus
+		}
+	}
+
+	// Optional comment after move (and transition if any).
+	if p.comment != "" {
+		commentBody := map[string]any{"body": toADF(p.comment)}
+		if err := apiClient.Post(ctx, "/issue/"+p.key+"/comment", commentBody, nil); err != nil {
+			errMsgs = append(errMsgs, fmt.Sprintf("comment: %v", err))
+			result["commented"] = false
+		} else {
+			result["commented"] = true
+		}
+	}
+
+	if len(errMsgs) > 0 {
+		return output.WritePartial(w, result, errMsgs, output.NewMetadata(), format, opts...)
+	}
+	return output.WriteResult(w, result, format, opts...)
+}
+
+// moveToSprintTransition fetches available transitions and performs the status
+// transition for the move-to-sprint command.
+func moveToSprintTransition(ctx context.Context, apiClient *client.Ref, key, targetStatus string) error {
+	var transitions any
+	if err := apiClient.Get(ctx, "/issue/"+key+"/transitions", nil, &transitions); err != nil {
+		return err
+	}
+	transitionID, err := findTransitionID(transitions, targetStatus)
+	if err != nil {
+		return err
+	}
+	transBody := map[string]any{"transition": map[string]any{"id": transitionID}}
+	return apiClient.Post(ctx, "/issue/"+key+"/transitions", transBody, nil)
+}
+
+// extractMoveToSprintState extracts status name from a Jira issue response
+// for use in the move-to-sprint command's dry-run diff computation.
+func extractMoveToSprintState(issueData any) map[string]any {
+	state := map[string]any{
+		"status": nil,
+	}
+	m, ok := issueData.(map[string]any)
+	if !ok {
+		return state
+	}
+	fields, ok := m["fields"].(map[string]any)
+	if !ok {
+		return state
+	}
+	if status, ok := fields["status"].(map[string]any); ok {
+		if name, ok := status["name"].(string); ok {
+			state["status"] = name
+		}
+	}
+	return state
+}
+
 // extractIssueState extracts status name and assignee account ID from a Jira
 // issue response for use in dry-run diff computation.
 func extractIssueState(issueData any) map[string]any {
