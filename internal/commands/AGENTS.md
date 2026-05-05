@@ -101,6 +101,59 @@ Return typed validation errors rather than generic `fmt.Errorf` for user-correct
 - `user_group_filter.go`: user/group/filter searches and pagination.
 - `permission_dashboard.go`, `board.go`, `sprint.go`, `version.go`, `link.go`, and `property.go`: moderate complexity with write paths and Jira-specific API shapes.
 
+## Resolve command tree
+
+`resolve` is a read-only discovery command group. Category: `discovery`. No write protection needed.
+
+### Subcommands and signatures
+
+| Subcommand | Positional arg | Required flags | Optional flags | API endpoint |
+| --- | --- | --- | --- | --- |
+| `resolve user <query>` | email or display name | none | none | `GET /rest/api/3/users/search` |
+| `resolve board <query>` | board name | none | none | `GET /rest/agile/1.0/board` |
+| `resolve sprint <query>` | sprint name | `--board-id <id>` | `--state <states>` | `GET /rest/agile/1.0/board/{id}/sprint` |
+| `resolve field <query>` | field name | none | none | `GET /rest/api/3/field/search` |
+| `resolve transition <query>` | transition name or target status | `--issue <key>` | none | `GET /rest/api/3/issue/{key}/transitions` |
+
+### Output shapes
+
+All resolvers return `output.WriteSuccess` with a typed array in `data` and `metadata.usage_hint`.
+
+- `resolve user`: `[]{account_id, display_name, email_address, active}`
+- `resolve board`: `[]{id, name, type}`
+- `resolve sprint`: `[]{id, name, state}`
+- `resolve field`: `[]{id, name, custom}`
+- `resolve transition`: `[]{id, name}`
+
+### Metadata
+
+`resolverMetadata` sets `total`, `returned`, and `usage_hint` on every resolve response. `usage_hint` is a ready-to-run follow-up command string:
+
+| Resolver | `usage_hint` |
+| --- | --- |
+| user | `jira-agent issue assign <issue-key> --assignee <account_id>` |
+| board | `jira-agent resolve sprint --board-id <id> <sprint-name>` |
+| sprint | `jira-agent sprint get <id>` |
+| field | `jira-agent issue get <issue-key> --fields <id>` |
+| transition | `jira-agent issue transition <key> --transition-id <id>` |
+
+### Context flags
+
+- `resolve sprint` requires `--board-id <id>`. Missing board ID returns a `ValidationError` with `next_command: "jira-agent resolve board <board-name>"`.
+- `resolve sprint --state` accepts comma-separated values: `future`, `active`, `closed`. Default is `active,future`. Sprint matching is client-side case-insensitive substring, capped at 10 results.
+- `resolve transition` requires `--issue <key>`. Missing issue key returns a `ValidationError` with `next_command: "jira-agent issue get <issue-key>"`. Transition matching checks both the transition name and the target status name (`to.name`), case-insensitive substring. Not-found errors include `available_actions` listing all transition names for the issue.
+
+### LLM nudge mechanisms
+
+1. Schema category: all resolve subcommands inherit `category: "discovery"` from the parent `ResolveCommand`.
+2. `usage_hint` in `metadata`: each resolver embeds the follow-up command so agents know what to do with the resolved ID without guessing.
+3. Validation error `next_command`: `parseBoardID` and `parseSprintID` in `jql_helpers.go` include `next_command` pointing to the appropriate resolve subcommand when an ID is invalid or missing.
+
+### Shared helpers in resolve.go
+
+- `resolverMetadata(total, returned int, usageHint string) output.Metadata`: builds metadata with `total`, `returned`, and `usage_hint`.
+- `requireQuery(args []string, entityName string) (string, error)`: validates that a non-empty positional query arg is present; returns `ValidationError` otherwise.
+
 ## Gotchas agents depend on
 
 - Issue descriptions default to auto mode on writes: plain text auto-converts to ADF and structured ADF JSON passes through. Use `--description-format wiki` when the input uses Jira wiki markup such as `h4.` headings or `*` bullet lists. On reads, `issue get` and `issue search` default to `--description-output-format text`; use `markdown`, `adf`, or `--raw` when callers need richer formatting or Jira's unmodified payload.
