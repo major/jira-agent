@@ -108,6 +108,7 @@ Composite commands collapse multiple API calls into one invocation and require w
 ```bash
 jira-agent issue start-work PROJ-123
 jira-agent issue close PROJ-123 --resolution "Won't Do"
+jira-agent issue create-and-assign --project PROJ --type Story --summary "New feature"
 jira-agent issue move-to-sprint PROJ-123 --sprint-id 42 --status "In Progress"
 ```
 
@@ -143,9 +144,9 @@ Default JSON removes noisy Jira metadata such as `self`, `expand`, `avatarUrls`,
 | Area | Commands | Detailed docs |
 | --- | --- | --- |
 | Issues | `issue get`, `issue search`, `issue count`, `issue create`, `issue edit`, `issue bulk`, `issue mine`, `issue recent` | [`skills/jira-agent/issues.md`](./skills/jira-agent/issues.md) |
-| Issue composites | `issue start-work`, `issue close`, `issue create-and-link`, `issue move-to-sprint` | [`skills/jira-agent/issues.md`](./skills/jira-agent/issues.md) |
+| Issue composites | `issue start-work`, `issue close`, `issue create-and-assign`, `issue create-and-link`, `issue move-to-sprint`, `issue transition-jql` | [`skills/jira-agent/issues.md`](./skills/jira-agent/issues.md) |
 | Issue workflows | transitions, assignment, comments, worklogs, watchers, votes, links, attachments | [`skills/jira-agent/issue-workflows.md`](./skills/jira-agent/issue-workflows.md) |
-| Agile | boards, sprints, epics, backlog, `sprint current` | [`skills/jira-agent/agile.md`](./skills/jira-agent/agile.md) |
+| Agile | boards, sprints, epics, backlog, `sprint current`, `sprint summarize` | [`skills/jira-agent/agile.md`](./skills/jira-agent/agile.md) |
 | Projects | projects, components, versions | [`skills/jira-agent/project-management.md`](./skills/jira-agent/project-management.md) |
 | Admin/reference | fields, users, groups, filters, permissions, dashboards, workflows, statuses, JQL, server info | [`skills/jira-agent/admin-reference.md`](./skills/jira-agent/admin-reference.md) |
 | Discovery | `schema` (no auth required) | [`skills/jira-agent/SKILL.md`](./skills/jira-agent/SKILL.md) |

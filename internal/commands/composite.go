@@ -2,9 +2,12 @@ package commands
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"maps"
+	"sort"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -395,6 +398,484 @@ type createAndLinkParams struct {
 	linkDirection string
 }
 
+// createAndAssignParams holds the parsed flags for the create-and-assign
+// composite command.
+type createAndAssignParams struct {
+	project     string
+	issueType   string
+	summary     string
+	payloadJSON string
+	assignee    string
+	skipAssign  bool
+}
+
+// transitionJQLParams holds the parsed flags for the transition-jql composite command.
+type transitionJQLParams struct {
+	jql              string
+	targetStatus     string
+	sendNotification bool
+}
+
+// issueCreateAndAssignCommand returns a composite command that creates an issue
+// and assigns it in one invocation.
+func issueCreateAndAssignCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites, dryRun *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "create-and-assign",
+		Short: "Create an issue and assign it in one step",
+		Example: `jira-agent issue create-and-assign --project PROJ --type Story --summary "New feature"
+jira-agent issue create-and-assign --project PROJ --type Bug --summary "Fix" --assignee abc123
+jira-agent issue create-and-assign --project PROJ --type Task --summary "Chore" --skip-assign
+jira-agent issue create-and-assign --project PROJ --type Story --summary "New" --dry-run`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			isDry := IsDryRun(dryRun)
+			if !isDry {
+				if err := requireWriteAccess(allowWrites); err != nil {
+					return err
+				}
+			}
+
+			p := createAndAssignParams{
+				project:     resolveProject(cmd),
+				issueType:   mustGetString(cmd, "type"),
+				summary:     mustGetString(cmd, "summary"),
+				payloadJSON: mustGetString(cmd, "payload-json"),
+				assignee:    mustGetString(cmd, "assignee"),
+				skipAssign:  mustGetBool(cmd, "skip-assign"),
+			}
+
+			if p.payloadJSON == "" {
+				if p.summary == "" {
+					return apperr.NewValidationError("--summary is required when not using --payload-json", nil)
+				}
+				if p.issueType == "" {
+					return apperr.NewValidationError("--type is required when not using --payload-json", nil)
+				}
+			}
+
+			opts := CompactOptsFromCmd(cmd)
+			if isDry {
+				return createAndAssignDryRun(w, *format, &p, opts...)
+			}
+			return createAndAssignExecute(cmd, cmd.Context(), apiClient, w, *format, &p, opts...)
+		},
+	}
+	cmd.Flags().String("type", "", "Issue type name (e.g. Story, Bug, Task)")
+	cmd.Flags().String("summary", "", "Issue summary")
+	cmd.Flags().String("description", "", "Description text, ADF JSON, or wiki markup with --description-format")
+	cmd.Flags().String("description-format", "auto", "Description input format: auto, plain, adf, or wiki")
+	cmd.Flags().String("assignee", "", "Assignee account ID")
+	cmd.Flags().String("priority", "", "Priority name (e.g. High, Medium, Low)")
+	cmd.Flags().String("labels", "", "Comma-separated labels")
+	cmd.Flags().String("components", "", "Comma-separated component names")
+	cmd.Flags().String("parent", "", "Parent issue key (for subtasks/child issues)")
+	cmd.Flags().StringToString("field", map[string]string{}, "Custom field value (key=value, repeatable)")
+	cmd.Flags().String("fields-json", "", "JSON object of fields (alternative to individual flags)")
+	cmd.Flags().String("payload-json", "", "Full JSON issue create payload (mutually exclusive with individual field flags)")
+	cmd.Flags().Bool("skip-assign", false, "Skip assignment step")
+	markMutuallyExclusive(cmd, "assignee", "skip-assign")
+	for _, flag := range []string{"summary", "type", "description", "priority", "labels", "components", "parent", "field", "fields-json"} {
+		markMutuallyExclusive(cmd, "payload-json", flag)
+	}
+	SetCommandCategory(cmd, commandCategoryWorkflow)
+	return cmd
+}
+
+// createAndAssignDryRun outputs what would be created and assigned without any
+// API calls.
+func createAndAssignDryRun(w io.Writer, format output.Format, p *createAndAssignParams, opts ...output.WriteOption) error {
+	before := map[string]any{}
+	after := map[string]any{}
+	if p.payloadJSON != "" {
+		after["summary"] = "(payload-json)"
+	} else {
+		after["summary"] = p.summary
+		after["type"] = p.issueType
+	}
+	if p.project != "" {
+		after["project"] = p.project
+	}
+	switch {
+	case p.skipAssign:
+		after["assignee"] = "(none)"
+	case p.assignee != "":
+		after["assignee"] = p.assignee
+	default:
+		after["assignee"] = "(resolved from /myself)"
+	}
+	return WriteDryRunResult(w, DryRunResult{
+		Command:  "issue create-and-assign",
+		IssueKey: "(new)",
+		Before:   before,
+		After:    after,
+		Diff:     ComputeFieldDiff(before, after),
+	}, format, opts...)
+}
+
+// createAndAssignExecute creates an issue and then assigns it. If creation
+// succeeds but assignment fails, a partial result includes remediation.
+func createAndAssignExecute(cmd *cobra.Command, ctx context.Context, apiClient *client.Ref, w io.Writer, format output.Format, p *createAndAssignParams, opts ...output.WriteOption) error {
+	if !p.skipAssign && p.assignee == "" {
+		id, err := resolveAccountID(ctx, apiClient)
+		if err != nil {
+			return err
+		}
+		p.assignee = id
+	}
+
+	body, err := buildCreatePayload(cmd, p)
+	if err != nil {
+		return err
+	}
+
+	var createResult map[string]any
+	if err := apiClient.Post(ctx, "/issue", body, &createResult); err != nil {
+		return err
+	}
+
+	newKey, _ := createResult["key"].(string)
+	if newKey == "" {
+		return apperr.NewAPIError("create response missing issue key", 0, "", nil)
+	}
+
+	if p.skipAssign {
+		return output.WriteResult(w, map[string]any{"key": newKey, "assigned": false}, format, opts...)
+	}
+
+	assignBody := map[string]any{"accountId": p.assignee}
+	if err := apiClient.Put(ctx, "/issue/"+newKey+"/assignee", assignBody, nil); err != nil {
+		result := map[string]any{
+			"key":          newKey,
+			"assigned":     false,
+			"next_command": fmt.Sprintf("jira-agent issue assign %s %s", shellQuoteFlagValue(newKey), shellQuoteFlagValue(p.assignee)),
+		}
+		return output.WritePartial(w, result, []string{"assign: " + err.Error()}, output.NewMetadata(), format, opts...)
+	}
+
+	result := map[string]any{
+		"key":      newKey,
+		"assigned": true,
+		"assignee": p.assignee,
+	}
+	return output.WriteResult(w, result, format, opts...)
+}
+
+// issueTransitionJQLCommand returns a composite command that searches issues by
+// JQL, resolves available transition IDs, and submits a Jira bulk transition.
+func issueTransitionJQLCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites, dryRun *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "transition-jql",
+		Short: "Bulk transition issues selected by JQL",
+		Example: `jira-agent issue transition-jql --jql 'project = PROJ AND status = "In Progress"' --status Done
+jira-agent issue transition-jql --jql 'assignee = currentUser() AND status = Open' --status "In Progress" --send-notification=false`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			isDry := IsDryRun(dryRun)
+			if !isDry {
+				if err := requireWriteAccess(allowWrites); err != nil {
+					return err
+				}
+			}
+
+			p := transitionJQLParams{
+				jql:              mustGetString(cmd, "jql"),
+				targetStatus:     mustGetString(cmd, "status"),
+				sendNotification: mustGetBool(cmd, "send-notification"),
+			}
+			if strings.TrimSpace(p.jql) == "" {
+				return apperr.NewValidationError("--jql is required", nil)
+			}
+			if strings.TrimSpace(p.targetStatus) == "" {
+				return apperr.NewValidationError("--status is required", nil)
+			}
+
+			ctx := cmd.Context()
+			state, err := transitionJQLPrepare(ctx, apiClient, &p)
+			if err != nil {
+				return err
+			}
+
+			opts := CompactOptsFromCmd(cmd)
+			if isDry {
+				return transitionJQLDryRun(w, *format, p, state, opts...)
+			}
+			return transitionJQLExecute(ctx, apiClient, w, *format, p, state, opts...)
+		},
+	}
+	cmd.Flags().String("jql", "", "JQL query to select issues")
+	cmd.Flags().String("status", "", "Target status name to transition to")
+	cmd.Flags().Bool("send-notification", true, "Send bulk notification email")
+	_ = cmd.MarkFlagRequired("jql")
+	_ = cmd.MarkFlagRequired("status")
+	SetCommandCategory(cmd, commandCategoryWorkflow)
+	return cmd
+}
+
+type transitionJQLState struct {
+	issueKeys      []string
+	statusCounts   map[string]int
+	transitionKeys map[string][]string
+	skipped        []string
+}
+
+func transitionJQLPrepare(ctx context.Context, apiClient *client.Ref, p *transitionJQLParams) (transitionJQLState, error) {
+	var state transitionJQLState
+	searchBody := map[string]any{
+		"jql":        p.jql,
+		"fields":     []string{"key", "status"},
+		"maxResults": 1000,
+	}
+
+	var searchResult map[string]any
+	if err := apiClient.Post(ctx, "/search/jql", searchBody, &searchResult); err != nil {
+		return state, err
+	}
+
+	total := intFromAny(searchResult["total"])
+	if total > 1000 {
+		return state, apperr.NewValidationError(
+			fmt.Sprintf("JQL matched %d issues, exceeding the 1000-issue Jira bulk limit", total),
+			nil,
+			apperr.WithNextCommand("jira-agent issue transition-jql --jql '<narrower JQL>' --status "+shellQuoteFlagValue(p.targetStatus)),
+		)
+	}
+	if total == 0 {
+		return state, apperr.NewValidationError("JQL matched 0 issues", nil)
+	}
+
+	state.issueKeys, state.statusCounts = transitionJQLIssueState(searchResult)
+	if len(state.issueKeys) == 0 {
+		return state, apperr.NewValidationError("JQL matched 0 issues", nil)
+	}
+
+	transitions, err := fetchTransitionMetadataChunked(ctx, apiClient, state.issueKeys)
+	if err != nil {
+		return state, err
+	}
+	state.transitionKeys, state.skipped = groupTransitionJQLIssues(state.issueKeys, transitions, p.targetStatus)
+	if len(state.transitionKeys) == 0 {
+		return state, apperr.NewValidationError(fmt.Sprintf("no issues can transition to status %q", p.targetStatus), nil)
+	}
+	return state, nil
+}
+
+// fetchTransitionMetadataChunked retrieves available transitions for the given
+// issue keys in batches of 100 to avoid exceeding URL length limits on the GET
+// endpoint. Results from all batches are merged into a single response map.
+func fetchTransitionMetadataChunked(ctx context.Context, apiClient *client.Ref, keys []string) (map[string]any, error) {
+	const chunkSize = 100
+	var allEntries []any
+	for i := 0; i < len(keys); i += chunkSize {
+		end := min(i+chunkSize, len(keys))
+		chunk := keys[i:end]
+		var transitions map[string]any
+		params := map[string]string{"issueIdsOrKeys": strings.Join(chunk, ",")}
+		if err := apiClient.Get(ctx, "/bulk/issues/transition", params, &transitions); err != nil {
+			return nil, err
+		}
+		allEntries = append(allEntries, transitionJQLIssueTransitionEntries(transitions)...)
+	}
+	return map[string]any{"issueTransitions": allEntries}, nil
+}
+
+func transitionJQLIssueState(searchResult map[string]any) (keys []string, statusCounts map[string]int) {
+	issues, _ := searchResult["issues"].([]any)
+	keys = make([]string, 0, len(issues))
+	statusCounts = map[string]int{}
+	for _, issue := range issues {
+		issueMap, ok := issue.(map[string]any)
+		if !ok {
+			continue
+		}
+		key, _ := issueMap["key"].(string)
+		if key == "" {
+			continue
+		}
+		keys = append(keys, key)
+		status := transitionJQLIssueStatus(issueMap)
+		if status == "" {
+			status = "(unknown)"
+		}
+		statusCounts[status]++
+	}
+	return keys, statusCounts
+}
+
+func transitionJQLIssueStatus(issue map[string]any) string {
+	fields, ok := issue["fields"].(map[string]any)
+	if !ok {
+		return ""
+	}
+	status, ok := fields["status"].(map[string]any)
+	if !ok {
+		return ""
+	}
+	name, _ := status["name"].(string)
+	return name
+}
+
+func groupTransitionJQLIssues(issueKeys []string, transitions map[string]any, targetStatus string) (groups map[string][]string, skipped []string) {
+	groups = map[string][]string{}
+	skipped = make([]string, 0)
+	seen := map[string]struct{}{}
+	for _, item := range transitionJQLIssueTransitionEntries(transitions) {
+		key, list := transitionJQLTransitionEntry(item)
+		if key == "" {
+			continue
+		}
+		seen[key] = struct{}{}
+		if id := transitionJQLMatchingTransitionID(list, targetStatus); id != "" {
+			groups[id] = append(groups[id], key)
+		} else {
+			skipped = append(skipped, key)
+		}
+	}
+	for _, key := range issueKeys {
+		if _, ok := seen[key]; !ok {
+			skipped = append(skipped, key)
+		}
+	}
+	return groups, skipped
+}
+
+func transitionJQLIssueTransitionEntries(response map[string]any) []any {
+	for _, field := range []string{"issueTransitions", "issues", "values"} {
+		if entries, ok := response[field].([]any); ok {
+			return entries
+		}
+	}
+	return nil
+}
+
+func transitionJQLTransitionEntry(entry any) (key string, transitions []any) {
+	m, ok := entry.(map[string]any)
+	if !ok {
+		return "", nil
+	}
+	key, _ = m["issueIdOrKey"].(string)
+	if key == "" {
+		key, _ = m["key"].(string)
+	}
+	if key == "" {
+		key, _ = m["issueKey"].(string)
+	}
+	for _, field := range []string{"transitions", "availableTransitions"} {
+		if transitions, ok := m[field].([]any); ok {
+			return key, transitions
+		}
+	}
+	return key, nil
+}
+
+func transitionJQLMatchingTransitionID(transitions []any, targetStatus string) string {
+	for _, transition := range transitions {
+		m, ok := transition.(map[string]any)
+		if !ok {
+			continue
+		}
+		to, _ := m["to"].(map[string]any)
+		name, _ := to["name"].(string)
+		if strings.EqualFold(name, targetStatus) {
+			id, _ := m["id"].(string)
+			return id
+		}
+	}
+	return ""
+}
+
+func transitionJQLDryRun(w io.Writer, format output.Format, p transitionJQLParams, state transitionJQLState, opts ...output.WriteOption) error {
+	before := map[string]any{
+		"issues_matched":   len(state.issueKeys),
+		"current_statuses": state.statusCounts,
+	}
+	after := map[string]any{
+		"target_status":        p.targetStatus,
+		"issues_to_transition": transitionJQLSubmissionCount(state.transitionKeys),
+		"issues_skipped":       len(state.skipped),
+	}
+	return WriteDryRunResult(w, DryRunResult{
+		Command:  "issue transition-jql",
+		IssueKey: fmt.Sprintf("(%d issues)", len(state.issueKeys)),
+		Before:   before,
+		After:    after,
+		Diff:     ComputeFieldDiff(before, after),
+	}, format, opts...)
+}
+
+func transitionJQLExecute(ctx context.Context, apiClient *client.Ref, w io.Writer, format output.Format, p transitionJQLParams, state transitionJQLState, opts ...output.WriteOption) error {
+	inputs := transitionJQLBulkInputs(state.transitionKeys)
+	body := map[string]any{
+		"bulkTransitionInputs": inputs,
+		"sendBulkNotification": p.sendNotification,
+	}
+	var response map[string]any
+	if err := apiClient.Post(ctx, "/bulk/issues/transition", body, &response); err != nil {
+		return err
+	}
+	taskID := transitionJQLTaskID(response)
+	result := map[string]any{
+		"task_id":          taskID,
+		"issues_submitted": transitionJQLSubmissionCount(state.transitionKeys),
+		"issues_skipped":   len(state.skipped),
+	}
+	if taskID != "" {
+		result["next_command"] = "jira-agent issue bulk-status " + shellQuoteFlagValue(taskID)
+	}
+	if len(state.skipped) > 0 {
+		return output.WritePartial(w, result, []string{fmt.Sprintf("skipped issues without a valid transition to %q: %s", p.targetStatus, strings.Join(state.skipped, ", "))}, output.NewMetadata(), format, opts...)
+	}
+	return output.WriteResult(w, result, format, opts...)
+}
+
+func transitionJQLBulkInputs(groups map[string][]string) []map[string]any {
+	ids := make([]string, 0, len(groups))
+	for id := range groups {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	inputs := make([]map[string]any, 0, len(ids))
+	for _, id := range ids {
+		keys := append([]string(nil), groups[id]...)
+		sort.Strings(keys)
+		inputs = append(inputs, map[string]any{
+			"selectedIssueIdsOrKeys": keys,
+			"transitionId":           id,
+		})
+	}
+	return inputs
+}
+
+func transitionJQLSubmissionCount(groups map[string][]string) int {
+	var count int
+	for _, keys := range groups {
+		count += len(keys)
+	}
+	return count
+}
+
+func transitionJQLTaskID(response map[string]any) string {
+	for _, field := range []string{"taskId", "task_id", "id"} {
+		if id, ok := response[field].(string); ok {
+			return id
+		}
+	}
+	return ""
+}
+
+func intFromAny(value any) int {
+	switch v := value.(type) {
+	case int:
+		return v
+	case int64:
+		return int(v)
+	case float64:
+		return int(v)
+	case json.Number:
+		n, _ := v.Int64()
+		return int(n)
+	default:
+		return 0
+	}
+}
+
 // issueCreateAndLinkCommand returns a composite command that creates an issue
 // and links it to an existing issue in a single invocation.
 func issueCreateAndLinkCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites, dryRun *bool) *cobra.Command {
@@ -536,55 +1017,84 @@ func createAndLinkExecute(cmd *cobra.Command, ctx context.Context, apiClient *cl
 
 // buildCreatePayload constructs the issue create body from command flags or
 // --payload-json, reusing the same helpers as issueCreateCommand.
-func buildCreatePayload(cmd *cobra.Command, p *createAndLinkParams) (map[string]any, error) {
-	if p.payloadJSON != "" {
+func buildCreatePayload(cmd *cobra.Command, p any) (map[string]any, error) {
+	project, issueType, summary, payloadJSON, err := createPayloadFields(p)
+	if err != nil {
+		return nil, err
+	}
+
+	if payloadJSON != "" {
 		body := map[string]any{}
-		if err := mergePayloadJSON(body, p.payloadJSON); err != nil {
+		if err := mergePayloadJSON(body, payloadJSON); err != nil {
 			return nil, err
 		}
+		// Strip assignee from payload when invoked from create-and-assign;
+		// assignment is managed by the command's own assignment step so an
+		// embedded assignee would bypass --skip-assign and recovery semantics.
+		if _, isCreateAndAssign := p.(*createAndAssignParams); isCreateAndAssign {
+			if fields, ok := body["fields"].(map[string]any); ok {
+				delete(fields, "assignee")
+			}
+		}
 		// Inject project when the payload omits it.
-		if p.project != "" {
+		if project != "" {
 			fields, ok := body["fields"].(map[string]any)
 			if !ok {
 				fields = map[string]any{}
 				body["fields"] = fields
 			}
 			if _, hasProject := fields["project"]; !hasProject {
-				fields["project"] = map[string]any{"key": p.project}
+				fields["project"] = map[string]any{"key": project}
 			}
 		}
 		return body, nil
 	}
 
 	// Individual flags mode requires project, type, and summary.
-	if p.project == "" {
+	if project == "" {
 		return nil, apperr.NewValidationError(
 			"--project is required",
 			nil,
 			apperr.WithDetails("use --project flag or set JIRA_PROJECT env var"),
 		)
 	}
-	if p.issueType == "" {
+	if issueType == "" {
 		return nil, apperr.NewValidationError("--type is required", nil)
 	}
-	if p.summary == "" {
+	if summary == "" {
 		return nil, apperr.NewValidationError("--summary is required", nil)
 	}
 
 	fields := map[string]any{
-		"project":   map[string]any{"key": p.project},
-		"issuetype": map[string]any{"name": p.issueType},
-		"summary":   p.summary,
+		"project":   map[string]any{"key": project},
+		"issuetype": map[string]any{"name": issueType},
+		"summary":   summary,
 	}
 
 	if err := applyCommonFields(fields, cmd); err != nil {
 		return nil, err
+	}
+	if _, isCreateAndAssign := p.(*createAndAssignParams); isCreateAndAssign {
+		delete(fields, "assignee")
 	}
 	if err := applyMerges(fields, cmd); err != nil {
 		return nil, err
 	}
 
 	return map[string]any{"fields": fields}, nil
+}
+
+// createPayloadFields extracts the fields shared by composite commands that
+// reuse the issue create payload builder.
+func createPayloadFields(p any) (project, issueType, summary, payloadJSON string, err error) {
+	switch params := p.(type) {
+	case *createAndLinkParams:
+		return params.project, params.issueType, params.summary, params.payloadJSON, nil
+	case *createAndAssignParams:
+		return params.project, params.issueType, params.summary, params.payloadJSON, nil
+	default:
+		return "", "", "", "", apperr.NewValidationError("unsupported create payload params", nil)
+	}
 }
 
 // buildLinkPayload constructs the issue link body for POST /issueLink.

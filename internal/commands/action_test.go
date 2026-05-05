@@ -126,12 +126,12 @@ func TestCommandGroups_RegisterSubcommands(t *testing.T) {
 		{name: "workflow", cmd: WorkflowCommand(apiClient, &buf, format), want: 5},
 		{name: "component", cmd: ComponentCommand(apiClient, &buf, format, testAllowWrites()), want: 6},
 		{name: "version", cmd: VersionCommand(apiClient, &buf, format, testAllowWrites()), want: 9},
-		{name: "sprint", cmd: SprintCommand(apiClient, &buf, format, testAllowWrites()), want: 10},
+		{name: "sprint", cmd: SprintCommand(apiClient, &buf, format, testAllowWrites()), want: 11},
 		{name: "epic", cmd: EpicCommand(apiClient, &buf, format, testAllowWrites()), want: 6},
 		{name: "backlog", cmd: BacklogCommand(apiClient, &buf, format, testAllowWrites()), want: 2},
 		{name: "task", cmd: TaskCommand(apiClient, &buf, format, testAllowWrites()), want: 2},
 		{name: "time-tracking", cmd: TimeTrackingCommand(apiClient, &buf, format, testAllowWrites()), want: 4},
-		{name: "issue", cmd: IssueCommand(apiClient, &buf, format, testAllowWrites(), testDryRun()), want: 37},
+		{name: "issue", cmd: IssueCommand(apiClient, &buf, format, testAllowWrites(), testDryRun()), want: 39},
 		{name: "jql", cmd: JQLCommand(apiClient, &buf, format), want: 3},
 	}
 

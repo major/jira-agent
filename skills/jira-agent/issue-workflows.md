@@ -31,6 +31,47 @@ jira-agent issue transition KEY-123 --list --expand transitions.fields
 
 Matches against both transition names and target status names when `--to` is used.
 
+## issue create-and-assign
+
+```bash
+jira-agent issue create-and-assign --project PROJ --type Story --summary "New feature"
+jira-agent issue create-and-assign --project PROJ --type Bug --summary "Fix login" --assignee 5b10ac8d82e05b22cc7d4ef5
+jira-agent issue create-and-assign --project PROJ --type Task --summary "Refactor" --skip-assign
+jira-agent issue create-and-assign --project PROJ --type Story --summary "New feature" --dry-run
+```
+
+| Flag | Default | Notes |
+|------|---------|-------|
+| `--project` | `$JIRA_PROJECT` | Project key |
+| `--type` | | Issue type name (required unless `--payload-json`) |
+| `--summary` | | Issue summary (required unless `--payload-json`) |
+| `--assignee` | current user | Account ID. Omit to self-assign via `/myself`. Mutually exclusive with `--skip-assign` |
+| `--skip-assign` | false | Create without assigning. Mutually exclusive with `--assignee` |
+| `--description` | | Description text or ADF JSON |
+| `--priority` | | Priority name |
+| `--labels` | | Comma-separated labels |
+| `--payload-json` | | Full JSON create payload (mutually exclusive with individual field flags) |
+| `--dry-run` | false | Preview without creating or assigning |
+
+Omitting `--assignee` resolves the current user via `GET /myself` and assigns them. On partial failure (create succeeds, assign fails), output includes `next_command` for manual assignment recovery.
+
+## issue transition-jql
+
+```bash
+jira-agent issue transition-jql --jql 'project = PROJ AND status = "In Progress"' --status Done
+jira-agent issue transition-jql --jql 'assignee = currentUser() AND status = Open' --status "In Progress" --send-notification=false
+jira-agent issue transition-jql --jql 'project = PROJ AND status = Open' --status Done --dry-run
+```
+
+| Flag | Default | Notes |
+|------|---------|-------|
+| `--jql` | | Required. JQL selecting up to 1000 issues |
+| `--status` | | Required. Target status name, matched case-insensitively against bulk transition `to.name` |
+| `--send-notification` | true | Send Jira bulk notification email |
+| `--dry-run` | false | Search and resolve transitions without submitting the bulk task |
+
+Output includes `task_id`, submitted/skipped counts, and `next_command` for `jira-agent issue bulk-status <task_id>`. If some issues cannot transition to the target status, the command submits the valid groups and returns partial output with skipped issue details.
+
 ## issue assign
 
 ```bash

@@ -1,9 +1,11 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -26,6 +28,7 @@ jira-agent sprint swap 100 101`,
 		sprintListCommand(apiClient, w, format),
 		sprintCurrentCommand(apiClient, w, format),
 		sprintGetCommand(apiClient, w, format),
+		sprintSummarizeCommand(apiClient, w, format),
 		sprintCreateCommand(apiClient, w, format, allowWrites),
 		sprintUpdateCommand(apiClient, w, format, allowWrites),
 		sprintDeleteCommand(apiClient, w, format, allowWrites),
@@ -141,6 +144,213 @@ func sprintGetCommand(apiClient *client.Ref, w io.Writer, format *output.Format)
 				return apiClient.AgileGet(ctx, "/sprint/"+strconv.FormatInt(sprintID, 10), nil, result)
 			})
 		},
+	}
+}
+
+// sprintSummarizeCommand aggregates issue counts and story points for a sprint.
+// It combines Agile sprint metadata with a paginated POST /rest/api/3/search/jql
+// query so large sprint contents are summarized without exposing issue details.
+func sprintSummarizeCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "summarize <sprint-id>",
+		Short: "Summarize sprint status counts and story points",
+		Example: `jira-agent sprint summarize 42
+jira-agent sprint summarize 42 --story-points-field customfield_10016`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			arg, err := requireArg(args, "sprint ID")
+			if err != nil {
+				return err
+			}
+			sprintID, err := parseSprintID(arg)
+			if err != nil {
+				return err
+			}
+
+			var sprintData map[string]any
+			if err := apiClient.AgileGet(ctx, "/sprint/"+strconv.FormatInt(sprintID, 10), nil, &sprintData); err != nil {
+				return err
+			}
+
+			spFieldID, _ := cmd.Flags().GetString("story-points-field")
+			if spFieldID == "" {
+				discovered, err := discoverStoryPointsField(ctx, apiClient)
+				if err != nil {
+					return err
+				}
+				spFieldID = discovered
+			}
+
+			summary, err := summarizeSprintIssues(ctx, apiClient, sprintID, spFieldID)
+			if err != nil {
+				return err
+			}
+
+			var spResult any
+			if spFieldID != "" && summary.hasStoryPoints {
+				spResult = map[string]any{
+					"total":     summary.totalSP,
+					"by_status": summary.spByStatus,
+					"field":     spFieldID,
+				}
+			}
+
+			result := map[string]any{
+				"sprint": map[string]any{
+					"id":            sprintID,
+					"name":          sprintData["name"],
+					"state":         sprintData["state"],
+					"start_date":    sprintData["startDate"],
+					"end_date":      sprintData["endDate"],
+					"complete_date": sprintData["completeDate"],
+				},
+				"issues": map[string]any{
+					"total":     summary.totalIssues,
+					"by_status": summary.statusCounts,
+				},
+				"story_points": spResult,
+			}
+
+			return output.WriteResult(w, result, *format, CompactOptsFromCmd(cmd)...)
+		},
+	}
+	cmd.Flags().String("story-points-field", "", "Custom field ID for story points (e.g. customfield_10016)")
+	SetCommandCategory(cmd, commandCategoryRead)
+	return cmd
+}
+
+func discoverStoryPointsField(ctx context.Context, apiClient *client.Ref) (string, error) {
+	var result any
+	if err := apiClient.Get(ctx, "/field/search", map[string]string{"query": "story points", "type": "custom"}, &result); err != nil {
+		return "", err
+	}
+
+	fields := resultList(result, "values")
+	if len(fields) == 0 {
+		fields = resultList(result, "")
+	}
+
+	// Filter by exact name match (case-insensitive) for known story points
+	// field names. The /field/search query returns loosely matching fields,
+	// so blindly taking the first result can select an unrelated custom field.
+	for _, f := range fields {
+		field, ok := f.(map[string]any)
+		if !ok {
+			continue
+		}
+		name, _ := field["name"].(string)
+		lower := strings.ToLower(name)
+		if lower == "story points" || lower == "story point estimate" {
+			id, _ := field["id"].(string)
+			if id != "" {
+				return id, nil
+			}
+		}
+	}
+	return "", nil
+}
+
+// sprintIssueSummaryResult holds aggregated sprint issue data.
+type sprintIssueSummaryResult struct {
+	statusCounts   map[string]int
+	spByStatus     map[string]float64
+	totalIssues    int
+	totalSP        float64
+	hasStoryPoints bool
+}
+
+func summarizeSprintIssues(ctx context.Context, apiClient *client.Ref, sprintID int64, spFieldID string) (sprintIssueSummaryResult, error) {
+	r := sprintIssueSummaryResult{
+		statusCounts: map[string]int{},
+		spByStatus:   map[string]float64{},
+	}
+	startAt := 0
+
+	fields := []string{"status"}
+	if spFieldID != "" {
+		fields = append(fields, spFieldID)
+	}
+
+	for {
+		body := map[string]any{
+			"jql":        fmt.Sprintf("sprint = %d", sprintID),
+			"fields":     fields,
+			"maxResults": 100,
+			"startAt":    startAt,
+		}
+		var result map[string]any
+		if err := apiClient.Post(ctx, "/search/jql", body, &result); err != nil {
+			return r, err
+		}
+
+		if total, ok := numberFromAny(result["total"]); ok {
+			r.totalIssues = int(total)
+		}
+
+		issues := resultList(result, "issues")
+		for _, issue := range issues {
+			statusName, spValue, hasSP := sprintIssueSummaryValues(issue, spFieldID)
+			if statusName == "" {
+				continue
+			}
+			r.statusCounts[statusName]++
+			if hasSP {
+				r.hasStoryPoints = true
+				r.totalSP += spValue
+				r.spByStatus[statusName] += spValue
+			}
+		}
+
+		startAt += len(issues)
+		if len(issues) == 0 || startAt >= r.totalIssues {
+			break
+		}
+	}
+
+	return r, nil
+}
+
+func sprintIssueSummaryValues(issue any, spFieldID string) (statusName string, spValue float64, hasSP bool) {
+	issueMap, ok := issue.(map[string]any)
+	if !ok {
+		return
+	}
+	fields, ok := issueMap["fields"].(map[string]any)
+	if !ok {
+		return
+	}
+	status, _ := fields["status"].(map[string]any)
+	statusName, _ = status["name"].(string)
+	if spFieldID == "" {
+		return
+	}
+	spValue, hasSP = numberFromAny(fields[spFieldID])
+	return
+}
+
+func resultList(result any, key string) []any {
+	if key == "" {
+		items, _ := result.([]any)
+		return items
+	}
+	resultMap, ok := result.(map[string]any)
+	if !ok {
+		return nil
+	}
+	items, _ := resultMap[key].([]any)
+	return items
+}
+
+func numberFromAny(value any) (float64, bool) {
+	switch v := value.(type) {
+	case float64:
+		return v, true
+	case int:
+		return float64(v), true
+	case int64:
+		return float64(v), true
+	default:
+		return 0, false
 	}
 }
 

@@ -162,7 +162,7 @@ var commandCategoryPathOverrides = map[string]string{
 }
 
 var commandKnownPaths = []string{
-	"audit", "audit list", "backlog", "backlog list", "backlog move", "board", "board config", "board create", "board delete", "board epics", "board filter", "board get", "board issues", "board list", "board projects", "board property", "board property delete", "board property get", "board property list", "board property set", "board versions", "component", "component create", "component delete", "component get", "component issue-counts", "component list", "component update", "dashboard", "dashboard copy", "dashboard create", "dashboard delete", "dashboard gadgets", "dashboard get", "dashboard list", "dashboard update", "epic", "epic get", "epic issues", "epic move-issues", "epic orphans", "epic rank", "epic remove-issues", "field", "field context", "field context create", "field context delete", "field context list", "field context update", "field list", "field option", "field option create", "field option delete", "field option get", "field option list", "field option reorder", "field option update", "field search", "filter", "filter create", "filter default-share-scope", "filter default-share-scope get", "filter default-share-scope set", "filter delete", "filter favorites", "filter get", "filter list", "filter permissions", "filter share", "filter unshare", "filter update", "group", "group add-member", "group create", "group delete", "group get", "group list", "group member-picker", "group members", "group remove-member", "issue", "issue assign", "issue attachment", "issue attachment add", "issue attachment delete", "issue attachment get", "issue attachment list", "issue bulk", "issue bulk create", "issue bulk delete", "issue bulk edit", "issue bulk edit-fields", "issue bulk fetch", "issue bulk move", "issue bulk status", "issue bulk transition", "issue bulk transitions", "issue bulk-create", "issue bulk-delete", "issue bulk-edit", "issue bulk-edit-fields", "issue bulk-fetch", "issue bulk-move", "issue bulk-status", "issue bulk-transition", "issue bulk-transitions", "issue changelog", "issue changelog bulk-fetch", "issue changelog list-by-ids", "issue close", "issue comment", "issue comment add", "issue comment delete", "issue comment edit", "issue comment get", "issue comment list", "issue comment list-by-ids", "issue count", "issue create", "issue create-and-link", "issue delete", "issue edit", "issue get", "issue link", "issue link add", "issue link delete", "issue link get", "issue link list", "issue link types", "issue meta", "issue mine", "issue move-to-sprint", "issue notify", "issue picker", "issue property", "issue property delete", "issue property get", "issue property list", "issue property set", "issue rank", "issue recent", "issue remote-link", "issue remote-link add", "issue remote-link delete", "issue remote-link edit", "issue remote-link get", "issue remote-link list", "issue search", "issue start-work", "issue transition", "issue vote", "issue vote add", "issue vote get", "issue vote remove", "issue watcher", "issue watcher add", "issue watcher list", "issue watcher remove", "issue worklog", "issue worklog add", "issue worklog delete", "issue worklog deleted", "issue worklog edit", "issue worklog get", "issue worklog list", "issue worklog list-by-ids", "issue worklog updated", "issuetype", "issuetype get", "issuetype list", "issuetype project", "jql", "jql fields", "jql suggest", "jql validate", "label", "label list", "permission", "permission check", "permission list", "permission schemes", "permission schemes get", "permission schemes list", "permission schemes project", "priority", "priority list", "project", "project categories", "project categories get", "project categories list", "project get", "project list", "project property", "project property delete", "project property get", "project property list", "project property set", "project roles", "project roles add-actor", "project roles get", "project roles list", "project roles remove-actor", "resolution", "resolution list", "resolve", "resolve board", "resolve field", "resolve sprint", "resolve transition", "resolve user", "role", "role get", "role list", "server-info", "sprint", "sprint create", "sprint current", "sprint delete", "sprint get", "sprint issues", "sprint list", "sprint move-issues", "sprint property", "sprint property delete", "sprint property get", "sprint property list", "sprint property set", "sprint swap", "sprint update", "status", "status categories", "status get", "status list", "task", "task cancel", "task get", "time-tracking", "time-tracking get", "time-tracking options", "time-tracking options get", "time-tracking options set", "time-tracking providers", "time-tracking select", "user", "user get", "user groups", "user search", "version", "version create", "version delete", "version get", "version issue-counts", "version list", "version merge", "version move", "version unresolved-count", "version update", "workflow", "workflow get", "workflow list", "workflow scheme", "workflow scheme get", "workflow scheme list", "workflow scheme project", "workflow statuses", "workflow transition-rules",
+	"audit", "audit list", "backlog", "backlog list", "backlog move", "board", "board config", "board create", "board delete", "board epics", "board filter", "board get", "board issues", "board list", "board projects", "board property", "board property delete", "board property get", "board property list", "board property set", "board versions", "component", "component create", "component delete", "component get", "component issue-counts", "component list", "component update", "dashboard", "dashboard copy", "dashboard create", "dashboard delete", "dashboard gadgets", "dashboard get", "dashboard list", "dashboard update", "epic", "epic get", "epic issues", "epic move-issues", "epic orphans", "epic rank", "epic remove-issues", "field", "field context", "field context create", "field context delete", "field context list", "field context update", "field list", "field option", "field option create", "field option delete", "field option get", "field option list", "field option reorder", "field option update", "field search", "filter", "filter create", "filter default-share-scope", "filter default-share-scope get", "filter default-share-scope set", "filter delete", "filter favorites", "filter get", "filter list", "filter permissions", "filter share", "filter unshare", "filter update", "group", "group add-member", "group create", "group delete", "group get", "group list", "group member-picker", "group members", "group remove-member", "issue", "issue assign", "issue attachment", "issue attachment add", "issue attachment delete", "issue attachment get", "issue attachment list", "issue bulk", "issue bulk create", "issue bulk delete", "issue bulk edit", "issue bulk edit-fields", "issue bulk fetch", "issue bulk move", "issue bulk status", "issue bulk transition", "issue bulk transitions", "issue bulk-create", "issue bulk-delete", "issue bulk-edit", "issue bulk-edit-fields", "issue bulk-fetch", "issue bulk-move", "issue bulk-status", "issue bulk-transition", "issue bulk-transitions", "issue changelog", "issue changelog bulk-fetch", "issue changelog list-by-ids", "issue close", "issue comment", "issue comment add", "issue comment delete", "issue comment edit", "issue comment get", "issue comment list", "issue comment list-by-ids", "issue count", "issue create", "issue create-and-assign", "issue create-and-link", "issue delete", "issue edit", "issue get", "issue link", "issue link add", "issue link delete", "issue link get", "issue link list", "issue link types", "issue meta", "issue mine", "issue move-to-sprint", "issue notify", "issue picker", "issue property", "issue property delete", "issue property get", "issue property list", "issue property set", "issue rank", "issue recent", "issue remote-link", "issue remote-link add", "issue remote-link delete", "issue remote-link edit", "issue remote-link get", "issue remote-link list", "issue search", "issue start-work", "issue transition", "issue transition-jql", "issue vote", "issue vote add", "issue vote get", "issue vote remove", "issue watcher", "issue watcher add", "issue watcher list", "issue watcher remove", "issue worklog", "issue worklog add", "issue worklog delete", "issue worklog deleted", "issue worklog edit", "issue worklog get", "issue worklog list", "issue worklog list-by-ids", "issue worklog updated", "issuetype", "issuetype get", "issuetype list", "issuetype project", "jql", "jql fields", "jql suggest", "jql validate", "label", "label list", "permission", "permission check", "permission list", "permission schemes", "permission schemes get", "permission schemes list", "permission schemes project", "priority", "priority list", "project", "project categories", "project categories get", "project categories list", "project get", "project list", "project property", "project property delete", "project property get", "project property list", "project property set", "project roles", "project roles add-actor", "project roles get", "project roles list", "project roles remove-actor", "resolution", "resolution list", "resolve", "resolve board", "resolve field", "resolve sprint", "resolve transition", "resolve user", "role", "role get", "role list", "server-info", "sprint", "sprint create", "sprint current", "sprint delete", "sprint get", "sprint issues", "sprint list", "sprint move-issues", "sprint summarize", "sprint property", "sprint property delete", "sprint property get", "sprint property list", "sprint property set", "sprint swap", "sprint update", "status", "status categories", "status get", "status list", "task", "task cancel", "task get", "time-tracking", "time-tracking get", "time-tracking options", "time-tracking options get", "time-tracking options set", "time-tracking providers", "time-tracking select", "user", "user get", "user groups", "user search", "version", "version create", "version delete", "version get", "version issue-counts", "version list", "version merge", "version move", "version unresolved-count", "version update", "workflow", "workflow get", "workflow list", "workflow scheme", "workflow scheme get", "workflow scheme list", "workflow scheme project", "workflow statuses", "workflow transition-rules",
 }
 
 var writeProtectedCommandPaths = map[string]struct{}{
@@ -216,6 +216,7 @@ var writeProtectedCommandPaths = map[string]struct{}{
 	"issue comment delete":           {},
 	"issue comment edit":             {},
 	"issue create":                   {},
+	"issue create-and-assign":        {},
 	"issue create-and-link":          {},
 	"issue delete":                   {},
 	"issue edit":                     {},
@@ -231,6 +232,7 @@ var writeProtectedCommandPaths = map[string]struct{}{
 	"issue remote-link delete":       {},
 	"issue remote-link edit":         {},
 	"issue transition":               {},
+	"issue transition-jql":           {},
 	"issue vote add":                 {},
 	"issue vote remove":              {},
 	"issue watcher add":              {},
@@ -365,8 +367,7 @@ func writeRawAPIResult(w io.Writer, format output.Format, call apiResultFunc) er
 	if err := call(&result); err != nil {
 		return err
 	}
-	meta := output.NewMetadata()
-	return output.WriteRawSuccess(w, result, meta, format)
+	return output.WriteRawSuccess(w, result, output.NewMetadata(), format)
 }
 
 // writePaginatedAPIResult runs an API call that writes into result, extracts
@@ -551,19 +552,6 @@ func extractPaginationMeta(cmd *cobra.Command, result any) output.Metadata {
 }
 
 func buildNextPageCommand(cmd *cobra.Command, nextStartAt int) string {
-	return buildNextPageCommandBase(cmd, map[string]bool{"start-at": true},
-		"--start-at", strconv.Itoa(nextStartAt))
-}
-
-func buildNextPageCommandCursor(cmd *cobra.Command, token string) string {
-	return buildNextPageCommandBase(cmd, map[string]bool{"next-page-token": true, "start-at": true},
-		"--next-page-token", shellQuoteFlagValue(token))
-}
-
-// buildNextPageCommandBase reconstructs the current command with pagination
-// flags replaced. skipFlags names the flags to omit (they get replaced by
-// trailingParts). Both offset and cursor helpers delegate here.
-func buildNextPageCommandBase(cmd *cobra.Command, skipFlags map[string]bool, trailingParts ...string) string {
 	if cmd == nil {
 		return ""
 	}
@@ -573,7 +561,7 @@ func buildNextPageCommandBase(cmd *cobra.Command, skipFlags map[string]bool, tra
 		parts = append(parts, shellQuoteFlagValue(arg))
 	}
 	cmd.Flags().Visit(func(flag *pflag.Flag) {
-		if skipFlags[flag.Name] {
+		if flag.Name == "start-at" {
 			return
 		}
 		parts = append(parts, "--"+flag.Name)
@@ -581,7 +569,29 @@ func buildNextPageCommandBase(cmd *cobra.Command, skipFlags map[string]bool, tra
 			parts = append(parts, shellQuoteFlagValue(flag.Value.String()))
 		}
 	})
-	parts = append(parts, trailingParts...)
+	parts = append(parts, "--start-at", strconv.Itoa(nextStartAt))
+	return strings.Join(parts, " ")
+}
+
+func buildNextPageCommandCursor(cmd *cobra.Command, token string) string {
+	if cmd == nil {
+		return ""
+	}
+
+	parts := []string{cmd.CommandPath()}
+	for _, arg := range cmd.Flags().Args() {
+		parts = append(parts, shellQuoteFlagValue(arg))
+	}
+	cmd.Flags().Visit(func(flag *pflag.Flag) {
+		if flag.Name == "next-page-token" || flag.Name == "start-at" {
+			return
+		}
+		parts = append(parts, "--"+flag.Name)
+		if flag.Value.Type() != "bool" || flag.Value.String() != "true" {
+			parts = append(parts, shellQuoteFlagValue(flag.Value.String()))
+		}
+	})
+	parts = append(parts, "--next-page-token", shellQuoteFlagValue(token))
 	return strings.Join(parts, " ")
 }
 

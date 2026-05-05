@@ -96,10 +96,10 @@ Return typed validation errors rather than generic `fmt.Errorf` for user-correct
 ## Command complexity hotspots
 
 - `issue.go`: largest surface, nested issue interactions, field merging, bulk operations, comments, worklogs, links, attachments, watchers, votes, transitions, ranking, notify, metadata.
-- `composite.go`: composite workflow commands (`start-work`, `close`, `create-and-link`, `move-to-sprint`). Each uses a params struct, a prepare function (read-only API calls), a dry-run function (diff computation), and an execute function (mutations with partial failure). Keep each function under the gocognit limit of 30.
+- `composite.go`: composite workflow commands (`start-work`, `close`, `create-and-assign`, `create-and-link`, `move-to-sprint`, `transition-jql`). Each uses a params struct, a prepare function (read-only API calls), a dry-run function (diff computation), and an execute function (mutations with partial failure). Keep each function under the gocognit limit of 30.
 - `shortcuts.go`: `issue mine` and `issue recent` shortcut commands. Read-only; no `allowWrites`/`dryRun` params.
 - `user_group_filter.go`: user/group/filter searches and pagination.
-- `permission_dashboard.go`, `board.go`, `sprint.go`, `version.go`, `link.go`, and `property.go`: moderate complexity with write paths and Jira-specific API shapes.
+- `permission_dashboard.go`, `board.go`, `sprint.go` (includes `sprint summarize` for read-only sprint status and story point aggregates), `version.go`, `link.go`, and `property.go`: moderate complexity with write paths and Jira-specific API shapes.
 
 ## Resolve command tree
 
