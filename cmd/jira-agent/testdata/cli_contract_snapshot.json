@@ -4130,13 +4130,23 @@
     "path": "jira-agent issue search",
     "use": "search",
     "short": "Search issues via JQL",
-    "example": "jira-agent issue search --jql \"project = PROJ AND status = Open\"\njira-agent issue search --jql \"assignee = currentUser()\" --fields key,summary,status\njira-agent issue search --jql \"assignee = currentUser()\" --fields-preset triage\njira-agent issue search --jql \"project = PROJ\" --fields key,description --description-output-format markdown\njira-agent issue search --jql \"project = PROJ\" --max-results 10 --order-by created --order desc\njira-agent issue search --jql \"project = PROJ\" --raw",
+    "example": "jira-agent issue search --jql \"project = PROJ AND status = Open\"\njira-agent issue search --assignee me --status \"In Progress\"\njira-agent issue search --assignee me --sprint current --fields-preset triage\njira-agent issue search --jql \"assignee = currentUser()\" --fields key,summary,status\njira-agent issue search --jql \"project = PROJ\" --fields key,description --description-output-format markdown\njira-agent issue search --jql \"project = PROJ\" --max-results 10 --order-by created --order desc\njira-agent issue search --jql \"project = PROJ\" --raw",
     "annotations": {
       "jira-agent/category": "read",
-      "jira-agent/flag-groups": "[{\"type\":\"mutually_exclusive\",\"flags\":[\"fields-preset\",\"fields\"]}]",
+      "jira-agent/flag-groups": "[{\"type\":\"mutually_exclusive\",\"flags\":[\"fields-preset\",\"fields\"]},{\"type\":\"mutually_exclusive\",\"flags\":[\"jql\",\"assignee\"]},{\"type\":\"mutually_exclusive\",\"flags\":[\"jql\",\"status\"]},{\"type\":\"mutually_exclusive\",\"flags\":[\"jql\",\"type\"]},{\"type\":\"mutually_exclusive\",\"flags\":[\"jql\",\"priority\"]},{\"type\":\"mutually_exclusive\",\"flags\":[\"jql\",\"label\"]},{\"type\":\"mutually_exclusive\",\"flags\":[\"jql\",\"sprint\"]},{\"type\":\"mutually_exclusive\",\"flags\":[\"jql\",\"updated-since\"]}]",
       "jira-agent/requires-auth": "true"
     },
     "local_flags": [
+      {
+        "name": "assignee",
+        "type": "string",
+        "usage": "Assignee filter (\"me\" for currentUser())",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "jql assignee"
+          ]
+        }
+      },
       {
         "name": "description-output-format",
         "type": "string",
@@ -4184,7 +4194,29 @@
       {
         "name": "jql",
         "type": "string",
-        "usage": "JQL query string (required)"
+        "usage": "JQL query string (required)",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "jql assignee",
+            "jql label",
+            "jql priority",
+            "jql sprint",
+            "jql status",
+            "jql type",
+            "jql updated-since"
+          ]
+        }
+      },
+      {
+        "name": "label",
+        "type": "stringArray",
+        "default": "[]",
+        "usage": "Label filter (repeatable, multiple labels become AND conditions)",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "jql label"
+          ]
+        }
       },
       {
         "name": "max-results",
@@ -4208,6 +4240,16 @@
         "usage": "Sort field (appended to JQL as ORDER BY clause)"
       },
       {
+        "name": "priority",
+        "type": "string",
+        "usage": "Priority filter",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "jql priority"
+          ]
+        }
+      },
+      {
         "name": "properties",
         "type": "string",
         "usage": "Comma-separated issue properties to include"
@@ -4222,6 +4264,46 @@
         "name": "reconcile-issues",
         "type": "string",
         "usage": "Comma-separated issue IDs to reconcile for approximate-count drift"
+      },
+      {
+        "name": "sprint",
+        "type": "string",
+        "usage": "Sprint filter (\"current\" for openSprints())",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "jql sprint"
+          ]
+        }
+      },
+      {
+        "name": "status",
+        "type": "string",
+        "usage": "Status filter",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "jql status"
+          ]
+        }
+      },
+      {
+        "name": "type",
+        "type": "string",
+        "usage": "Issue type filter (maps to issuetype in JQL)",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "jql type"
+          ]
+        }
+      },
+      {
+        "name": "updated-since",
+        "type": "string",
+        "usage": "Updated-since filter (e.g. \"7d\" for updated \u003e= \"-7d\")",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "jql updated-since"
+          ]
+        }
       }
     ]
   },
@@ -5530,6 +5612,7 @@
     },
     "subcommands": [
       "create",
+      "current",
       "delete",
       "get",
       "issues",
@@ -5585,6 +5668,28 @@
         "name": "start-date",
         "type": "string",
         "usage": "Start date (ISO 8601, e.g. 2025-01-15T09:00:00.000Z)"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent sprint current",
+    "use": "current",
+    "short": "Get the active sprint for a board",
+    "example": "jira-agent sprint current --board-id 42",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    },
+    "local_flags": [
+      {
+        "name": "board-id",
+        "type": "string",
+        "usage": "Board ID (required)",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
       }
     ]
   },

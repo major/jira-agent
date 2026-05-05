@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"fmt"
 	"io"
 	"strconv"
 
@@ -23,6 +24,7 @@ jira-agent sprint swap 100 101`,
 	}
 	cmd.AddCommand(
 		sprintListCommand(apiClient, w, format),
+		sprintCurrentCommand(apiClient, w, format),
 		sprintGetCommand(apiClient, w, format),
 		sprintCreateCommand(apiClient, w, format, allowWrites),
 		sprintUpdateCommand(apiClient, w, format, allowWrites),
@@ -73,6 +75,51 @@ jira-agent sprint list --board-id 42 --state active`,
 	_ = cmd.MarkFlagRequired("board-id")
 	cmd.Flags().String("state", "", "Filter by state: future, active, closed (comma-separated)")
 	appendPaginationFlags(cmd)
+	return cmd
+}
+
+// sprintCurrentCommand fetches the active sprint(s) for a given board.
+// GET /rest/agile/1.0/board/{boardId}/sprint?state=active
+func sprintCurrentCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "current",
+		Short:   "Get the active sprint for a board",
+		Example: `jira-agent sprint current --board-id 42`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			ctx := cmd.Context()
+			boardIDStr, _ := cmd.Flags().GetString("board-id")
+			boardID, err := parseBoardID(boardIDStr)
+			if err != nil {
+				return err
+			}
+
+			params := map[string]string{"state": "active"}
+			path := "/board/" + strconv.FormatInt(boardID, 10) + "/sprint"
+
+			var result map[string]any
+			if err := apiClient.AgileGet(ctx, path, params, &result); err != nil {
+				return err
+			}
+
+			values, _ := result["values"].([]any)
+			if len(values) == 0 {
+				return apperr.NewNotFoundError(
+					fmt.Sprintf("no active sprint found for board %d", boardID),
+					nil,
+					apperr.WithDetails(fmt.Sprintf("try: jira-agent sprint list --board-id %d --state active", boardID)),
+				)
+			}
+
+			// Return a single object when exactly one active sprint exists,
+			// an array when multiple active sprints are running concurrently.
+			if len(values) == 1 {
+				return output.WriteResult(w, values[0], *format)
+			}
+			return output.WriteResult(w, values, *format)
+		},
+	}
+	cmd.Flags().String("board-id", "", "Board ID (required)")
+	_ = cmd.MarkFlagRequired("board-id")
 	return cmd
 }
 
