@@ -61,10 +61,10 @@ jira-agent resolve user "John Doe"`,
 			users := make([]resolvedUser, len(jiraUsers))
 			for i, jiraUser := range jiraUsers {
 				users[i] = resolvedUser{
-					AccountID:    getStringField(jiraUser, "accountId"),
-					DisplayName:  getStringField(jiraUser, "displayName"),
-					EmailAddress: getStringField(jiraUser, "emailAddress"),
-					Active:       getBoolField(jiraUser, "active"),
+					AccountID:    GetStringField(jiraUser, "accountId"),
+					DisplayName:  GetStringField(jiraUser, "displayName"),
+					EmailAddress: GetStringField(jiraUser, "emailAddress"),
+					Active:       GetBoolField(jiraUser, "active"),
 				}
 			}
 
@@ -82,8 +82,8 @@ jira-agent resolve user "John Doe"`,
 	return cmd
 }
 
-// getStringField safely extracts a string field from a map.
-func getStringField(m map[string]any, key string) string {
+// GetStringField safely extracts a string field from a map.
+func GetStringField(m map[string]any, key string) string {
 	if v, ok := m[key]; ok {
 		if s, ok := v.(string); ok {
 			return s
@@ -92,8 +92,8 @@ func getStringField(m map[string]any, key string) string {
 	return ""
 }
 
-// getBoolField safely extracts a bool field from a map.
-func getBoolField(m map[string]any, key string) bool {
+// GetBoolField safely extracts a bool field from a map.
+func GetBoolField(m map[string]any, key string) bool {
 	if v, ok := m[key]; ok {
 		if b, ok := v.(bool); ok {
 			return b
