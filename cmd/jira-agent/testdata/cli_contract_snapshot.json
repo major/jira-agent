@@ -2967,6 +2967,7 @@
     "example": "jira-agent issue create --project PROJ --type Story --summary \"New feature\"\njira-agent issue create --project PROJ --type Bug --summary \"Fix login\" --priority High --labels bug,urgent\njira-agent issue create --project PROJ --type Task --summary \"Subtask\" --parent PROJ-100",
     "annotations": {
       "jira-agent/category": "write",
+      "jira-agent/flag-groups": "[{\"type\":\"mutually_exclusive\",\"flags\":[\"payload-json\",\"summary\"]},{\"type\":\"mutually_exclusive\",\"flags\":[\"payload-json\",\"type\"]},{\"type\":\"mutually_exclusive\",\"flags\":[\"payload-json\",\"description\"]},{\"type\":\"mutually_exclusive\",\"flags\":[\"payload-json\",\"assignee\"]},{\"type\":\"mutually_exclusive\",\"flags\":[\"payload-json\",\"priority\"]},{\"type\":\"mutually_exclusive\",\"flags\":[\"payload-json\",\"labels\"]},{\"type\":\"mutually_exclusive\",\"flags\":[\"payload-json\",\"components\"]},{\"type\":\"mutually_exclusive\",\"flags\":[\"payload-json\",\"parent\"]}]",
       "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
@@ -2974,17 +2975,32 @@
       {
         "name": "assignee",
         "type": "string",
-        "usage": "Assignee account ID"
+        "usage": "Assignee account ID",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "payload-json assignee"
+          ]
+        }
       },
       {
         "name": "components",
         "type": "string",
-        "usage": "Comma-separated component names"
+        "usage": "Comma-separated component names",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "payload-json components"
+          ]
+        }
       },
       {
         "name": "description",
         "type": "string",
-        "usage": "Description text, ADF JSON, or wiki markup with --description-format"
+        "usage": "Description text, ADF JSON, or wiki markup with --description-format",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "payload-json description"
+          ]
+        }
       },
       {
         "name": "description-format",
@@ -3006,32 +3022,69 @@
       {
         "name": "labels",
         "type": "string",
-        "usage": "Comma-separated labels"
+        "usage": "Comma-separated labels",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "payload-json labels"
+          ]
+        }
       },
       {
         "name": "parent",
         "type": "string",
-        "usage": "Parent issue key (for subtasks/child issues)"
+        "usage": "Parent issue key (for subtasks/child issues)",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "payload-json parent"
+          ]
+        }
       },
       {
         "name": "payload-json",
         "type": "string",
-        "usage": "Full JSON issue create payload, merged after field flags"
+        "usage": "Full JSON issue create payload, merged after field flags",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "payload-json assignee",
+            "payload-json components",
+            "payload-json description",
+            "payload-json labels",
+            "payload-json parent",
+            "payload-json priority",
+            "payload-json summary",
+            "payload-json type"
+          ]
+        }
       },
       {
         "name": "priority",
         "type": "string",
-        "usage": "Priority name (e.g. High, Medium, Low)"
+        "usage": "Priority name (e.g. High, Medium, Low)",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "payload-json priority"
+          ]
+        }
       },
       {
         "name": "summary",
         "type": "string",
-        "usage": "Issue summary"
+        "usage": "Issue summary",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "payload-json summary"
+          ]
+        }
       },
       {
         "name": "type",
         "type": "string",
-        "usage": "Issue type name (e.g. Story, Bug, Task)"
+        "usage": "Issue type name (e.g. Story, Bug, Task)",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "payload-json type"
+          ]
+        }
       }
     ]
   },
@@ -3212,6 +3265,7 @@
     "example": "jira-agent issue link add --type Blocks --inward PROJ-1 --outward PROJ-2\njira-agent issue link add --type-id 10001 --inward PROJ-1 --outward PROJ-2",
     "annotations": {
       "jira-agent/category": "write",
+      "jira-agent/flag-groups": "[{\"type\":\"mutually_exclusive\",\"flags\":[\"type\",\"type-id\"]}]",
       "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
@@ -3244,12 +3298,22 @@
       {
         "name": "type",
         "type": "string",
-        "usage": "Issue link type name, such as Blocks"
+        "usage": "Issue link type name, such as Blocks",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "type type-id"
+          ]
+        }
       },
       {
         "name": "type-id",
         "type": "string",
-        "usage": "Issue link type ID"
+        "usage": "Issue link type ID",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "type type-id"
+          ]
+        }
       }
     ]
   },
@@ -3775,6 +3839,7 @@
     "example": "jira-agent issue transition PROJ-123 --list\njira-agent issue transition PROJ-123 --to \"In Progress\"\njira-agent issue transition PROJ-123 --to Done --comment \"Completed\"",
     "annotations": {
       "jira-agent/category": "write",
+      "jira-agent/flag-groups": "[{\"type\":\"mutually_exclusive\",\"flags\":[\"to\",\"transition-id\"]}]",
       "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
@@ -3832,12 +3897,22 @@
       {
         "name": "to",
         "type": "string",
-        "usage": "Target status or transition name"
+        "usage": "Target status or transition name",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "to transition-id"
+          ]
+        }
       },
       {
         "name": "transition-id",
         "type": "string",
-        "usage": "Transition ID to apply directly"
+        "usage": "Transition ID to apply directly",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "to transition-id"
+          ]
+        }
       }
     ]
   },

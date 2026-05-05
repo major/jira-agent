@@ -127,6 +127,7 @@ jira-agent issue link add --type-id 10001 --inward PROJ-1 --outward PROJ-2`,
 	cmd.Flags().String("outward", "", "Outward issue key or ID")
 	_ = cmd.MarkFlagRequired("outward")
 	cmd.Flags().String("comment", "", "Comment to add with the issue link")
+	markMutuallyExclusive(cmd, "type", "type-id")
 	return cmd
 }
 

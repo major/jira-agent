@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/url"
@@ -20,6 +21,7 @@ const (
 	commandAnnotationWriteProtected    = "jira-agent/write-protected"
 	commandAnnotationCategory          = "jira-agent/category"
 	commandAnnotationRequiresAuth      = "jira-agent/requires-auth"
+	commandAnnotationFlagGroups        = "jira-agent/flag-groups"
 
 	commandCategoryRead      = "read"
 	commandCategoryWrite     = "write"
@@ -30,6 +32,8 @@ const (
 
 	commandRequiresAuthTrue  = "true"
 	commandRequiresAuthFalse = "false"
+
+	flagGroupTypeMutuallyExclusive = "mutually_exclusive"
 )
 
 var validCommandCategories = map[string]struct{}{
@@ -593,6 +597,51 @@ func appendQueryParams(path string, params map[string]string) string {
 // appendQueryParams.
 func escapePathSegment(value string) string {
 	return url.PathEscape(value)
+}
+
+// flagGroupInfo describes a Cobra flag group constraint recorded during command
+// construction. Schema generators use this to expose flag relationships without
+// parsing help text.
+type flagGroupInfo struct {
+	Type  string   `json:"type"`
+	Flags []string `json:"flags"`
+}
+
+// markMutuallyExclusive registers a Cobra mutual exclusion constraint and
+// records it in the command's annotations so FlagGroups can return it later.
+func markMutuallyExclusive(cmd *cobra.Command, flags ...string) {
+	cmd.MarkFlagsMutuallyExclusive(flags...)
+	recordFlagGroup(cmd, flagGroupInfo{
+		Type:  flagGroupTypeMutuallyExclusive,
+		Flags: append([]string{}, flags...),
+	})
+}
+
+// recordFlagGroup appends a flag group entry to the command's annotation-based
+// registry. Groups are stored as a JSON array under the jira-agent/flag-groups
+// annotation key.
+func recordFlagGroup(cmd *cobra.Command, group flagGroupInfo) {
+	var groups []flagGroupInfo
+	if raw := cmd.Annotations[commandAnnotationFlagGroups]; raw != "" {
+		_ = json.Unmarshal([]byte(raw), &groups)
+	}
+	groups = append(groups, group)
+	data, _ := json.Marshal(groups)
+	setCommandAnnotation(cmd, commandAnnotationFlagGroups, string(data))
+}
+
+// FlagGroups returns the flag group constraints recorded on cmd during
+// construction. Returns nil when no groups are registered.
+func FlagGroups(cmd *cobra.Command) []flagGroupInfo {
+	raw := cmd.Annotations[commandAnnotationFlagGroups]
+	if raw == "" {
+		return nil
+	}
+	var groups []flagGroupInfo
+	if err := json.Unmarshal([]byte(raw), &groups); err != nil {
+		return nil
+	}
+	return groups
 }
 
 // setDefaultSubcommand configures parent to run childName's RunE when invoked

@@ -3885,11 +3885,6 @@ func TestIssueMutationCommands(t *testing.T) {
 			if len(labels) != 2 {
 				t.Errorf("labels length = %d, want %d", len(labels), 2)
 			}
-			properties := body["properties"].([]any)
-			property := properties[0].(map[string]any)
-			if property["key"] != "request" {
-				t.Errorf("property key = %v, want request", property["key"])
-			}
 			testhelpers.WriteJSONResponse(t, w, `{"key":"TEST-2"}`)
 		}))
 		defer server.Close()
@@ -3900,7 +3895,43 @@ func TestIssueMutationCommands(t *testing.T) {
 			issueCreateCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites()),
 			"--project", "TEST", "--type", "Task", "--summary", "New issue", "--labels", "bug,cli",
 			"--field", "customfield_10000=5", "--fields-json", `{"priority":{"name":"High"}}`,
-			"--payload-json", `{"properties":[{"key":"request","value":"cli"}]}`,
+		)
+	})
+
+	t.Run("create payload-json", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPost {
+				t.Errorf("method = %q, want %q", r.Method, http.MethodPost)
+			}
+			if r.URL.Path != "/issue" {
+				t.Errorf("path = %q, want %q", r.URL.Path, "/issue")
+			}
+			body := testhelpers.DecodeJSONBody(t, r)
+			fields := body["fields"].(map[string]any)
+			project := fields["project"].(map[string]any)
+			if project["key"] != "TEST" {
+				t.Errorf("project[key] = %v, want %v", project["key"], "TEST")
+			}
+			if fields["summary"] != "Full payload" {
+				t.Errorf("summary = %v, want %v", fields["summary"], "Full payload")
+			}
+			properties := body["properties"].([]any)
+			property := properties[0].(map[string]any)
+			if property["key"] != "request" {
+				t.Errorf("property key = %v, want request", property["key"])
+			}
+			testhelpers.WriteJSONResponse(t, w, `{"key":"TEST-3"}`)
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		runCommandAction(
+			t,
+			issueCreateCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites()),
+			"--project", "TEST",
+			"--payload-json", `{"fields":{"summary":"Full payload","issuetype":{"name":"Task"}},"properties":[{"key":"request","value":"cli"}]}`,
 		)
 	})
 

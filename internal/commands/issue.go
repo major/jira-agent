@@ -342,6 +342,31 @@ jira-agent issue create --project PROJ --type Bug --summary "Fix login" --priori
 jira-agent issue create --project PROJ --type Task --summary "Subtask" --parent PROJ-100`,
 		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+
+			// Full payload mode: --payload-json provides the complete issue
+			// body and is mutually exclusive with individual field flags.
+			if payloadJSON := mustGetString(cmd, "payload-json"); payloadJSON != "" {
+				body := map[string]any{}
+				if err := mergePayloadJSON(body, payloadJSON); err != nil {
+					return err
+				}
+				// Inject project from --project when the payload omits it.
+				if project := resolveProject(cmd); project != "" {
+					fields, ok := body["fields"].(map[string]any)
+					if !ok {
+						fields = map[string]any{}
+						body["fields"] = fields
+					}
+					if _, hasProject := fields["project"]; !hasProject {
+						fields["project"] = map[string]any{"key": project}
+					}
+				}
+				return writeAPIResult(w, *format, func(result any) error {
+					return apiClient.Post(ctx, "/issue", body, result)
+				})
+			}
+
+			// Individual flags mode.
 			project, err := requireProject(cmd)
 			if err != nil {
 				return err
@@ -372,9 +397,6 @@ jira-agent issue create --project PROJ --type Task --summary "Subtask" --parent 
 			}
 
 			body := map[string]any{"fields": fields}
-			if err := mergePayloadJSON(body, mustGetString(cmd, "payload-json")); err != nil {
-				return err
-			}
 
 			return writeAPIResult(w, *format, func(result any) error {
 				return apiClient.Post(ctx, "/issue", body, result)
@@ -393,6 +415,9 @@ jira-agent issue create --project PROJ --type Task --summary "Subtask" --parent 
 	cmd.Flags().StringToString("field", map[string]string{}, "Custom field value (key=value, repeatable)")
 	cmd.Flags().String("fields-json", "", "JSON object of fields (alternative to individual flags)")
 	cmd.Flags().String("payload-json", "", "Full JSON issue create payload, merged after field flags")
+	for _, flag := range []string{"summary", "type", "description", "assignee", "priority", "labels", "components", "parent", "field", "fields-json"} {
+		markMutuallyExclusive(cmd, "payload-json", flag)
+	}
 	return cmd
 }
 
@@ -562,6 +587,7 @@ jira-agent issue transition PROJ-123 --to Done --comment "Completed"`,
 	cmd.Flags().Bool("skip-remote-only-condition", false, "Skip remote-only workflow conditions")
 	cmd.Flags().Bool("sort-by-ops-bar-and-status", false, "Sort listed transitions by ops bar sequence and status")
 	cmd.Flags().Bool("list", false, "List available transitions instead of performing one")
+	markMutuallyExclusive(cmd, "to", "transition-id")
 	return cmd
 }
 
