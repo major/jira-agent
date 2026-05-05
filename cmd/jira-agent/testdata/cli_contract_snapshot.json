@@ -2161,6 +2161,7 @@
       "comment",
       "count",
       "create",
+      "create-and-assign",
       "create-and-link",
       "delete",
       "edit",
@@ -3161,6 +3162,156 @@
         "annotations": {
           "cobra_annotation_mutually_exclusive": [
             "payload-json priority"
+          ]
+        }
+      },
+      {
+        "name": "summary",
+        "type": "string",
+        "usage": "Issue summary",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "payload-json summary"
+          ]
+        }
+      },
+      {
+        "name": "type",
+        "type": "string",
+        "usage": "Issue type name (e.g. Story, Bug, Task)",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "payload-json type"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue create-and-assign",
+    "use": "create-and-assign",
+    "short": "Create an issue and assign it in one step",
+    "example": "jira-agent issue create-and-assign --project PROJ --type Story --summary \"New feature\"\njira-agent issue create-and-assign --project PROJ --type Bug --summary \"Fix\" --assignee abc123\njira-agent issue create-and-assign --project PROJ --type Task --summary \"Chore\" --skip-assign\njira-agent issue create-and-assign --project PROJ --type Story --summary \"New\" --dry-run",
+    "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/flag-groups": "[{\"type\":\"mutually_exclusive\",\"flags\":[\"assignee\",\"skip-assign\"]},{\"type\":\"mutually_exclusive\",\"flags\":[\"payload-json\",\"summary\"]},{\"type\":\"mutually_exclusive\",\"flags\":[\"payload-json\",\"type\"]},{\"type\":\"mutually_exclusive\",\"flags\":[\"payload-json\",\"description\"]},{\"type\":\"mutually_exclusive\",\"flags\":[\"payload-json\",\"priority\"]},{\"type\":\"mutually_exclusive\",\"flags\":[\"payload-json\",\"labels\"]},{\"type\":\"mutually_exclusive\",\"flags\":[\"payload-json\",\"components\"]},{\"type\":\"mutually_exclusive\",\"flags\":[\"payload-json\",\"parent\"]},{\"type\":\"mutually_exclusive\",\"flags\":[\"payload-json\",\"field\"]},{\"type\":\"mutually_exclusive\",\"flags\":[\"payload-json\",\"fields-json\"]}]",
+      "jira-agent/requires-auth": "true",
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "assignee",
+        "type": "string",
+        "usage": "Assignee account ID",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "assignee skip-assign"
+          ]
+        }
+      },
+      {
+        "name": "components",
+        "type": "string",
+        "usage": "Comma-separated component names",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "payload-json components"
+          ]
+        }
+      },
+      {
+        "name": "description",
+        "type": "string",
+        "usage": "Description text, ADF JSON, or wiki markup with --description-format",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "payload-json description"
+          ]
+        }
+      },
+      {
+        "name": "description-format",
+        "type": "string",
+        "default": "auto",
+        "usage": "Description input format: auto, plain, adf, or wiki"
+      },
+      {
+        "name": "field",
+        "type": "stringToString",
+        "default": "[]",
+        "usage": "Custom field value (key=value, repeatable)",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "payload-json field"
+          ]
+        }
+      },
+      {
+        "name": "fields-json",
+        "type": "string",
+        "usage": "JSON object of fields (alternative to individual flags)",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "payload-json fields-json"
+          ]
+        }
+      },
+      {
+        "name": "labels",
+        "type": "string",
+        "usage": "Comma-separated labels",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "payload-json labels"
+          ]
+        }
+      },
+      {
+        "name": "parent",
+        "type": "string",
+        "usage": "Parent issue key (for subtasks/child issues)",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "payload-json parent"
+          ]
+        }
+      },
+      {
+        "name": "payload-json",
+        "type": "string",
+        "usage": "Full JSON issue create payload (mutually exclusive with individual field flags)",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "payload-json components",
+            "payload-json description",
+            "payload-json field",
+            "payload-json fields-json",
+            "payload-json labels",
+            "payload-json parent",
+            "payload-json priority",
+            "payload-json summary",
+            "payload-json type"
+          ]
+        }
+      },
+      {
+        "name": "priority",
+        "type": "string",
+        "usage": "Priority name (e.g. High, Medium, Low)",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "payload-json priority"
+          ]
+        }
+      },
+      {
+        "name": "skip-assign",
+        "type": "bool",
+        "default": "false",
+        "usage": "Skip assignment step",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "assignee skip-assign"
           ]
         }
       },

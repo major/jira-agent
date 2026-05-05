@@ -1200,11 +1200,13 @@ func TestCreateAndAssign(t *testing.T) {
 	t.Run("explicit assignee", func(t *testing.T) {
 		t.Parallel()
 
+		var createBody map[string]any
 		var requests int
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			requests++
 			switch {
 			case r.Method == http.MethodPost && r.URL.Path == "/issue":
+				createBody = testhelpers.DecodeJSONBody(t, r)
 				testhelpers.WriteJSONResponse(t, w, `{"id":"10001","key":"PROJ-456"}`)
 			case r.Method == http.MethodPut && r.URL.Path == "/issue/PROJ-456/assignee":
 				body := testhelpers.DecodeJSONBody(t, r)
@@ -1224,6 +1226,13 @@ func TestCreateAndAssign(t *testing.T) {
 		cmd.SetArgs([]string{"--project", "PROJ", "--type", "Bug", "--summary", "Fix", "--assignee", "def456"})
 		if err := cmd.Execute(); err != nil {
 			t.Fatalf("cmd.Execute() error = %v", err)
+		}
+		fields, ok := createBody["fields"].(map[string]any)
+		if !ok {
+			t.Fatal("create body missing fields")
+		}
+		if _, hasAssignee := fields["assignee"]; hasAssignee {
+			t.Errorf("create assignee field present, want assignment only via PUT")
 		}
 
 		var envelope output.Envelope
@@ -1281,6 +1290,46 @@ func TestCreateAndAssign(t *testing.T) {
 		}
 		if requests != 1 {
 			t.Errorf("requests = %d, want 1", requests)
+		}
+	})
+
+	t.Run("payload json strips assignee", func(t *testing.T) {
+		t.Parallel()
+
+		var createBody map[string]any
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch {
+			case r.Method == http.MethodGet && r.URL.Path == "/myself":
+				testhelpers.WriteJSONResponse(t, w, `{"accountId":"abc123","displayName":"Test User"}`)
+			case r.Method == http.MethodPost && r.URL.Path == "/issue":
+				createBody = testhelpers.DecodeJSONBody(t, r)
+				testhelpers.WriteJSONResponse(t, w, `{"id":"10001","key":"PROJ-456"}`)
+			case r.Method == http.MethodPut && r.URL.Path == "/issue/PROJ-456/assignee":
+				w.WriteHeader(http.StatusNoContent)
+			default:
+				t.Errorf("unexpected request: %s %s", r.Method, r.URL.String())
+			}
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		cmd := issueCreateAndAssignCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites(), testDryRun())
+		prepareCommandForTest(cmd)
+		// Payload includes fields.assignee, which should be stripped by
+		// buildCreatePayload so assignment is managed by the command's own step.
+		cmd.SetArgs([]string{
+			"--payload-json", `{"fields":{"project":{"key":"PROJ"},"issuetype":{"name":"Task"},"summary":"Embedded","assignee":{"accountId":"embedded-id"}}}`,
+		})
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("cmd.Execute() error = %v", err)
+		}
+
+		fields, ok := createBody["fields"].(map[string]any)
+		if !ok {
+			t.Fatal("create body missing fields")
+		}
+		if _, hasAssignee := fields["assignee"]; hasAssignee {
+			t.Errorf("create body contains assignee, want stripped from payload-json")
 		}
 	})
 
@@ -1389,7 +1438,7 @@ func TestCreateAndAssign(t *testing.T) {
 		if data["assigned"] != false {
 			t.Errorf("assigned = %v, want false", data["assigned"])
 		}
-		wantNext := "jira-agent issue assign PROJ-456 --assignee def456"
+		wantNext := "jira-agent issue assign PROJ-456 def456"
 		if data["next_command"] != wantNext {
 			t.Errorf("next_command = %v, want %s", data["next_command"], wantNext)
 		}

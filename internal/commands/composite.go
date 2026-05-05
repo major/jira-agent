@@ -463,7 +463,7 @@ jira-agent issue create-and-assign --project PROJ --type Story --summary "New" -
 	cmd.Flags().String("payload-json", "", "Full JSON issue create payload (mutually exclusive with individual field flags)")
 	cmd.Flags().Bool("skip-assign", false, "Skip assignment step")
 	markMutuallyExclusive(cmd, "assignee", "skip-assign")
-	for _, flag := range []string{"summary", "type", "description", "assignee", "priority", "labels", "components", "parent", "field", "fields-json"} {
+	for _, flag := range []string{"summary", "type", "description", "priority", "labels", "components", "parent", "field", "fields-json"} {
 		markMutuallyExclusive(cmd, "payload-json", flag)
 	}
 	SetCommandCategory(cmd, commandCategoryWorkflow)
@@ -484,11 +484,12 @@ func createAndAssignDryRun(w io.Writer, format output.Format, p *createAndAssign
 	if p.project != "" {
 		after["project"] = p.project
 	}
-	if p.skipAssign {
+	switch {
+	case p.skipAssign:
 		after["assignee"] = "(none)"
-	} else if p.assignee != "" {
+	case p.assignee != "":
 		after["assignee"] = p.assignee
-	} else {
+	default:
 		after["assignee"] = "(resolved from /myself)"
 	}
 	return WriteDryRunResult(w, DryRunResult{
@@ -535,7 +536,7 @@ func createAndAssignExecute(cmd *cobra.Command, ctx context.Context, apiClient *
 		result := map[string]any{
 			"key":          newKey,
 			"assigned":     false,
-			"next_command": fmt.Sprintf("jira-agent issue assign %s --assignee %s", newKey, p.assignee),
+			"next_command": fmt.Sprintf("jira-agent issue assign %s %s", shellQuoteFlagValue(newKey), shellQuoteFlagValue(p.assignee)),
 		}
 		return output.WritePartial(w, result, []string{"assign: " + err.Error()}, output.NewMetadata(), format, opts...)
 	}
@@ -700,6 +701,14 @@ func buildCreatePayload(cmd *cobra.Command, p any) (map[string]any, error) {
 		if err := mergePayloadJSON(body, payloadJSON); err != nil {
 			return nil, err
 		}
+		// Strip assignee from payload when invoked from create-and-assign;
+		// assignment is managed by the command's own assignment step so an
+		// embedded assignee would bypass --skip-assign and recovery semantics.
+		if _, isCreateAndAssign := p.(*createAndAssignParams); isCreateAndAssign {
+			if fields, ok := body["fields"].(map[string]any); ok {
+				delete(fields, "assignee")
+			}
+		}
 		// Inject project when the payload omits it.
 		if project != "" {
 			fields, ok := body["fields"].(map[string]any)
@@ -737,6 +746,9 @@ func buildCreatePayload(cmd *cobra.Command, p any) (map[string]any, error) {
 
 	if err := applyCommonFields(fields, cmd); err != nil {
 		return nil, err
+	}
+	if _, isCreateAndAssign := p.(*createAndAssignParams); isCreateAndAssign {
+		delete(fields, "assignee")
 	}
 	if err := applyMerges(fields, cmd); err != nil {
 		return nil, err

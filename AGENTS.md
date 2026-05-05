@@ -14,7 +14,7 @@ Keep this file and any nested `AGENTS.md` files current anytime code changes. Ev
 | --- | --- |
 | `cmd/jira-agent/main.go` | Real executable entrypoint, root CLI wiring, global flags, `PersistentPreRunE` auth hook, command registration. |
 | `internal/commands` | Domain command tree. See `internal/commands/AGENTS.md` before changing commands. |
-| `internal/commands/composite.go` | Composite workflow commands: `issue start-work`, `issue close`, `issue create-and-link`, `issue move-to-sprint`. |
+| `internal/commands/composite.go` | Composite workflow commands: `issue start-work`, `issue close`, `issue create-and-assign`, `issue create-and-link`, `issue move-to-sprint`. |
 | `internal/commands/shortcuts.go` | Smart shortcut commands: `issue mine`, `issue recent`. |
 | `internal/commands/dryrun.go` | Dry-run infrastructure: `DryRunResult`, `ComputeFieldDiff`, `WriteDryRunResult`, `IsDryRun`. |
 | `internal/commands/schema.go` | Schema command: emits live Cobra command tree as machine-readable JSON, no auth required. |

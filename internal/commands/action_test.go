@@ -131,7 +131,7 @@ func TestCommandGroups_RegisterSubcommands(t *testing.T) {
 		{name: "backlog", cmd: BacklogCommand(apiClient, &buf, format, testAllowWrites()), want: 2},
 		{name: "task", cmd: TaskCommand(apiClient, &buf, format, testAllowWrites()), want: 2},
 		{name: "time-tracking", cmd: TimeTrackingCommand(apiClient, &buf, format, testAllowWrites()), want: 4},
-		{name: "issue", cmd: IssueCommand(apiClient, &buf, format, testAllowWrites(), testDryRun()), want: 37},
+		{name: "issue", cmd: IssueCommand(apiClient, &buf, format, testAllowWrites(), testDryRun()), want: 38},
 		{name: "jql", cmd: JQLCommand(apiClient, &buf, format), want: 3},
 	}
 

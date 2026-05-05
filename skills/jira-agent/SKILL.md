@@ -196,6 +196,17 @@ jira-agent issue close PROJ-123 --resolution "Won't Do"
 jira-agent issue close PROJ-123 --status "Closed" --resolution "Duplicate" --comment "Duplicate of PROJ-100"
 ```
 
+### issue create-and-assign
+
+Creates an issue and assigns it in one call. Defaults to assigning the new issue to the current user.
+
+```bash
+jira-agent issue create-and-assign --project PROJ --type Story --summary "New feature"
+jira-agent issue create-and-assign --project PROJ --type Bug --summary "Fix" --assignee abc123
+jira-agent issue create-and-assign --project PROJ --type Task --summary "Chore" --skip-assign
+jira-agent issue create-and-assign --project PROJ --type Story --summary "New" --dry-run
+```
+
 ### issue create-and-link
 
 Creates an issue and links it to an existing issue in one call.
