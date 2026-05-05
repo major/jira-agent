@@ -147,7 +147,7 @@ All resolvers return `output.WriteSuccess` with a typed array in `data` and `met
 
 1. Schema category: all resolve subcommands inherit `category: "discovery"` from the parent `ResolveCommand`.
 2. `usage_hint` in `metadata`: each resolver embeds the follow-up command so agents know what to do with the resolved ID without guessing.
-3. Validation error `next_command`: `parseBoardID` and `parseSprintID` in `jql_helpers.go` include `next_command` pointing to the appropriate resolve subcommand when an ID is invalid or missing.
+3. Validation error `next_command`: `parseBoardID` in `board.go` and `parseSprintID` in `sprint.go` include `next_command` pointing to the appropriate resolve subcommand when an ID is invalid or missing.
 
 ### Shared helpers in resolve.go
 
