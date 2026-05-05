@@ -48,7 +48,7 @@ jira-agent workflow list --expand transitions`,
 			})
 			addBoolParam(cmd, params, "is-active", "isActive")
 
-			return writePaginatedAPIResult(w, *format, func(result any) error {
+			return writePaginatedAPIResult(cmd, w, *format, func(result any) error {
 				return apiClient.Get(ctx, "/workflows/search", params, result)
 			})
 		},
@@ -126,7 +126,7 @@ func workflowSchemeListCommand(apiClient *client.Ref, w io.Writer, format *outpu
 			ctx := cmd.Context()
 			params := buildPaginationParams(cmd, nil)
 
-			return writePaginatedAPIResult(w, *format, func(result any) error {
+			return writePaginatedAPIResult(cmd, w, *format, func(result any) error {
 				return apiClient.Get(ctx, "/workflowscheme", params, result)
 			})
 		},

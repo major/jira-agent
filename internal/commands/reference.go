@@ -163,7 +163,7 @@ func labelListCommand(apiClient *client.Ref, w io.Writer, format *output.Format)
 			ctx := cmd.Context()
 			params := buildPaginationParams(cmd, nil)
 
-			return writePaginatedAPIResult(w, *format, func(result any) error {
+			return writePaginatedAPIResult(cmd, w, *format, func(result any) error {
 				return apiClient.Get(ctx, "/label", params, result)
 			})
 		},

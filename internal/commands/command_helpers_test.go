@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -196,7 +197,8 @@ func TestWritePaginatedAPIResult(t *testing.T) {
 
 	var buf strings.Builder
 	format := output.FormatJSON
-	err := writePaginatedAPIResult(&buf, format, func(result any) error {
+	cmd := &cobra.Command{Use: "list"}
+	err := writePaginatedAPIResult(cmd, &buf, format, func(result any) error {
 		ptr, ok := result.(*any)
 		if !ok {
 			t.Fatalf("result type = %T, want *any", result)
@@ -220,6 +222,150 @@ func TestWritePaginatedAPIResult(t *testing.T) {
 			t.Errorf("output = %q, want %s", buf.String(), want)
 		}
 	}
+}
+
+func TestPaginationHasMore(t *testing.T) {
+	t.Parallel()
+
+	result := map[string]any{
+		"total":      float64(3),
+		"startAt":    float64(0),
+		"maxResults": float64(2),
+		"values": []any{
+			map[string]any{"id": "1"},
+			map[string]any{"id": "2"},
+		},
+	}
+
+	meta := extractPaginationMeta(testPaginationCommand(t, nil), result)
+
+	if !meta.HasMore {
+		t.Error("HasMore = false, want true")
+	}
+}
+
+func TestPaginationLastPage(t *testing.T) {
+	t.Parallel()
+
+	result := map[string]any{
+		"total":      float64(4),
+		"startAt":    float64(2),
+		"maxResults": float64(2),
+		"values": []any{
+			map[string]any{"id": "3"},
+			map[string]any{"id": "4"},
+		},
+	}
+
+	meta := extractPaginationMeta(testPaginationCommand(t, nil), result)
+
+	if meta.HasMore {
+		t.Error("HasMore = true, want false")
+	}
+	if meta.NextCommand != "" {
+		t.Errorf("NextCommand = %q, want empty", meta.NextCommand)
+	}
+
+	encoded, err := json.Marshal(meta)
+	if err != nil {
+		t.Fatalf("marshal Metadata error = %v, want nil", err)
+	}
+	if !strings.Contains(string(encoded), `"has_more":false`) {
+		t.Errorf("metadata JSON = %s, want explicit has_more false", encoded)
+	}
+}
+
+func TestPaginationNextCommand(t *testing.T) {
+	t.Parallel()
+
+	cmd := testPaginationCommand(t, []string{
+		"--jql", "project = TEST",
+		"--fields", "key,summary",
+		"--max-results", "25",
+		"--start-at", "25",
+	})
+	result := map[string]any{
+		"total":      float64(100),
+		"startAt":    float64(25),
+		"maxResults": float64(25),
+		"issues":     []any{map[string]any{"key": "TEST-1"}},
+	}
+
+	meta := extractPaginationMeta(cmd, result)
+
+	want := `jira-agent issue search --fields key,summary --jql "project = TEST" --max-results 25 --start-at 26`
+	if meta.NextCommand != want {
+		t.Errorf("NextCommand = %q, want %q", meta.NextCommand, want)
+	}
+}
+
+func TestPaginationNextCommandWithPositionalArgs(t *testing.T) {
+	t.Parallel()
+
+	// Simulate "jira-agent issue comment list PROJ-123 --max-results 5"
+	root := &cobra.Command{Use: "jira-agent"}
+	issue := &cobra.Command{Use: "issue"}
+	comment := &cobra.Command{Use: "comment"}
+	list := &cobra.Command{
+		Use: "list <issue-key>",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return nil
+		},
+	}
+	appendPaginationFlags(list)
+	comment.AddCommand(list)
+	issue.AddCommand(comment)
+	root.AddCommand(issue)
+
+	root.SetArgs([]string{"issue", "comment", "list", "PROJ-123", "--max-results", "5"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("command failed: %v", err)
+	}
+
+	result := map[string]any{
+		"total":      float64(10),
+		"startAt":    float64(0),
+		"maxResults": float64(5),
+		"comments":   []any{map[string]any{"id": "1"}},
+	}
+
+	meta := extractPaginationMeta(list, result)
+
+	if !meta.HasMore {
+		t.Error("HasMore = false, want true")
+	}
+
+	want := "jira-agent issue comment list PROJ-123 --max-results 5 --start-at 1"
+	if meta.NextCommand != want {
+		t.Errorf("NextCommand = %q, want %q", meta.NextCommand, want)
+	}
+}
+
+func testPaginationCommand(t *testing.T, args []string) *cobra.Command {
+	t.Helper()
+
+	root := &cobra.Command{Use: "jira-agent"}
+	issue := &cobra.Command{Use: "issue"}
+	search := &cobra.Command{
+		Use: "search",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return nil
+		},
+	}
+	search.Flags().String("jql", "", "")
+	search.Flags().String("fields", "", "")
+	appendPaginationFlags(search)
+	issue.AddCommand(search)
+	root.AddCommand(issue)
+
+	if args != nil {
+		root.SetArgs(append([]string{"issue", "search"}, args...))
+		if err := root.Execute(); err != nil {
+			t.Fatalf("command failed: %v", err)
+		}
+	}
+
+	return search
 }
 
 func TestBuildPaginationParams(t *testing.T) {

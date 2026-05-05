@@ -90,7 +90,7 @@ jira-agent field search --query "story points"`,
 				)
 			}
 
-			meta := extractPaginationMeta(result)
+			meta := extractPaginationMeta(cmd, result)
 			return output.WriteSuccess(w, values, meta, *format)
 		},
 	}

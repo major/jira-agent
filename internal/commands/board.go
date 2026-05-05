@@ -104,7 +104,7 @@ jira-agent board list --project PROJ`,
 				"project": "projectKeyOrId",
 			})
 
-			return writePaginatedAPIResult(w, *format, func(result any) error {
+			return writePaginatedAPIResult(cmd, w, *format, func(result any) error {
 				return apiClient.AgileGet(ctx, "/board", params, result)
 			})
 		},
@@ -162,7 +162,7 @@ jira-agent board filter 10000 --max-results 25`,
 
 			params := buildPaginationParams(cmd, nil)
 
-			return writePaginatedAPIResult(w, *format, func(result any) error {
+			return writePaginatedAPIResult(cmd, w, *format, func(result any) error {
 				return apiClient.AgileGet(ctx, "/board/filter/"+strconv.FormatInt(parsedFilterID, 10), params, result)
 			})
 		},
@@ -257,7 +257,7 @@ func boardEpicsCommand(apiClient *client.Ref, w io.Writer, format *output.Format
 			params := buildPaginationParams(cmd, nil)
 			addBoolParam(cmd, params, "done", "done")
 
-			return writePaginatedAPIResult(w, *format, func(result any) error {
+			return writePaginatedAPIResult(cmd, w, *format, func(result any) error {
 				return apiClient.AgileGet(ctx, "/board/"+strconv.FormatInt(id, 10)+"/epic", params, result)
 			})
 		},
@@ -292,7 +292,7 @@ jira-agent board issues 42 --jql "status = Open"`,
 				"expand": "expand",
 			})
 
-			return writePaginatedAPIResult(w, *format, func(result any) error {
+			return writePaginatedAPIResult(cmd, w, *format, func(result any) error {
 				return apiClient.AgileGet(ctx, "/board/"+strconv.FormatInt(id, 10)+"/issue", params, result)
 			})
 		},
@@ -324,7 +324,7 @@ func boardProjectsCommand(apiClient *client.Ref, w io.Writer, format *output.For
 
 			params := buildPaginationParams(cmd, nil)
 
-			return writePaginatedAPIResult(w, *format, func(result any) error {
+			return writePaginatedAPIResult(cmd, w, *format, func(result any) error {
 				return apiClient.AgileGet(ctx, "/board/"+strconv.FormatInt(id, 10)+"/project", params, result)
 			})
 		},
@@ -353,7 +353,7 @@ func boardVersionsCommand(apiClient *client.Ref, w io.Writer, format *output.For
 
 			params := buildPaginationParams(cmd, nil)
 
-			return writePaginatedAPIResult(w, *format, func(result any) error {
+			return writePaginatedAPIResult(cmd, w, *format, func(result any) error {
 				return apiClient.AgileGet(ctx, "/board/"+strconv.FormatInt(id, 10)+"/version", params, result)
 			})
 		},

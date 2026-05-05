@@ -71,13 +71,13 @@ jira-agent dashboard list --search "ops"`,
 
 			if search != "" {
 				params := buildPaginationParams(cmd, map[string]string{"search": "searchTerm"})
-				return writePaginatedAPIResult(w, *format, func(result any) error {
+				return writePaginatedAPIResult(cmd, w, *format, func(result any) error {
 					return apiClient.Get(ctx, "/dashboard/search", params, result)
 				})
 			}
 
 			params := buildPaginationParams(cmd, map[string]string{"filter": "filter"})
-			return writePaginatedAPIResult(w, *format, func(result any) error {
+			return writePaginatedAPIResult(cmd, w, *format, func(result any) error {
 				return apiClient.Get(ctx, "/dashboard", params, result)
 			})
 		},

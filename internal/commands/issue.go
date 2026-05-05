@@ -296,7 +296,7 @@ jira-agent issue search --jql "project = PROJ" --raw`,
 			}
 
 			if mustGetBool(cmd, "raw") {
-				return writeRawPaginatedAPIResult(w, *format, func(result any) error {
+				return writeRawPaginatedAPIResult(cmd, w, *format, func(result any) error {
 					return apiClient.Post(ctx, "/search/jql", body, result)
 				})
 			}
@@ -310,7 +310,7 @@ jira-agent issue search --jql "project = PROJ" --raw`,
 			if err := apiClient.Post(ctx, "/search/jql", body, &result); err != nil {
 				return err
 			}
-			meta := extractPaginationMeta(result)
+			meta := extractPaginationMeta(cmd, result)
 			if !isJSONOutputFormat(*format) {
 				return output.WriteSuccess(w, convertDescriptionOutputFields(result, descriptionFormat), meta, *format)
 			}
@@ -615,7 +615,7 @@ jira-agent issue changelog bulk-fetch --issues PROJ-1,PROJ-2`,
 
 			params := buildPaginationParams(cmd, nil)
 
-			return writePaginatedAPIResult(w, *format, func(result any) error {
+			return writePaginatedAPIResult(cmd, w, *format, func(result any) error {
 				return apiClient.Get(ctx, "/issue/"+key+"/changelog", params, result)
 			})
 		},
@@ -649,7 +649,7 @@ func issueChangelogListByIDsCommand(apiClient *client.Ref, w io.Writer, format *
 				return err
 			}
 			body := map[string]any{"changelogIds": ids}
-			return writePaginatedAPIResult(w, *format, func(result any) error {
+			return writePaginatedAPIResult(cmd, w, *format, func(result any) error {
 				return apiClient.Post(ctx, "/issue/"+key+"/changelog/list", body, result)
 			})
 		},
@@ -771,7 +771,7 @@ jira-agent issue count --jql "assignee = currentUser() AND resolution = Unresolv
 			if err := apiClient.Post(ctx, "/search/jql", body, &result); err != nil {
 				return err
 			}
-			meta := extractPaginationMeta(result)
+			meta := extractPaginationMeta(cmd, result)
 			return output.WriteSuccess(w, map[string]any{"total": meta.Total}, meta, *format)
 		},
 	}
@@ -815,7 +815,7 @@ jira-agent issue meta --operation edit --issue PROJ-123`,
 				if typeName == "" {
 					// List available issue types for the project.
 					path := "/issue/createmeta/" + project + "/issuetypes"
-					return writePaginatedAPIResult(w, *format, func(result any) error {
+					return writePaginatedAPIResult(cmd, w, *format, func(result any) error {
 						return apiClient.Get(ctx, path, nil, result)
 					})
 				}
@@ -831,7 +831,7 @@ jira-agent issue meta --operation edit --issue PROJ-123`,
 				}
 
 				path := "/issue/createmeta/" + project + "/issuetypes/" + typeID
-				return writePaginatedAPIResult(w, *format, func(result any) error {
+				return writePaginatedAPIResult(cmd, w, *format, func(result any) error {
 					return apiClient.Get(ctx, path, nil, result)
 				})
 

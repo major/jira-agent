@@ -46,7 +46,7 @@ func contextListCommand(apiClient *client.Ref, w io.Writer, format *output.Forma
 			params := buildPaginationParams(cmd, nil)
 
 			path := fmt.Sprintf("/field/%s/context", fieldID)
-			return writePaginatedAPIResult(w, *format, func(result any) error {
+			return writePaginatedAPIResult(cmd, w, *format, func(result any) error {
 				return apiClient.Get(ctx, path, params, result)
 			})
 		},

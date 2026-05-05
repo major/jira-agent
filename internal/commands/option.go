@@ -49,7 +49,7 @@ func optionListCommand(apiClient *client.Ref, w io.Writer, format *output.Format
 			params := buildPaginationParams(cmd, nil)
 
 			path := fmt.Sprintf("/field/%s/context/%s/option", fieldID, contextID)
-			return writePaginatedAPIResult(w, *format, func(result any) error {
+			return writePaginatedAPIResult(cmd, w, *format, func(result any) error {
 				return apiClient.Get(ctx, path, params, result)
 			})
 		},

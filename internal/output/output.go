@@ -34,11 +34,13 @@ type remediationProvider interface {
 // Metadata holds the standard metadata fields for response envelopes.
 // Fields are tailored to Jira's paginated API responses.
 type Metadata struct {
-	Timestamp  string `json:"timestamp"`
-	Total      int    `json:"total,omitempty"`
-	Returned   int    `json:"returned,omitempty"`
-	StartAt    int    `json:"start_at,omitempty"`
-	MaxResults int    `json:"max_results,omitempty"`
+	Timestamp   string `json:"timestamp"`
+	Total       int    `json:"total,omitempty"`
+	Returned    int    `json:"returned,omitempty"`
+	StartAt     int    `json:"start_at,omitempty"`
+	MaxResults  int    `json:"max_results,omitempty"`
+	HasMore     bool   `json:"has_more"`
+	NextCommand string `json:"next_command,omitempty"`
 }
 
 // NewMetadata returns metadata pre-populated with the current UTC timestamp.

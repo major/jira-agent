@@ -73,7 +73,7 @@ jira-agent epic issues PROJ-50 --jql "status = Open"`,
 				"fields": "fields",
 			})
 
-			return writePaginatedAPIResult(w, *format, func(result any) error {
+			return writePaginatedAPIResult(cmd, w, *format, func(result any) error {
 				return apiClient.AgileGet(ctx, "/epic/"+epicID+"/issue", params, result)
 			})
 		},
@@ -136,7 +136,7 @@ func epicOrphansCommand(apiClient *client.Ref, w io.Writer, format *output.Forma
 				"fields": "fields",
 			})
 
-			return writePaginatedAPIResult(w, *format, func(result any) error {
+			return writePaginatedAPIResult(cmd, w, *format, func(result any) error {
 				return apiClient.AgileGet(ctx, "/epic/none/issue", params, result)
 			})
 		},

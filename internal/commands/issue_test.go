@@ -468,7 +468,7 @@ func TestExtractPaginationMeta(t *testing.T) {
 		"maxResults": float64(5),
 		"issues":     []any{map[string]any{"key": "TEST-1"}, map[string]any{"key": "TEST-2"}},
 	}
-	meta := extractPaginationMeta(result)
+	meta := extractPaginationMeta(nil, result)
 	if meta.Total != 10 {
 		t.Errorf("Total = %d, want %d", meta.Total, 10)
 	}

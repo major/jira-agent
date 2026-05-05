@@ -64,7 +64,7 @@ jira-agent sprint list --board-id 42 --state active`,
 			})
 			path := "/board/" + strconv.FormatInt(boardID, 10) + "/sprint"
 
-			return writePaginatedAPIResult(w, *format, func(result any) error {
+			return writePaginatedAPIResult(cmd, w, *format, func(result any) error {
 				return apiClient.AgileGet(ctx, path, params, result)
 			})
 		},
@@ -248,7 +248,7 @@ jira-agent sprint issues 100 --jql "status = Done"`,
 			})
 			path := "/sprint/" + strconv.FormatInt(sprintID, 10) + "/issue"
 
-			return writePaginatedAPIResult(w, *format, func(result any) error {
+			return writePaginatedAPIResult(cmd, w, *format, func(result any) error {
 				return apiClient.AgileGet(ctx, path, params, result)
 			})
 		},

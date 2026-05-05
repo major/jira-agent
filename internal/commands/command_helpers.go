@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	apperr "github.com/major/jira-agent/internal/errors"
 	"github.com/major/jira-agent/internal/output"
@@ -252,23 +253,23 @@ func writeRawAPIResult(w io.Writer, format output.Format, call apiResultFunc) er
 
 // writePaginatedAPIResult runs an API call that writes into result, extracts
 // Jira pagination metadata, then emits the standard success envelope.
-func writePaginatedAPIResult(w io.Writer, format output.Format, call apiResultFunc) error {
+func writePaginatedAPIResult(cmd *cobra.Command, w io.Writer, format output.Format, call apiResultFunc) error {
 	var result any
 	if err := call(&result); err != nil {
 		return err
 	}
-	meta := extractPaginationMeta(result)
+	meta := extractPaginationMeta(cmd, result)
 	return output.WriteSuccess(w, result, meta, format)
 }
 
 // writeRawPaginatedAPIResult preserves Jira's original JSON shape for commands
 // with an explicit raw-output flag while still extracting envelope metadata.
-func writeRawPaginatedAPIResult(w io.Writer, format output.Format, call apiResultFunc) error {
+func writeRawPaginatedAPIResult(cmd *cobra.Command, w io.Writer, format output.Format, call apiResultFunc) error {
 	var result any
 	if err := call(&result); err != nil {
 		return err
 	}
-	meta := extractPaginationMeta(result)
+	meta := extractPaginationMeta(cmd, result)
 	return output.WriteRawSuccess(w, result, meta, format)
 }
 
@@ -366,7 +367,7 @@ func addOptionalParams(cmd *cobra.Command, params, optionalFlags map[string]stri
 
 // extractPaginationMeta pulls total, startAt, maxResults, and item count
 // from a standard Jira paginated response.
-func extractPaginationMeta(result any) output.Metadata {
+func extractPaginationMeta(cmd *cobra.Command, result any) output.Metadata {
 	meta := output.NewMetadata()
 	m, ok := result.(map[string]any)
 	if !ok {
@@ -393,7 +394,40 @@ func extractPaginationMeta(result any) output.Metadata {
 			break
 		}
 	}
+	meta.HasMore = meta.Total > meta.StartAt+meta.Returned
+	if meta.HasMore {
+		meta.NextCommand = buildNextPageCommand(cmd, meta.StartAt+meta.Returned)
+	}
 	return meta
+}
+
+func buildNextPageCommand(cmd *cobra.Command, nextStartAt int) string {
+	if cmd == nil {
+		return ""
+	}
+
+	parts := []string{cmd.CommandPath()}
+	for _, arg := range cmd.Flags().Args() {
+		parts = append(parts, shellQuoteFlagValue(arg))
+	}
+	cmd.Flags().Visit(func(flag *pflag.Flag) {
+		if flag.Name == "start-at" {
+			return
+		}
+		parts = append(parts, "--"+flag.Name)
+		if flag.Value.Type() != "bool" || flag.Value.String() != "true" {
+			parts = append(parts, shellQuoteFlagValue(flag.Value.String()))
+		}
+	})
+	parts = append(parts, "--start-at", strconv.Itoa(nextStartAt))
+	return strings.Join(parts, " ")
+}
+
+func shellQuoteFlagValue(value string) string {
+	if value == "" || strings.ContainsAny(value, " \t\n\"'\\") {
+		return strconv.Quote(value)
+	}
+	return value
 }
 
 func extractFieldArray(result map[string]any, fieldName string) ([]any, error) {

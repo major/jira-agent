@@ -48,7 +48,7 @@ jira-agent audit list --filter "user created" --limit 25`,
 				"to":     "to",
 			})
 
-			return writePaginatedAPIResult(w, *format, func(result any) error {
+			return writePaginatedAPIResult(cmd, w, *format, func(result any) error {
 				return apiClient.Get(ctx, "/auditing/record", params, result)
 			})
 		},
