@@ -714,7 +714,7 @@ func transitionJQLIssueStatus(issue map[string]any) string {
 
 func groupTransitionJQLIssues(issueKeys []string, transitions map[string]any, targetStatus string) (groups map[string][]string, skipped []string) {
 	groups = map[string][]string{}
-	skipped = make([]string, 0)
+	skipped = make([]string, 0, len(issueKeys))
 	seen := map[string]struct{}{}
 	for _, item := range transitionJQLIssueTransitionEntries(transitions) {
 		key, list := transitionJQLTransitionEntry(item)
