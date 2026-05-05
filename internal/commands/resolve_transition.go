@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -96,14 +97,24 @@ jira-agent resolve transition --issue PROJ-123 "In Progress"`,
 			// Call Jira API to get transitions for the issue
 			var transitionsResp map[string]any
 			if err := apiClient.Get(ctx, fmt.Sprintf("/issue/%s/transitions", issueKey), nil, &transitionsResp); err != nil {
+				// Wrap 404 errors with issue-specific message
+				var notFoundErr *apperr.NotFoundError
+				if errors.As(err, &notFoundErr) {
+					return apperr.NewNotFoundError(
+						fmt.Sprintf("issue %s not found", issueKey),
+						err,
+					)
+				}
 				return err
 			}
 
 			// Extract transitions array from response
 			transitionsAny, ok := transitionsResp["transitions"].([]any)
 			if !ok {
-				return apperr.NewValidationError(
-					"unexpected transitions response format",
+				return apperr.NewAPIError(
+					"unexpected transitions response format: missing or invalid \"transitions\" array",
+					0,
+					"",
 					nil,
 				)
 			}

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -419,5 +420,53 @@ func TestResolveTransitionCaseInsensitive(t *testing.T) {
 
 	if len(data) != 1 {
 		t.Errorf("data length: got %d, want 1 (case-insensitive match should work)", len(data))
+	}
+}
+
+func TestResolveTransitionIssueNotFound(t *testing.T) {
+	t.Parallel()
+
+	// Create a custom server that returns 404 for the transitions endpoint
+	server := testhelpers.NewServer(t, "GET", "/issue/PROJ-999/transitions", func(w http.ResponseWriter) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		if _, err := w.Write([]byte(`{"errorMessages":["Issue does not exist"],"errors":{}}`)); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
+	})
+	defer server.Close()
+
+	cmd := transitionResolveCommand(testCommandClient(server.URL), &bytes.Buffer{}, testCommandFormat())
+
+	prepareCommandForTest(cmd)
+	cmd.SetContext(context.Background())
+	cmd.SetArgs([]string{"--issue", "PROJ-999", "Done"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+
+	// Verify it's a NotFoundError
+	var notFoundErr *apperr.NotFoundError
+	if !errors.As(err, &notFoundErr) {
+		t.Errorf("error type: got %T, want NotFoundError", err)
+	}
+
+	// Verify error message contains the issue key
+	if !strings.Contains(err.Error(), "PROJ-999") {
+		t.Errorf("error message: got %q, want to contain 'PROJ-999'", err.Error())
+	}
+
+	// Verify error code
+	code := apperr.ErrorCode(err)
+	if code != "NOT_FOUND" {
+		t.Errorf("error code: got %q, want NOT_FOUND", code)
+	}
+
+	// Verify exit code
+	exitCode := apperr.ExitCodeFor(err)
+	if exitCode != 2 {
+		t.Errorf("exit code: got %d, want 2", exitCode)
 	}
 }
