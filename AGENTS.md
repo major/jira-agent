@@ -6,7 +6,7 @@ Generated: Mon May 04 2026. Source state: branch `feat/llm-ux-features`, commit 
 
 `jira-agent` is a command line tool meant to be used by large tool-calling LLMs first: Claude Opus, GPT, and similar agents. Human users may enjoy it too, but the primary contract is helping an LLM get the right Jira answer on the first try. Favor structured output, schema discovery, bounded responses, deterministic behavior, and remediation-rich errors over human-oriented prose.
 
-Keep this file and any nested `AGENTS.md` files current anytime code changes. Every code change must include a quick check that the affected guidance still matches the implementation. Keep `skills/jira-agent` files updated in the same change whenever code changes affect commands, flags, args, output contracts, auth/write behavior, errors, pagination, examples, or recommended LLM workflows. Keep guidance compact and source-backed.
+Keep this file and any nested `AGENTS.md` files current anytime code changes. Every code change must include a quick check that the affected guidance still matches the implementation. Keep `.coderabbit.yaml` and `.github/copilot-instructions.md` plus `.github/instructions/*.instructions.md` aligned with current repo conventions when review-relevant behavior changes. Keep `skills/jira-agent` files updated in the same change whenever code changes affect commands, flags, args, output contracts, auth/write behavior, errors, pagination, examples, or recommended LLM workflows. Keep guidance compact and source-backed.
 
 ## Project map
 
