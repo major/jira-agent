@@ -1743,3 +1743,96 @@ func TestFlagGroupsHelper(t *testing.T) {
 		}
 	})
 }
+
+func TestMustGetHelpers(t *testing.T) {
+	t.Parallel()
+
+	t.Run("mustGetString returns registered flag value", func(t *testing.T) {
+		t.Parallel()
+		cmd := &cobra.Command{}
+		cmd.Flags().String("name", "default", "")
+		got := mustGetString(cmd, "name")
+		if got != "default" {
+			t.Errorf("got %q, want %q", got, "default")
+		}
+	})
+
+	t.Run("mustGetBool returns registered flag value", func(t *testing.T) {
+		t.Parallel()
+		cmd := &cobra.Command{}
+		cmd.Flags().Bool("verbose", true, "")
+		got := mustGetBool(cmd, "verbose")
+		if got != true {
+			t.Errorf("got %v, want true", got)
+		}
+	})
+
+	t.Run("mustGetInt returns registered flag value", func(t *testing.T) {
+		t.Parallel()
+		cmd := &cobra.Command{}
+		cmd.Flags().Int("count", 42, "")
+		got := mustGetInt(cmd, "count")
+		if got != 42 {
+			t.Errorf("got %d, want 42", got)
+		}
+	})
+
+	t.Run("mustGetStringSlice returns registered flag value", func(t *testing.T) {
+		t.Parallel()
+		cmd := &cobra.Command{}
+		cmd.Flags().StringSlice("items", []string{"a", "b"}, "")
+		got := mustGetStringSlice(cmd, "items")
+		want := []string{"a", "b"}
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("got %v, want %v", got, want)
+		}
+	})
+
+	t.Run("mustGetStringToString returns registered flag value", func(t *testing.T) {
+		t.Parallel()
+		cmd := &cobra.Command{}
+		cmd.Flags().StringToString("kv", map[string]string{"k": "v"}, "")
+		got := mustGetStringToString(cmd, "kv")
+		want := map[string]string{"k": "v"}
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("got %v, want %v", got, want)
+		}
+	})
+}
+
+func TestMustGetHelpersPanicOnMissingFlag(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		fn   func()
+	}{
+		{"mustGetString", func() { mustGetString(&cobra.Command{}, "nope") }},
+		{"mustGetBool", func() { mustGetBool(&cobra.Command{}, "nope") }},
+		{"mustGetInt", func() { mustGetInt(&cobra.Command{}, "nope") }},
+		{"mustGetStringSlice", func() { mustGetStringSlice(&cobra.Command{}, "nope") }},
+		{"mustGetStringToString", func() { mustGetStringToString(&cobra.Command{}, "nope") }},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name+" panics on unregistered flag", func(t *testing.T) {
+			t.Parallel()
+			defer func() {
+				r := recover()
+				if r == nil {
+					t.Errorf("%s did not panic on unregistered flag", tt.name)
+					return
+				}
+				msg, ok := r.(string)
+				if !ok {
+					t.Errorf("panic value is %T, want string", r)
+					return
+				}
+				if !strings.Contains(msg, "nope") {
+					t.Errorf("panic message %q does not mention flag name %q", msg, "nope")
+				}
+			}()
+			tt.fn()
+		})
+	}
+}

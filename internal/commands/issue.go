@@ -901,28 +901,54 @@ jira-agent issue meta --operation edit --issue PROJ-123`,
 	return cmd
 }
 
+// mustGetString returns the string value of the named flag or panics if the
+// flag does not exist. Cobra only returns an error when the flag name is
+// unregistered, which is always a programmer bug.
 func mustGetString(cmd *cobra.Command, name string) string {
-	value, _ := cmd.Flags().GetString(name)
+	value, err := cmd.Flags().GetString(name)
+	if err != nil {
+		panic(fmt.Sprintf("mustGetString(%q): %v", name, err))
+	}
 	return value
 }
 
+// mustGetBool returns the bool value of the named flag or panics if the
+// flag does not exist.
 func mustGetBool(cmd *cobra.Command, name string) bool {
-	value, _ := cmd.Flags().GetBool(name)
+	value, err := cmd.Flags().GetBool(name)
+	if err != nil {
+		panic(fmt.Sprintf("mustGetBool(%q): %v", name, err))
+	}
 	return value
 }
 
+// mustGetInt returns the int value of the named flag or panics if the
+// flag does not exist.
 func mustGetInt(cmd *cobra.Command, name string) int {
-	value, _ := cmd.Flags().GetInt(name)
+	value, err := cmd.Flags().GetInt(name)
+	if err != nil {
+		panic(fmt.Sprintf("mustGetInt(%q): %v", name, err))
+	}
 	return value
 }
 
+// mustGetStringSlice returns the string slice value of the named flag or
+// panics if the flag does not exist.
 func mustGetStringSlice(cmd *cobra.Command, name string) []string {
-	value, _ := cmd.Flags().GetStringSlice(name)
+	value, err := cmd.Flags().GetStringSlice(name)
+	if err != nil {
+		panic(fmt.Sprintf("mustGetStringSlice(%q): %v", name, err))
+	}
 	return value
 }
 
+// mustGetStringToString returns the string-to-string map value of the named
+// flag or panics if the flag does not exist.
 func mustGetStringToString(cmd *cobra.Command, name string) map[string]string {
-	value, _ := cmd.Flags().GetStringToString(name)
+	value, err := cmd.Flags().GetStringToString(name)
+	if err != nil {
+		panic(fmt.Sprintf("mustGetStringToString(%q): %v", name, err))
+	}
 	return value
 }
 
