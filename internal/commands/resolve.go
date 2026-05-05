@@ -17,11 +17,14 @@ func ResolveCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *
 	cmd := &cobra.Command{
 		Use:   "resolve",
 		Short: "Resolve human-friendly names to Jira internal IDs",
-		Example: `jira-agent resolve user "John Doe"
-jira-agent resolve project "My Project"
-jira-agent resolve status "In Progress"`,
+		Example: `jira-agent resolve user "john@example.com"
+jira-agent resolve board "My Scrum Board"
+jira-agent resolve sprint --board-id 42 "Sprint 5"
+jira-agent resolve field "story points"
+jira-agent resolve transition --issue PROJ-123 "Done"`,
 	}
 	SetCommandCategory(cmd, commandCategoryDiscovery)
+	cmd.AddCommand(userResolveCommand(apiClient, w, format))
 	return cmd
 }
 
