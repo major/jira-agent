@@ -177,6 +177,29 @@ jira-agent sprint move-issues 42 --issues KEY-1 --rank-after KEY-10
 | `--rank-before` | Position before this issue |
 | `--rank-after` | Position after this issue |
 
+### sprint summarize
+
+```bash
+jira-agent sprint summarize 42
+jira-agent sprint summarize 42 --story-points-field customfield_10016
+```
+
+| Flag | Default | Notes |
+|------|---------|-------|
+| `--story-points-field` | auto-discover | Custom field ID for story points. When omitted, searches for "Story Points" or "Story point estimate" via field search API. Set explicitly to skip auto-discovery. |
+
+Returns sprint metadata, issue status counts, and story point aggregates:
+
+```json
+{
+  "sprint": {"id": 42, "name": "Sprint 5", "state": "active", "start_date": "2025-01-01", "end_date": "2025-01-14"},
+  "issues": {"total": 15, "by_status": {"To Do": 3, "In Progress": 7, "Done": 5}},
+  "story_points": {"total": 34, "by_status": {"To Do": 8, "In Progress": 13, "Done": 13}, "field": "customfield_10016"}
+}
+```
+
+`story_points` is `null` when no story points field is found or no issues have story points set. Read-only, no write access required.
+
 ### sprint swap / property
 
 ```bash
