@@ -395,6 +395,159 @@ type createAndLinkParams struct {
 	linkDirection string
 }
 
+// createAndAssignParams holds the parsed flags for the create-and-assign
+// composite command.
+type createAndAssignParams struct {
+	project     string
+	issueType   string
+	summary     string
+	payloadJSON string
+	assignee    string
+	skipAssign  bool
+}
+
+// issueCreateAndAssignCommand returns a composite command that creates an issue
+// and assigns it in one invocation.
+func issueCreateAndAssignCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites, dryRun *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "create-and-assign",
+		Short: "Create an issue and assign it in one step",
+		Example: `jira-agent issue create-and-assign --project PROJ --type Story --summary "New feature"
+jira-agent issue create-and-assign --project PROJ --type Bug --summary "Fix" --assignee abc123
+jira-agent issue create-and-assign --project PROJ --type Task --summary "Chore" --skip-assign
+jira-agent issue create-and-assign --project PROJ --type Story --summary "New" --dry-run`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			isDry := IsDryRun(dryRun)
+			if !isDry {
+				if err := requireWriteAccess(allowWrites); err != nil {
+					return err
+				}
+			}
+
+			p := createAndAssignParams{
+				project:     resolveProject(cmd),
+				issueType:   mustGetString(cmd, "type"),
+				summary:     mustGetString(cmd, "summary"),
+				payloadJSON: mustGetString(cmd, "payload-json"),
+				assignee:    mustGetString(cmd, "assignee"),
+				skipAssign:  mustGetBool(cmd, "skip-assign"),
+			}
+
+			if p.payloadJSON == "" {
+				if p.summary == "" {
+					return apperr.NewValidationError("--summary is required when not using --payload-json", nil)
+				}
+				if p.issueType == "" {
+					return apperr.NewValidationError("--type is required when not using --payload-json", nil)
+				}
+			}
+
+			opts := CompactOptsFromCmd(cmd)
+			if isDry {
+				return createAndAssignDryRun(w, *format, &p, opts...)
+			}
+			return createAndAssignExecute(cmd, cmd.Context(), apiClient, w, *format, &p, opts...)
+		},
+	}
+	cmd.Flags().String("type", "", "Issue type name (e.g. Story, Bug, Task)")
+	cmd.Flags().String("summary", "", "Issue summary")
+	cmd.Flags().String("description", "", "Description text, ADF JSON, or wiki markup with --description-format")
+	cmd.Flags().String("description-format", "auto", "Description input format: auto, plain, adf, or wiki")
+	cmd.Flags().String("assignee", "", "Assignee account ID")
+	cmd.Flags().String("priority", "", "Priority name (e.g. High, Medium, Low)")
+	cmd.Flags().String("labels", "", "Comma-separated labels")
+	cmd.Flags().String("components", "", "Comma-separated component names")
+	cmd.Flags().String("parent", "", "Parent issue key (for subtasks/child issues)")
+	cmd.Flags().StringToString("field", map[string]string{}, "Custom field value (key=value, repeatable)")
+	cmd.Flags().String("fields-json", "", "JSON object of fields (alternative to individual flags)")
+	cmd.Flags().String("payload-json", "", "Full JSON issue create payload (mutually exclusive with individual field flags)")
+	cmd.Flags().Bool("skip-assign", false, "Skip assignment step")
+	markMutuallyExclusive(cmd, "assignee", "skip-assign")
+	for _, flag := range []string{"summary", "type", "description", "assignee", "priority", "labels", "components", "parent", "field", "fields-json"} {
+		markMutuallyExclusive(cmd, "payload-json", flag)
+	}
+	SetCommandCategory(cmd, commandCategoryWorkflow)
+	return cmd
+}
+
+// createAndAssignDryRun outputs what would be created and assigned without any
+// API calls.
+func createAndAssignDryRun(w io.Writer, format output.Format, p *createAndAssignParams, opts ...output.WriteOption) error {
+	before := map[string]any{}
+	after := map[string]any{}
+	if p.payloadJSON != "" {
+		after["summary"] = "(payload-json)"
+	} else {
+		after["summary"] = p.summary
+		after["type"] = p.issueType
+	}
+	if p.project != "" {
+		after["project"] = p.project
+	}
+	if p.skipAssign {
+		after["assignee"] = "(none)"
+	} else if p.assignee != "" {
+		after["assignee"] = p.assignee
+	} else {
+		after["assignee"] = "(resolved from /myself)"
+	}
+	return WriteDryRunResult(w, DryRunResult{
+		Command:  "issue create-and-assign",
+		IssueKey: "(new)",
+		Before:   before,
+		After:    after,
+		Diff:     ComputeFieldDiff(before, after),
+	}, format, opts...)
+}
+
+// createAndAssignExecute creates an issue and then assigns it. If creation
+// succeeds but assignment fails, a partial result includes remediation.
+func createAndAssignExecute(cmd *cobra.Command, ctx context.Context, apiClient *client.Ref, w io.Writer, format output.Format, p *createAndAssignParams, opts ...output.WriteOption) error {
+	if !p.skipAssign && p.assignee == "" {
+		id, err := resolveAccountID(ctx, apiClient)
+		if err != nil {
+			return err
+		}
+		p.assignee = id
+	}
+
+	body, err := buildCreatePayload(cmd, p)
+	if err != nil {
+		return err
+	}
+
+	var createResult map[string]any
+	if err := apiClient.Post(ctx, "/issue", body, &createResult); err != nil {
+		return err
+	}
+
+	newKey, _ := createResult["key"].(string)
+	if newKey == "" {
+		return apperr.NewAPIError("create response missing issue key", 0, "", nil)
+	}
+
+	if p.skipAssign {
+		return output.WriteResult(w, map[string]any{"key": newKey, "assigned": false}, format, opts...)
+	}
+
+	assignBody := map[string]any{"accountId": p.assignee}
+	if err := apiClient.Put(ctx, "/issue/"+newKey+"/assignee", assignBody, nil); err != nil {
+		result := map[string]any{
+			"key":          newKey,
+			"assigned":     false,
+			"next_command": fmt.Sprintf("jira-agent issue assign %s --assignee %s", newKey, p.assignee),
+		}
+		return output.WritePartial(w, result, []string{"assign: " + err.Error()}, output.NewMetadata(), format, opts...)
+	}
+
+	result := map[string]any{
+		"key":      newKey,
+		"assigned": true,
+		"assignee": p.assignee,
+	}
+	return output.WriteResult(w, result, format, opts...)
+}
+
 // issueCreateAndLinkCommand returns a composite command that creates an issue
 // and links it to an existing issue in a single invocation.
 func issueCreateAndLinkCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites, dryRun *bool) *cobra.Command {
@@ -536,45 +689,50 @@ func createAndLinkExecute(cmd *cobra.Command, ctx context.Context, apiClient *cl
 
 // buildCreatePayload constructs the issue create body from command flags or
 // --payload-json, reusing the same helpers as issueCreateCommand.
-func buildCreatePayload(cmd *cobra.Command, p *createAndLinkParams) (map[string]any, error) {
-	if p.payloadJSON != "" {
+func buildCreatePayload(cmd *cobra.Command, p any) (map[string]any, error) {
+	project, issueType, summary, payloadJSON, err := createPayloadFields(p)
+	if err != nil {
+		return nil, err
+	}
+
+	if payloadJSON != "" {
 		body := map[string]any{}
-		if err := mergePayloadJSON(body, p.payloadJSON); err != nil {
+		if err := mergePayloadJSON(body, payloadJSON); err != nil {
 			return nil, err
 		}
 		// Inject project when the payload omits it.
-		if p.project != "" {
+		if project != "" {
 			fields, ok := body["fields"].(map[string]any)
 			if !ok {
 				fields = map[string]any{}
 				body["fields"] = fields
 			}
 			if _, hasProject := fields["project"]; !hasProject {
-				fields["project"] = map[string]any{"key": p.project}
+				fields["project"] = map[string]any{"key": project}
 			}
 		}
 		return body, nil
 	}
 
 	// Individual flags mode requires project, type, and summary.
-	if p.project == "" {
+	if project == "" {
 		return nil, apperr.NewValidationError(
 			"--project is required",
 			nil,
 			apperr.WithDetails("use --project flag or set JIRA_PROJECT env var"),
 		)
 	}
-	if p.issueType == "" {
+	if issueType == "" {
 		return nil, apperr.NewValidationError("--type is required", nil)
 	}
-	if p.summary == "" {
+	if summary == "" {
 		return nil, apperr.NewValidationError("--summary is required", nil)
 	}
 
 	fields := map[string]any{
-		"project":   map[string]any{"key": p.project},
-		"issuetype": map[string]any{"name": p.issueType},
-		"summary":   p.summary,
+		"project":   map[string]any{"key": project},
+		"issuetype": map[string]any{"name": issueType},
+		"summary":   summary,
 	}
 
 	if err := applyCommonFields(fields, cmd); err != nil {
@@ -585,6 +743,19 @@ func buildCreatePayload(cmd *cobra.Command, p *createAndLinkParams) (map[string]
 	}
 
 	return map[string]any{"fields": fields}, nil
+}
+
+// createPayloadFields extracts the fields shared by composite commands that
+// reuse the issue create payload builder.
+func createPayloadFields(p any) (project, issueType, summary, payloadJSON string, err error) {
+	switch params := p.(type) {
+	case *createAndLinkParams:
+		return params.project, params.issueType, params.summary, params.payloadJSON, nil
+	case *createAndAssignParams:
+		return params.project, params.issueType, params.summary, params.payloadJSON, nil
+	default:
+		return "", "", "", "", apperr.NewValidationError("unsupported create payload params", nil)
+	}
 }
 
 // buildLinkPayload constructs the issue link body for POST /issueLink.

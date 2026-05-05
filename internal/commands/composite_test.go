@@ -1131,6 +1131,274 @@ func TestCreateAndLink(t *testing.T) {
 	})
 }
 
+func TestCreateAndAssign(t *testing.T) {
+	t.Parallel()
+
+	t.Run("happy path self assign", func(t *testing.T) {
+		t.Parallel()
+
+		var createBody, assignBody map[string]any
+		var requests int
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requests++
+			switch {
+			case r.Method == http.MethodGet && r.URL.Path == "/myself":
+				testhelpers.WriteJSONResponse(t, w, `{"accountId":"abc123","displayName":"Test User"}`)
+			case r.Method == http.MethodPost && r.URL.Path == "/issue":
+				createBody = testhelpers.DecodeJSONBody(t, r)
+				testhelpers.WriteJSONResponse(t, w, `{"id":"10001","key":"PROJ-456"}`)
+			case r.Method == http.MethodPut && r.URL.Path == "/issue/PROJ-456/assignee":
+				assignBody = testhelpers.DecodeJSONBody(t, r)
+				w.WriteHeader(http.StatusNoContent)
+			default:
+				t.Errorf("unexpected request %d: %s %s", requests, r.Method, r.URL.Path)
+			}
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		cmd := issueCreateAndAssignCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites(), testDryRun())
+		prepareCommandForTest(cmd)
+		cmd.SetArgs([]string{"--project", "PROJ", "--type", "Story", "--summary", "New feature"})
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("cmd.Execute() error = %v", err)
+		}
+
+		fields, ok := createBody["fields"].(map[string]any)
+		if !ok {
+			t.Fatal("create body missing fields")
+		}
+		if fields["summary"] != "New feature" {
+			t.Errorf("summary = %v, want New feature", fields["summary"])
+		}
+		if assignBody["accountId"] != "abc123" {
+			t.Errorf("accountId = %v, want abc123", assignBody["accountId"])
+		}
+
+		var envelope output.Envelope
+		if err := json.Unmarshal(buf.Bytes(), &envelope); err != nil {
+			t.Fatalf("json.Unmarshal() error = %v", err)
+		}
+		data, ok := envelope.Data.(map[string]any)
+		if !ok {
+			t.Fatalf("data type = %T, want map[string]any", envelope.Data)
+		}
+		if data["key"] != "PROJ-456" {
+			t.Errorf("key = %v, want PROJ-456", data["key"])
+		}
+		if data["assigned"] != true {
+			t.Errorf("assigned = %v, want true", data["assigned"])
+		}
+		if data["assignee"] != "abc123" {
+			t.Errorf("assignee = %v, want abc123", data["assignee"])
+		}
+		if requests != 3 {
+			t.Errorf("requests = %d, want 3", requests)
+		}
+	})
+
+	t.Run("explicit assignee", func(t *testing.T) {
+		t.Parallel()
+
+		var requests int
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requests++
+			switch {
+			case r.Method == http.MethodPost && r.URL.Path == "/issue":
+				testhelpers.WriteJSONResponse(t, w, `{"id":"10001","key":"PROJ-456"}`)
+			case r.Method == http.MethodPut && r.URL.Path == "/issue/PROJ-456/assignee":
+				body := testhelpers.DecodeJSONBody(t, r)
+				if body["accountId"] != "def456" {
+					t.Errorf("accountId = %v, want def456", body["accountId"])
+				}
+				w.WriteHeader(http.StatusNoContent)
+			default:
+				t.Errorf("unexpected request %d: %s %s", requests, r.Method, r.URL.Path)
+			}
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		cmd := issueCreateAndAssignCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites(), testDryRun())
+		prepareCommandForTest(cmd)
+		cmd.SetArgs([]string{"--project", "PROJ", "--type", "Bug", "--summary", "Fix", "--assignee", "def456"})
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("cmd.Execute() error = %v", err)
+		}
+
+		var envelope output.Envelope
+		if err := json.Unmarshal(buf.Bytes(), &envelope); err != nil {
+			t.Fatalf("json.Unmarshal() error = %v", err)
+		}
+		data, ok := envelope.Data.(map[string]any)
+		if !ok {
+			t.Fatalf("data type = %T, want map[string]any", envelope.Data)
+		}
+		if data["assignee"] != "def456" {
+			t.Errorf("assignee = %v, want def456", data["assignee"])
+		}
+		if requests != 2 {
+			t.Errorf("requests = %d, want 2 (no /myself call)", requests)
+		}
+	})
+
+	t.Run("skip assign", func(t *testing.T) {
+		t.Parallel()
+
+		var requests int
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requests++
+			switch {
+			case r.Method == http.MethodPost && r.URL.Path == "/issue":
+				testhelpers.WriteJSONResponse(t, w, `{"id":"10001","key":"PROJ-456"}`)
+			default:
+				t.Errorf("unexpected request %d: %s %s (no assignment expected)", requests, r.Method, r.URL.Path)
+			}
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		cmd := issueCreateAndAssignCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites(), testDryRun())
+		prepareCommandForTest(cmd)
+		cmd.SetArgs([]string{"--project", "PROJ", "--type", "Task", "--summary", "Chore", "--skip-assign"})
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("cmd.Execute() error = %v", err)
+		}
+
+		var envelope output.Envelope
+		if err := json.Unmarshal(buf.Bytes(), &envelope); err != nil {
+			t.Fatalf("json.Unmarshal() error = %v", err)
+		}
+		data, ok := envelope.Data.(map[string]any)
+		if !ok {
+			t.Fatalf("data type = %T, want map[string]any", envelope.Data)
+		}
+		if data["assigned"] != false {
+			t.Errorf("assigned = %v, want false", data["assigned"])
+		}
+		if _, hasAssignee := data["assignee"]; hasAssignee {
+			t.Errorf("assignee field present, want absent when --skip-assign")
+		}
+		if requests != 1 {
+			t.Errorf("requests = %d, want 1", requests)
+		}
+	})
+
+	t.Run("dry run zero mutations", func(t *testing.T) {
+		t.Parallel()
+
+		var requests int
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requests++
+			t.Errorf("unexpected request %d: %s %s (dry-run should not make API calls)", requests, r.Method, r.URL.Path)
+		}))
+		defer server.Close()
+
+		dryRunEnabled := true
+		var buf bytes.Buffer
+		cmd := issueCreateAndAssignCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites(), &dryRunEnabled)
+		prepareCommandForTest(cmd)
+		cmd.SetArgs([]string{"--project", "PROJ", "--type", "Story", "--summary", "New"})
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("cmd.Execute() error = %v", err)
+		}
+
+		var envelope output.Envelope
+		if err := json.Unmarshal(buf.Bytes(), &envelope); err != nil {
+			t.Fatalf("json.Unmarshal() error = %v", err)
+		}
+		data, ok := envelope.Data.(map[string]any)
+		if !ok {
+			t.Fatalf("data type = %T, want map[string]any", envelope.Data)
+		}
+		if data["command"] != "issue create-and-assign" {
+			t.Errorf("command = %v, want issue create-and-assign", data["command"])
+		}
+		if data["issue_key"] != "(new)" {
+			t.Errorf("issue_key = %v, want (new)", data["issue_key"])
+		}
+		after, ok := data["after"].(map[string]any)
+		if !ok {
+			t.Fatalf("after type = %T, want map[string]any", data["after"])
+		}
+		if after["assignee"] != "(resolved from /myself)" {
+			t.Errorf("assignee = %v, want resolved placeholder", after["assignee"])
+		}
+		if requests != 0 {
+			t.Errorf("requests = %d, want 0", requests)
+		}
+	})
+
+	t.Run("write blocked", func(t *testing.T) {
+		t.Parallel()
+
+		writesDisabled := false
+		dryRunDisabled := false
+		var buf bytes.Buffer
+		cmd := issueCreateAndAssignCommand(testCommandClient("http://unused"), &buf, testCommandFormat(), &writesDisabled, &dryRunDisabled)
+		prepareCommandForTest(cmd)
+		cmd.SetArgs([]string{"--project", "PROJ", "--type", "Story", "--summary", "New feature"})
+
+		err := cmd.Execute()
+		if err == nil {
+			t.Fatal("cmd.Execute() = nil, want validation error")
+		}
+
+		var valErr *apperr.ValidationError
+		if !errors.As(err, &valErr) {
+			t.Errorf("error type = %T, want *apperr.ValidationError", err)
+		}
+	})
+
+	t.Run("partial failure assign", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch {
+			case r.Method == http.MethodPost && r.URL.Path == "/issue":
+				testhelpers.WriteJSONResponse(t, w, `{"id":"10001","key":"PROJ-456"}`)
+			case r.Method == http.MethodPut && r.URL.Path == "/issue/PROJ-456/assignee":
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusForbidden)
+				_, _ = w.Write([]byte(`{"errorMessages":["Permission denied"]}`))
+			default:
+				t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+			}
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		cmd := issueCreateAndAssignCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites(), testDryRun())
+		prepareCommandForTest(cmd)
+		cmd.SetArgs([]string{"--project", "PROJ", "--type", "Story", "--summary", "New feature", "--assignee", "def456"})
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("cmd.Execute() error = %v", err)
+		}
+
+		var envelope output.Envelope
+		if err := json.Unmarshal(buf.Bytes(), &envelope); err != nil {
+			t.Fatalf("json.Unmarshal() error = %v", err)
+		}
+		data, ok := envelope.Data.(map[string]any)
+		if !ok {
+			t.Fatalf("data type = %T, want map[string]any", envelope.Data)
+		}
+		if data["key"] != "PROJ-456" {
+			t.Errorf("key = %v, want PROJ-456", data["key"])
+		}
+		if data["assigned"] != false {
+			t.Errorf("assigned = %v, want false", data["assigned"])
+		}
+		wantNext := "jira-agent issue assign PROJ-456 --assignee def456"
+		if data["next_command"] != wantNext {
+			t.Errorf("next_command = %v, want %s", data["next_command"], wantNext)
+		}
+		if len(envelope.Errors) == 0 {
+			t.Error("errors = empty, want at least one error")
+		}
+	})
+}
+
 func TestMoveToSprint(t *testing.T) {
 	t.Parallel()
 
