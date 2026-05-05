@@ -178,7 +178,8 @@ func startWorkExecute(ctx context.Context, apiClient *client.Ref, w io.Writer, f
 	}
 
 	if len(errMsgs) > 0 {
-		return output.WritePartial(w, result, errMsgs, output.NewMetadata(), format, opts...)
+		meta := output.NewMetadata()
+		return output.WritePartial(w, result, errMsgs, &meta, format, opts...)
 	}
 	return output.WriteResult(w, result, format, opts...)
 }
@@ -349,7 +350,8 @@ func closeExecute(ctx context.Context, apiClient *client.Ref, w io.Writer, forma
 	}
 
 	if len(errMsgs) > 0 {
-		return output.WritePartial(w, result, errMsgs, output.NewMetadata(), format, opts...)
+		meta := output.NewMetadata()
+		return output.WritePartial(w, result, errMsgs, &meta, format, opts...)
 	}
 	return output.WriteResult(w, result, format, opts...)
 }
@@ -420,20 +422,20 @@ jira-agent issue create-and-link --payload-json '{"fields":{"project":{"key":"PR
 				linkDirection: mustGetString(cmd, "link-direction"),
 			}
 
-		// Validate required fields when not using full payload mode.
-		if p.payloadJSON == "" {
-			if p.summary == "" {
-				return apperr.NewValidationError("--summary is required when not using --payload-json", nil)
+			// Validate required fields when not using full payload mode.
+			if p.payloadJSON == "" {
+				if p.summary == "" {
+					return apperr.NewValidationError("--summary is required when not using --payload-json", nil)
+				}
+				if p.issueType == "" {
+					return apperr.NewValidationError("--type is required when not using --payload-json", nil)
+				}
 			}
-			if p.issueType == "" {
-				return apperr.NewValidationError("--type is required when not using --payload-json", nil)
-			}
-		}
 
-		opts := CompactOptsFromCmd(cmd)
-		if isDry {
-			return createAndLinkDryRun(w, *format, &p, opts...)
-		}
+			opts := CompactOptsFromCmd(cmd)
+			if isDry {
+				return createAndLinkDryRun(w, *format, &p, opts...)
+			}
 			return createAndLinkExecute(cmd, cmd.Context(), apiClient, w, *format, &p, opts...)
 		},
 	}
@@ -519,7 +521,8 @@ func createAndLinkExecute(cmd *cobra.Command, ctx context.Context, apiClient *cl
 				p.linkType, linkInwardKey(newKey, p.linkTarget, p.linkDirection), linkOutwardKey(newKey, p.linkTarget, p.linkDirection),
 			),
 		}
-		return output.WritePartial(w, result, []string{"link: " + err.Error()}, output.NewMetadata(), format, opts...)
+		meta := output.NewMetadata()
+		return output.WritePartial(w, result, []string{"link: " + err.Error()}, &meta, format, opts...)
 	}
 
 	result := map[string]any{
@@ -770,7 +773,8 @@ func moveToSprintExecute(ctx context.Context, apiClient *client.Ref, w io.Writer
 	}
 
 	if len(errMsgs) > 0 {
-		return output.WritePartial(w, result, errMsgs, output.NewMetadata(), format, opts...)
+		meta := output.NewMetadata()
+		return output.WritePartial(w, result, errMsgs, &meta, format, opts...)
 	}
 	return output.WriteResult(w, result, format, opts...)
 }

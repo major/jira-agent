@@ -41,3 +41,20 @@ func DecodeJSONBody(t *testing.T, r *http.Request) map[string]any {
 	}
 	return body
 }
+
+// NewServer returns a test server that validates the request method and path
+// before calling the provided handler function to write the response.
+func NewServer(t *testing.T, method, path string, handler func(http.ResponseWriter)) *httptest.Server {
+	t.Helper()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != method {
+			t.Errorf("method = %q, want %q", r.Method, method)
+		}
+		if r.URL.Path != path {
+			t.Errorf("path = %q, want %q", r.URL.Path, path)
+		}
+		handler(w)
+	}))
+	t.Cleanup(server.Close)
+	return server
+}

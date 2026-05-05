@@ -74,7 +74,7 @@ func issueLinkListCommand(apiClient *client.Ref, w io.Writer, format *output.For
 			meta := output.NewMetadata()
 			meta.Total = len(links)
 			meta.Returned = len(links)
-			return output.WriteSuccess(w, links, meta, *format)
+			return output.WriteSuccess(w, links, &meta, *format)
 		},
 	}
 	return cmd
@@ -170,7 +170,7 @@ func issueLinkTypesCommand(apiClient *client.Ref, w io.Writer, format *output.Fo
 			meta := output.NewMetadata()
 			meta.Total = len(items)
 			meta.Returned = len(items)
-			return output.WriteSuccess(w, result, meta, *format)
+			return output.WriteSuccess(w, result, &meta, *format)
 		},
 	}
 	return cmd
@@ -200,7 +200,7 @@ func remoteLinkListCommand(apiClient *client.Ref, w io.Writer, format *output.Fo
 			meta := output.NewMetadata()
 			meta.Total = len(result)
 			meta.Returned = len(result)
-			return output.WriteSuccess(w, result, meta, *format)
+			return output.WriteSuccess(w, result, &meta, *format)
 		},
 	}
 	cmd.Flags().String("global-id", "", "Filter by stable global ID")

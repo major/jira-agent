@@ -205,6 +205,7 @@ jira-agent project list --output csv`,
 		commands.TimeTrackingCommand(apiClient, w, outputFormat, allowWrites),
 		commands.ServerInfoCommand(apiClient, w, outputFormat),
 		commands.JQLCommand(apiClient, w, outputFormat),
+		commands.ResolveCommand(apiClient, w, outputFormat),
 	)
 	commands.MarkWriteProtectedCommands(rootCmd)
 	rootCmd.AddCommand(commands.SchemaCommand(rootCmd, w, outputFormat))

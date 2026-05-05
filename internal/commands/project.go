@@ -317,7 +317,7 @@ func writeArrayAPIResult(w io.Writer, format output.Format, call apiResultFunc) 
 	if items, ok := result.([]any); ok {
 		meta.Returned = len(items)
 	}
-	return output.WriteSuccess(w, result, meta, format)
+	return output.WriteSuccess(w, result, &meta, format)
 }
 
 // projectGetCommand fetches a single project by key or ID.

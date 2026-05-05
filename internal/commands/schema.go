@@ -43,7 +43,8 @@ func SchemaCommand(rootCmd *cobra.Command, w io.Writer, format *output.Format) *
 		Short:   "Output machine-readable CLI schema",
 		Example: "jira-agent schema",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			return output.WriteSuccess(w, buildSchemaPayload(rootCmd), output.NewMetadata(), *format)
+			meta := output.NewMetadata()
+			return output.WriteSuccess(w, buildSchemaPayload(rootCmd), &meta, *format)
 		},
 	}
 	SetCommandCategory(cmd, commandCategoryDiscovery)

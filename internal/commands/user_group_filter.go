@@ -122,7 +122,7 @@ jira-agent user search --query "john.doe@example.com"`,
 			}
 			meta := output.NewMetadata()
 			meta.Returned = len(users)
-			return output.WriteSuccess(w, users, meta, *format)
+			return output.WriteSuccess(w, users, &meta, *format)
 		},
 	}
 	cmd.Flags().String("query", "", "User search query")
@@ -147,7 +147,7 @@ func userGroupsCommand(apiClient *client.Ref, w io.Writer, format *output.Format
 			meta := output.NewMetadata()
 			meta.Returned = len(groups)
 			meta.Total = len(groups)
-			return output.WriteSuccess(w, groups, meta, *format)
+			return output.WriteSuccess(w, groups, &meta, *format)
 		},
 	}
 	cmd.Flags().String("account-id", "", "User account ID")
@@ -497,7 +497,7 @@ func filterFavoritesCommand(apiClient *client.Ref, w io.Writer, format *output.F
 			meta := output.NewMetadata()
 			meta.Returned = len(filters)
 			meta.Total = len(filters)
-			return output.WriteSuccess(w, filters, meta, *format)
+			return output.WriteSuccess(w, filters, &meta, *format)
 		},
 	}
 }
@@ -522,7 +522,7 @@ func filterPermissionsCommand(apiClient *client.Ref, w io.Writer, format *output
 			meta := output.NewMetadata()
 			meta.Returned = len(permissions)
 			meta.Total = len(permissions)
-			return output.WriteSuccess(w, permissions, meta, *format)
+			return output.WriteSuccess(w, permissions, &meta, *format)
 		},
 	}
 }
@@ -553,7 +553,7 @@ jira-agent filter share 10001 --type project --project-id 10000`,
 			meta := output.NewMetadata()
 			meta.Returned = len(permissions)
 			meta.Total = len(permissions)
-			return output.WriteSuccess(w, permissions, meta, *format)
+			return output.WriteSuccess(w, permissions, &meta, *format)
 		}),
 	}
 	addFilterShareFlags(cmd)

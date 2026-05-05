@@ -18,7 +18,7 @@ func TestWriteSuccess_JSON(t *testing.T) {
 	meta := Metadata{Timestamp: "2025-01-01T00:00:00Z"}
 
 	var buf bytes.Buffer
-	if err := WriteSuccess(&buf, data, meta, FormatJSON); err != nil {
+	if err := WriteSuccess(&buf, data, &meta, FormatJSON); err != nil {
 		t.Fatalf("WriteSuccess(JSON): %v", err)
 	}
 
@@ -46,7 +46,7 @@ func TestWriteSuccess_JSONPretty(t *testing.T) {
 	meta := Metadata{Timestamp: "2025-01-01T00:00:00Z"}
 
 	var buf bytes.Buffer
-	if err := WriteSuccess(&buf, data, meta, FormatJSONPretty); err != nil {
+	if err := WriteSuccess(&buf, data, &meta, FormatJSONPretty); err != nil {
 		t.Fatalf("WriteSuccess(JSONPretty): %v", err)
 	}
 
@@ -74,7 +74,7 @@ func TestWriteSuccess_CSV(t *testing.T) {
 	meta := Metadata{Timestamp: "2025-01-01T00:00:00Z"}
 
 	var buf bytes.Buffer
-	if err := WriteSuccess(&buf, data, meta, FormatCSV); err != nil {
+	if err := WriteSuccess(&buf, data, &meta, FormatCSV); err != nil {
 		t.Fatalf("WriteSuccess(CSV): %v", err)
 	}
 
@@ -98,7 +98,7 @@ func TestWriteSuccess_TSV(t *testing.T) {
 	meta := Metadata{Timestamp: "2025-01-01T00:00:00Z"}
 
 	var buf bytes.Buffer
-	if err := WriteSuccess(&buf, data, meta, FormatTSV); err != nil {
+	if err := WriteSuccess(&buf, data, &meta, FormatTSV); err != nil {
 		t.Fatalf("WriteSuccess(TSV): %v", err)
 	}
 
@@ -124,7 +124,7 @@ func TestWriteSuccess_CSV_SliceOfMaps(t *testing.T) {
 	meta := Metadata{}
 
 	var buf bytes.Buffer
-	if err := WriteSuccess(&buf, data, meta, FormatCSV); err != nil {
+	if err := WriteSuccess(&buf, data, &meta, FormatCSV); err != nil {
 		t.Fatalf("WriteSuccess(CSV slice): %v", err)
 	}
 
@@ -147,7 +147,7 @@ func TestWriteSuccess_CSV_NilData(t *testing.T) {
 	t.Parallel()
 
 	var buf bytes.Buffer
-	if err := WriteSuccess(&buf, nil, Metadata{}, FormatCSV); err != nil {
+	if err := WriteSuccess(&buf, nil, &Metadata{}, FormatCSV); err != nil {
 		t.Fatalf("WriteSuccess(CSV nil): %v", err)
 	}
 	if buf.Len() != 0 {
@@ -164,7 +164,7 @@ func TestWriteSuccess_CSV_NestedValues(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	if err := WriteSuccess(&buf, data, Metadata{}, FormatCSV); err != nil {
+	if err := WriteSuccess(&buf, data, &Metadata{}, FormatCSV); err != nil {
 		t.Fatalf("WriteSuccess(CSV nested): %v", err)
 	}
 
@@ -193,7 +193,7 @@ func TestWriteSuccess_CSV_Struct(t *testing.T) {
 	data := user{Name: "Alice", Email: "a@b.com"}
 
 	var buf bytes.Buffer
-	if err := WriteSuccess(&buf, data, Metadata{}, FormatCSV); err != nil {
+	if err := WriteSuccess(&buf, data, &Metadata{}, FormatCSV); err != nil {
 		t.Fatalf("WriteSuccess(CSV struct): %v", err)
 	}
 
@@ -223,7 +223,7 @@ func TestWriteSuccess_CSV_SliceOfStructs(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	if err := WriteSuccess(&buf, data, Metadata{}, FormatCSV); err != nil {
+	if err := WriteSuccess(&buf, data, &Metadata{}, FormatCSV); err != nil {
 		t.Fatalf("WriteSuccess(CSV struct slice): %v", err)
 	}
 
@@ -328,7 +328,7 @@ func TestWriteSuccess_JSONPreservesReadableText(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	if err := WriteSuccess(&buf, data, Metadata{}, FormatJSON); err != nil {
+	if err := WriteSuccess(&buf, data, &Metadata{}, FormatJSON); err != nil {
 		t.Fatalf("WriteSuccess() error = %v, want nil", err)
 	}
 	got := buf.String()
@@ -380,7 +380,7 @@ func TestWriteSuccess_JSONCompactsJiraNoise(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	if err := WriteSuccess(&buf, data, Metadata{}, FormatJSON); err != nil {
+	if err := WriteSuccess(&buf, data, &Metadata{}, FormatJSON); err != nil {
 		t.Fatalf("WriteSuccess() error = %v, want nil", err)
 	}
 
@@ -425,7 +425,7 @@ func TestWriteRawSuccess_JSONPreservesJiraResponse(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	if err := WriteRawSuccess(&buf, data, Metadata{}, FormatJSON); err != nil {
+	if err := WriteRawSuccess(&buf, data, &Metadata{}, FormatJSON); err != nil {
 		t.Fatalf("WriteRawSuccess() error = %v, want nil", err)
 	}
 
@@ -444,7 +444,7 @@ func TestWritePartial_JSON(t *testing.T) {
 	meta := Metadata{Timestamp: "2025-01-01T00:00:00Z"}
 
 	var buf bytes.Buffer
-	if err := WritePartial(&buf, data, errs, meta, FormatJSON); err != nil {
+	if err := WritePartial(&buf, data, errs, &meta, FormatJSON); err != nil {
 		t.Fatalf("WritePartial(JSON): %v", err)
 	}
 
@@ -465,7 +465,7 @@ func TestWritePartial_JSONPretty(t *testing.T) {
 	meta := Metadata{Timestamp: "2025-01-01T00:00:00Z"}
 
 	var buf bytes.Buffer
-	if err := WritePartial(&buf, data, errs, meta, FormatJSONPretty); err != nil {
+	if err := WritePartial(&buf, data, errs, &meta, FormatJSONPretty); err != nil {
 		t.Fatalf("WritePartial(JSONPretty): %v", err)
 	}
 
@@ -490,7 +490,7 @@ func TestWritePartial_CSV(t *testing.T) {
 	errs := []string{"some warning"}
 
 	var buf bytes.Buffer
-	if err := WritePartial(&buf, data, errs, Metadata{}, FormatCSV); err != nil {
+	if err := WritePartial(&buf, data, errs, &Metadata{}, FormatCSV); err != nil {
 		t.Fatalf("WritePartial(CSV): %v", err)
 	}
 
@@ -511,7 +511,7 @@ func TestWritePartial_TSV(t *testing.T) {
 	errs := []string{"some warning"}
 
 	var buf bytes.Buffer
-	if err := WritePartial(&buf, data, errs, Metadata{}, FormatTSV); err != nil {
+	if err := WritePartial(&buf, data, errs, &Metadata{}, FormatTSV); err != nil {
 		t.Fatalf("WritePartial(TSV): %v", err)
 	}
 
@@ -555,6 +555,69 @@ func TestMetadataHasMoreExplicitFalse(t *testing.T) {
 	}
 	if strings.Contains(string(encoded), "next_command") {
 		t.Errorf("metadata JSON = %s, want next_command omitted when empty", encoded)
+	}
+}
+
+func TestMetadataUsageHintPresent(t *testing.T) {
+	t.Parallel()
+
+	meta := Metadata{
+		Timestamp: "2025-01-01T00:00:00Z",
+		UsageHint: "jira-agent issue assign PROJ-123 --assignee <account_id>",
+	}
+
+	encoded, err := json.Marshal(meta)
+	if err != nil {
+		t.Fatalf("marshal Metadata error = %v, want nil", err)
+	}
+
+	if !strings.Contains(string(encoded), `"usage_hint"`) {
+		t.Errorf("metadata JSON = %s, want usage_hint key present", encoded)
+	}
+	if !strings.Contains(string(encoded), "jira-agent issue assign PROJ-123") {
+		t.Errorf("metadata JSON = %s, want usage_hint value present", encoded)
+	}
+}
+
+func TestMetadataUsageHintOmitted(t *testing.T) {
+	t.Parallel()
+
+	meta := Metadata{Timestamp: "2025-01-01T00:00:00Z"}
+
+	encoded, err := json.Marshal(meta)
+	if err != nil {
+		t.Fatalf("marshal Metadata error = %v, want nil", err)
+	}
+
+	if strings.Contains(string(encoded), "usage_hint") {
+		t.Errorf("metadata JSON = %s, want usage_hint omitted when empty", encoded)
+	}
+}
+
+func TestNewMetadataUsageHintEmpty(t *testing.T) {
+	t.Parallel()
+
+	meta := NewMetadata()
+
+	if meta.UsageHint != "" {
+		t.Errorf("UsageHint = %q, want empty string", meta.UsageHint)
+	}
+}
+
+func TestWriteSuccessNilMetadata(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	if err := WriteSuccess(&buf, map[string]any{"key": "TEST-1"}, nil, FormatJSON); err != nil {
+		t.Fatalf("WriteSuccess(nil metadata) error = %v, want nil", err)
+	}
+
+	var env Envelope
+	if err := json.Unmarshal(buf.Bytes(), &env); err != nil {
+		t.Fatalf("unmarshal envelope: %v", err)
+	}
+	if env.Metadata.Timestamp == "" {
+		t.Error("nil metadata should default to NewMetadata with a timestamp")
 	}
 }
 

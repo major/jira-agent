@@ -169,3 +169,42 @@ func findSchemaFlag(flags []schemaFlag, name string) *schemaFlag {
 	}
 	return nil
 }
+
+func TestSchemaResolveCommands(t *testing.T) {
+	t.Parallel()
+
+	format := output.FormatJSON
+	apiClient := &client.Ref{}
+	var commandOutput strings.Builder
+	root := &cobra.Command{Use: "jira-agent", Version: "dev"}
+	root.AddCommand(ResolveCommand(apiClient, &commandOutput, &format))
+	MarkWriteProtectedCommands(root)
+
+	var schemaOutput strings.Builder
+	cmd := SchemaCommand(root, &schemaOutput, &format)
+	root.AddCommand(cmd)
+	if err := cmd.RunE(cmd, nil); err != nil {
+		t.Fatalf("SchemaCommand RunE error = %v", err)
+	}
+
+	got := decodeSchemaTestEnvelope(t, schemaOutput.String()).Data
+
+	// Verify all 5 resolve subcommands appear with discovery category
+	resolveSubcommands := []string{"resolve board", "resolve field", "resolve sprint", "resolve transition", "resolve user"}
+	for _, path := range resolveSubcommands {
+		cmd := findSchemaCommand(got.Commands, path)
+		if cmd == nil {
+			t.Errorf("%q missing from schema commands", path)
+			continue
+		}
+		if cmd.Category != commandCategoryDiscovery {
+			t.Errorf("%q category = %q, want %q", path, cmd.Category, commandCategoryDiscovery)
+		}
+		if cmd.WriteProtected {
+			t.Errorf("%q write_protected = true, want false", path)
+		}
+		if !cmd.RequiresAuth {
+			t.Errorf("%q requires_auth = false, want true", path)
+		}
+	}
+}

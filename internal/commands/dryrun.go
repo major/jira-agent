@@ -59,7 +59,8 @@ func ComputeFieldDiff(before, after map[string]any) []FieldChange {
 
 // WriteDryRunResult writes a dry-run result through the standard output envelope.
 func WriteDryRunResult(w io.Writer, result DryRunResult, format output.Format, opts ...output.WriteOption) error {
-	return output.WriteSuccess(w, result, output.NewMetadata(), format, opts...)
+	meta := output.NewMetadata()
+	return output.WriteSuccess(w, result, &meta, format, opts...)
 }
 
 // IsDryRun safely reports whether dry-run mode is enabled.

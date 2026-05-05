@@ -122,7 +122,11 @@ func applyCompact(value any) any {
 // writeCompactJSONLines writes each element of an array as an individual JSON
 // envelope on its own line (JSON Lines / NDJSON format). This allows LLMs to
 // process results incrementally with minimal token overhead.
-func writeCompactJSONLines(w io.Writer, items []any, errs []string, metadata Metadata, pretty bool) error {
+func writeCompactJSONLines(w io.Writer, items []any, errs []string, metadata *Metadata, pretty bool) error {
+	if metadata == nil {
+		m := NewMetadata()
+		metadata = &m
+	}
 	encoder := json.NewEncoder(w)
 	encoder.SetEscapeHTML(false)
 	if pretty {
@@ -132,7 +136,7 @@ func writeCompactJSONLines(w io.Writer, items []any, errs []string, metadata Met
 		envelope := Envelope{
 			Data:     []any{},
 			Errors:   errs,
-			Metadata: metadata,
+			Metadata: *metadata,
 		}
 		return encoder.Encode(envelope)
 	}
@@ -140,7 +144,7 @@ func writeCompactJSONLines(w io.Writer, items []any, errs []string, metadata Met
 		envelope := Envelope{
 			Data:     item,
 			Errors:   errs,
-			Metadata: metadata,
+			Metadata: *metadata,
 		}
 		if err := encoder.Encode(envelope); err != nil {
 			return fmt.Errorf("encoding compact JSON line: %w", err)

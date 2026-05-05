@@ -41,6 +41,7 @@ type Metadata struct {
 	MaxResults  int    `json:"max_results,omitempty"`
 	HasMore     bool   `json:"has_more"`
 	NextCommand string `json:"next_command,omitempty"`
+	UsageHint   string `json:"usage_hint,omitempty"`
 }
 
 // NewMetadata returns metadata pre-populated with the current UTC timestamp.
@@ -97,23 +98,28 @@ func encodeJSON(w io.Writer, v any, pretty bool) error {
 // WriteResult is a convenience wrapper for WriteSuccess with fresh metadata.
 // Use WriteSuccess directly when custom metadata (e.g. pagination) is needed.
 func WriteResult(w io.Writer, data any, format Format, opts ...WriteOption) error {
-	return WriteSuccess(w, data, NewMetadata(), format, opts...)
+	metadata := NewMetadata()
+	return WriteSuccess(w, data, &metadata, format, opts...)
 }
 
 // WriteSuccess writes a successful response with data and metadata to the writer.
 // For CSV/TSV formats, only the data is emitted as delimited rows (no envelope).
-func WriteSuccess(w io.Writer, data any, metadata Metadata, format Format, opts ...WriteOption) error {
+func WriteSuccess(w io.Writer, data any, metadata *Metadata, format Format, opts ...WriteOption) error {
 	return writeEnvelope(w, data, nil, metadata, format, false, opts...)
 }
 
 // WriteRawSuccess writes a successful response without compacting Jira's JSON
 // response shape. Use it only for commands that explicitly expose raw Jira API
 // payloads as part of their public contract.
-func WriteRawSuccess(w io.Writer, data any, metadata Metadata, format Format) error {
+func WriteRawSuccess(w io.Writer, data any, metadata *Metadata, format Format) error {
 	return writeEnvelope(w, data, nil, metadata, format, true)
 }
 
-func writeEnvelope(w io.Writer, data any, errs []string, metadata Metadata, format Format, raw bool, opts ...WriteOption) error {
+func writeEnvelope(w io.Writer, data any, errs []string, metadata *Metadata, format Format, raw bool, opts ...WriteOption) error {
+	if metadata == nil {
+		m := NewMetadata()
+		metadata = &m
+	}
 	o := applyOptions(opts)
 
 	switch format {
@@ -136,7 +142,7 @@ func writeEnvelope(w io.Writer, data any, errs []string, metadata Metadata, form
 		envelope := Envelope{
 			Data:     data,
 			Errors:   errs,
-			Metadata: metadata,
+			Metadata: *metadata,
 		}
 		return encodeJSON(w, envelope, format == FormatJSONPretty)
 	}
@@ -188,7 +194,7 @@ func WriteError(w io.Writer, err error) error {
 // WritePartial writes a response with both data and errors (partial success).
 // For CSV/TSV formats, only the data rows are emitted; error details require
 // the JSON format.
-func WritePartial(w io.Writer, data any, errs []string, metadata Metadata, format Format, opts ...WriteOption) error {
+func WritePartial(w io.Writer, data any, errs []string, metadata *Metadata, format Format, opts ...WriteOption) error {
 	return writeEnvelope(w, data, errs, metadata, format, false, opts...)
 }
 
