@@ -23,7 +23,6 @@ func writeDelimited(w io.Writer, data any, delimiter rune) error {
 
 	cw := csv.NewWriter(w)
 	cw.Comma = delimiter
-	defer cw.Flush()
 
 	headers := extractHeaders(rows)
 	if err := cw.Write(headers); err != nil {
@@ -39,6 +38,8 @@ func writeDelimited(w io.Writer, data any, delimiter rune) error {
 			return err
 		}
 	}
+
+	cw.Flush()
 
 	return cw.Error()
 }
