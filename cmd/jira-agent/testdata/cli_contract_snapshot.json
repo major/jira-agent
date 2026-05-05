@@ -2166,10 +2166,13 @@
       "get",
       "link",
       "meta",
+      "mine",
+      "move-to-sprint",
       "notify",
       "picker",
       "property",
       "rank",
+      "recent",
       "remote-link",
       "search",
       "start-work",
@@ -3615,6 +3618,100 @@
     ]
   },
   {
+    "path": "jira-agent issue mine",
+    "use": "mine",
+    "short": "List issues assigned to you",
+    "example": "jira-agent issue mine\njira-agent issue mine --status \"In Progress\"\njira-agent issue mine --fields key,summary,status,priority\njira-agent issue mine --fields-preset triage",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/flag-groups": "[{\"type\":\"mutually_exclusive\",\"flags\":[\"fields-preset\",\"fields\"]}]",
+      "jira-agent/requires-auth": "true"
+    },
+    "local_flags": [
+      {
+        "name": "fields",
+        "type": "string",
+        "default": "key,summary,status,assignee,priority",
+        "usage": "Comma-separated field list",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "fields-preset fields"
+          ]
+        }
+      },
+      {
+        "name": "fields-preset",
+        "type": "string",
+        "usage": "Named field preset: minimal, triage, or detail",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "fields-preset fields"
+          ]
+        }
+      },
+      {
+        "name": "max-results",
+        "type": "int",
+        "default": "50",
+        "usage": "Page size"
+      },
+      {
+        "name": "start-at",
+        "type": "int",
+        "default": "0",
+        "usage": "Pagination offset"
+      },
+      {
+        "name": "status",
+        "type": "string",
+        "usage": "Filter by status (e.g. \"In Progress\")"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue move-to-sprint",
+    "use": "move-to-sprint \u003cissue-key\u003e",
+    "short": "Move an issue to a sprint with optional transition and comment",
+    "example": "jira-agent issue move-to-sprint PROJ-123 --sprint-id 42\njira-agent issue move-to-sprint PROJ-123 --sprint-id 42 --status \"In Progress\"\njira-agent issue move-to-sprint PROJ-123 --sprint-id 42 --comment \"Moved to sprint\" --rank-before PROJ-100",
+    "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "comment",
+        "type": "string",
+        "usage": "Add a comment after the operation"
+      },
+      {
+        "name": "rank-after",
+        "type": "string",
+        "usage": "Rank issue after this issue key in the sprint"
+      },
+      {
+        "name": "rank-before",
+        "type": "string",
+        "usage": "Rank issue before this issue key in the sprint"
+      },
+      {
+        "name": "sprint-id",
+        "type": "string",
+        "usage": "Sprint ID to move the issue to (required)",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      },
+      {
+        "name": "status",
+        "type": "string",
+        "usage": "Transition issue to this status after moving"
+      }
+    ]
+  },
+  {
     "path": "jira-agent issue notify",
     "use": "notify \u003cissue-key\u003e",
     "short": "Send an email notification for an issue",
@@ -3822,6 +3919,58 @@
             "true"
           ]
         }
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue recent",
+    "use": "recent",
+    "short": "List recently updated issues you are involved in",
+    "example": "jira-agent issue recent\njira-agent issue recent --since 1d\njira-agent issue recent --since 30d --max-results 20\njira-agent issue recent --fields-preset minimal",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/flag-groups": "[{\"type\":\"mutually_exclusive\",\"flags\":[\"fields-preset\",\"fields\"]}]",
+      "jira-agent/requires-auth": "true"
+    },
+    "local_flags": [
+      {
+        "name": "fields",
+        "type": "string",
+        "default": "key,summary,status,assignee,priority",
+        "usage": "Comma-separated field list",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "fields-preset fields"
+          ]
+        }
+      },
+      {
+        "name": "fields-preset",
+        "type": "string",
+        "usage": "Named field preset: minimal, triage, or detail",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "fields-preset fields"
+          ]
+        }
+      },
+      {
+        "name": "max-results",
+        "type": "int",
+        "default": "10",
+        "usage": "Page size"
+      },
+      {
+        "name": "since",
+        "type": "string",
+        "default": "7d",
+        "usage": "Time window (e.g. 1d, 7d, 30d)"
+      },
+      {
+        "name": "start-at",
+        "type": "int",
+        "default": "0",
+        "usage": "Pagination offset"
       }
     ]
   },
