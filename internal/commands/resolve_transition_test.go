@@ -95,12 +95,6 @@ func TestResolveTransitionMatchByName(t *testing.T) {
 	}
 
 	// Verify metadata
-	if envelope.Metadata.Total != 1 {
-		t.Errorf("metadata.total: got %d, want 1", envelope.Metadata.Total)
-	}
-	if envelope.Metadata.Returned != 1 {
-		t.Errorf("metadata.returned: got %d, want 1", envelope.Metadata.Returned)
-	}
 	if envelope.Metadata.UsageHint == "" {
 		t.Error("metadata.usage_hint: expected non-empty, got empty")
 	}
@@ -246,12 +240,6 @@ func TestResolveTransitionMultipleMatches(t *testing.T) {
 		}
 	}
 
-	if envelope.Metadata.Total != 2 {
-		t.Errorf("metadata.total: got %d, want 2", envelope.Metadata.Total)
-	}
-	if envelope.Metadata.Returned != 2 {
-		t.Errorf("metadata.returned: got %d, want 2", envelope.Metadata.Returned)
-	}
 }
 
 func TestResolveTransitionNotFound(t *testing.T) {

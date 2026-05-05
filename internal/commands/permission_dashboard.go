@@ -128,10 +128,7 @@ func dashboardGadgetsCommand(apiClient *client.Ref, w io.Writer, format *output.
 			if err := apiClient.Get(ctx, "/dashboard/"+dashboardIDPath+"/gadget", params, &result); err != nil {
 				return err
 			}
-			meta := output.NewMetadata()
-			meta.Returned = countNamedArray(result, "gadgets")
-			meta.Total = meta.Returned
-			return output.WriteSuccess(w, result, &meta, *format)
+			return output.WriteSuccess(w, result, output.NewMetadata(), *format)
 		},
 	}
 	cmd.Flags().String("module-key", "", "Filter by gadget module key")
@@ -380,10 +377,7 @@ func permissionSchemeListCommand(apiClient *client.Ref, w io.Writer, format *out
 			if err := apiClient.Get(ctx, "/permissionscheme", params, &result); err != nil {
 				return err
 			}
-			meta := output.NewMetadata()
-			meta.Returned = countNamedArray(result, "permissionSchemes")
-			meta.Total = meta.Returned
-			return output.WriteSuccess(w, result, &meta, *format)
+			return output.WriteSuccess(w, result, output.NewMetadata(), *format)
 		},
 	}
 	cmd.Flags().String("expand", "", "Comma-separated expansions")
@@ -435,18 +429,6 @@ func permissionSchemeProjectCommand(apiClient *client.Ref, w io.Writer, format *
 	}
 	cmd.Flags().String("expand", "", "Comma-separated expansions")
 	return cmd
-}
-
-func countNamedArray(result any, key string) int {
-	object, ok := result.(map[string]any)
-	if !ok {
-		return 0
-	}
-	values, ok := object[key].([]any)
-	if !ok {
-		return 0
-	}
-	return len(values)
 }
 
 func normalizeCSV(value string) string {

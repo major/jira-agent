@@ -71,12 +71,10 @@ jira-agent resolve board "Kanban"`,
 
 			// Build metadata with usage hint
 			meta := resolverMetadata(
-				jiraResponse.Total,
-				len(boards),
 				"jira-agent resolve sprint --board-id <id> <sprint-name>",
 			)
 
-			return output.WriteSuccess(w, boards, &meta, *format)
+			return output.WriteSuccess(w, boards, meta, *format)
 		},
 	}
 

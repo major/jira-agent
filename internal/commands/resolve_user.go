@@ -70,12 +70,10 @@ jira-agent resolve user "John Doe"`,
 
 			// Build metadata with usage hint
 			meta := resolverMetadata(
-				len(users),
-				len(users),
 				"jira-agent issue assign <issue-key> --assignee <account_id>",
 			)
 
-			return output.WriteSuccess(w, users, &meta, *format)
+			return output.WriteSuccess(w, users, meta, *format)
 		},
 	}
 

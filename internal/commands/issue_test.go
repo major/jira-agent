@@ -469,17 +469,20 @@ func TestExtractPaginationMeta(t *testing.T) {
 		"issues":     []any{map[string]any{"key": "TEST-1"}, map[string]any{"key": "TEST-2"}},
 	}
 	meta := extractPaginationMeta(nil, result)
-	if meta.Total != 10 {
-		t.Errorf("Total = %d, want %d", meta.Total, 10)
+	if meta.Pagination == nil {
+		t.Fatal("Pagination = nil, want populated")
 	}
-	if meta.StartAt != 2 {
-		t.Errorf("StartAt = %d, want %d", meta.StartAt, 2)
+	if meta.Pagination.Total != 10 {
+		t.Errorf("Total = %d, want %d", meta.Pagination.Total, 10)
 	}
-	if meta.MaxResults != 5 {
-		t.Errorf("MaxResults = %d, want %d", meta.MaxResults, 5)
+	if meta.Pagination.StartAt != 2 {
+		t.Errorf("StartAt = %d, want %d", meta.Pagination.StartAt, 2)
 	}
-	if meta.Returned != 2 {
-		t.Errorf("Returned = %d, want %d", meta.Returned, 2)
+	if meta.Pagination.MaxResults != 5 {
+		t.Errorf("MaxResults = %d, want %d", meta.Pagination.MaxResults, 5)
+	}
+	if meta.Pagination.Returned != 2 {
+		t.Errorf("Returned = %d, want %d", meta.Pagination.Returned, 2)
 	}
 }
 

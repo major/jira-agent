@@ -44,7 +44,7 @@ func SchemaCommand(rootCmd *cobra.Command, w io.Writer, format *output.Format) *
 		Example: "jira-agent schema",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			meta := output.NewMetadata()
-			return output.WriteSuccess(w, buildSchemaPayload(rootCmd), &meta, *format)
+			return output.WriteSuccess(w, buildSchemaPayload(rootCmd), meta, *format)
 		},
 	}
 	SetCommandCategory(cmd, commandCategoryDiscovery)

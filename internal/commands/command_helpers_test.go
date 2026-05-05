@@ -242,7 +242,10 @@ func TestPaginationHasMore(t *testing.T) {
 
 	meta := extractPaginationMeta(testPaginationCommand(t, nil), result)
 
-	if !meta.HasMore {
+	if meta.Pagination == nil {
+		t.Fatal("Pagination = nil, want populated")
+	}
+	if !meta.Pagination.HasMore {
 		t.Error("HasMore = false, want true")
 	}
 }
@@ -262,11 +265,14 @@ func TestPaginationLastPage(t *testing.T) {
 
 	meta := extractPaginationMeta(testPaginationCommand(t, nil), result)
 
-	if meta.HasMore {
+	if meta.Pagination == nil {
+		t.Fatal("Pagination = nil, want populated")
+	}
+	if meta.Pagination.HasMore {
 		t.Error("HasMore = true, want false")
 	}
-	if meta.NextCommand != "" {
-		t.Errorf("NextCommand = %q, want empty", meta.NextCommand)
+	if meta.Pagination.NextCommand != "" {
+		t.Errorf("NextCommand = %q, want empty", meta.Pagination.NextCommand)
 	}
 
 	encoded, err := json.Marshal(meta)
@@ -297,8 +303,11 @@ func TestPaginationNextCommand(t *testing.T) {
 	meta := extractPaginationMeta(cmd, result)
 
 	want := `jira-agent issue search --fields key,summary --jql "project = TEST" --max-results 25 --start-at 26`
-	if meta.NextCommand != want {
-		t.Errorf("NextCommand = %q, want %q", meta.NextCommand, want)
+	if meta.Pagination == nil {
+		t.Fatal("Pagination = nil, want populated")
+	}
+	if meta.Pagination.NextCommand != want {
+		t.Errorf("NextCommand = %q, want %q", meta.Pagination.NextCommand, want)
 	}
 }
 
@@ -334,13 +343,158 @@ func TestPaginationNextCommandWithPositionalArgs(t *testing.T) {
 
 	meta := extractPaginationMeta(list, result)
 
-	if !meta.HasMore {
+	if meta.Pagination == nil {
+		t.Fatal("Pagination = nil, want populated")
+	}
+	if !meta.Pagination.HasMore {
 		t.Error("HasMore = false, want true")
 	}
 
 	want := "jira-agent issue comment list PROJ-123 --max-results 5 --start-at 1"
-	if meta.NextCommand != want {
-		t.Errorf("NextCommand = %q, want %q", meta.NextCommand, want)
+	if meta.Pagination.NextCommand != want {
+		t.Errorf("NextCommand = %q, want %q", meta.Pagination.NextCommand, want)
+	}
+}
+
+func TestCursorPaginationMeta(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name            string
+		result          map[string]any
+		wantHasMore     bool
+		wantNextToken   string
+		wantNextCommand string
+		wantReturned    int
+		wantTotal       int
+	}{
+		{
+			name: "more pages",
+			result: map[string]any{
+				"nextPageToken": "token-2",
+				"isLast":        false,
+				"total":         float64(50),
+				"issues":        []any{map[string]any{"key": "TEST-1"}},
+			},
+			wantHasMore:     true,
+			wantNextToken:   "token-2",
+			wantNextCommand: `jira-agent issue search --fields key,summary --jql "project = TEST" --max-results 25 --next-page-token token-2`,
+			wantReturned:    1,
+			wantTotal:       50,
+		},
+		{
+			name: "missing isLast defaults to more pages",
+			result: map[string]any{
+				"nextPageToken": "token-3",
+				"issues":        []any{map[string]any{"key": "TEST-1"}},
+			},
+			wantHasMore:     true,
+			wantNextToken:   "token-3",
+			wantNextCommand: `jira-agent issue search --fields key,summary --jql "project = TEST" --max-results 25 --next-page-token token-3`,
+			wantReturned:    1,
+		},
+		{
+			name: "empty last page",
+			result: map[string]any{
+				"nextPageToken": "",
+				"isLast":        true,
+				"issues":        []any{},
+			},
+			wantHasMore:  false,
+			wantReturned: 0,
+		},
+		{
+			name: "empty changelog last page without next token",
+			result: map[string]any{
+				"isLast":          true,
+				"issueChangeLogs": []any{},
+			},
+			wantHasMore:  false,
+			wantReturned: 0,
+		},
+		{
+			name: "issue changelogs array",
+			result: map[string]any{
+				"nextPageToken":   "token-4",
+				"isLast":          false,
+				"issueChangeLogs": []any{map[string]any{"issueId": "10000"}},
+			},
+			wantHasMore:     true,
+			wantNextToken:   "token-4",
+			wantNextCommand: `jira-agent issue search --fields key,summary --jql "project = TEST" --max-results 25 --next-page-token token-4`,
+			wantReturned:    1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			cmd := testCursorCommand(t, []string{
+				"--jql", "project = TEST",
+				"--fields", "key,summary",
+				"--max-results", "25",
+				"--start-at", "25",
+				"--next-page-token", "old-token",
+			})
+
+			meta := extractPaginationMeta(cmd, tt.result)
+
+			if meta.Pagination == nil {
+				t.Fatal("Pagination = nil, want populated")
+			}
+			if meta.Pagination.Type != "cursor" {
+				t.Errorf("Type = %q, want cursor", meta.Pagination.Type)
+			}
+			if meta.Pagination.HasMore != tt.wantHasMore {
+				t.Errorf("HasMore = %v, want %v", meta.Pagination.HasMore, tt.wantHasMore)
+			}
+			if meta.Pagination.NextToken != tt.wantNextToken {
+				t.Errorf("NextToken = %q, want %q", meta.Pagination.NextToken, tt.wantNextToken)
+			}
+			if meta.Pagination.NextCommand != tt.wantNextCommand {
+				t.Errorf("NextCommand = %q, want %q", meta.Pagination.NextCommand, tt.wantNextCommand)
+			}
+			if meta.Pagination.Returned != tt.wantReturned {
+				t.Errorf("Returned = %d, want %d", meta.Pagination.Returned, tt.wantReturned)
+			}
+			if meta.Pagination.Total != tt.wantTotal {
+				t.Errorf("Total = %d, want %d", meta.Pagination.Total, tt.wantTotal)
+			}
+		})
+	}
+}
+
+func TestCursorPaginationWinsOverOffset(t *testing.T) {
+	t.Parallel()
+
+	cmd := testCursorCommand(t, []string{
+		"--jql", "project = TEST",
+		"--max-results", "25",
+		"--start-at", "25",
+	})
+	result := map[string]any{
+		"nextPageToken": "token-2",
+		"isLast":        false,
+		"total":         float64(100),
+		"startAt":       float64(25),
+		"maxResults":    float64(25),
+		"issues":        []any{map[string]any{"key": "TEST-1"}},
+	}
+
+	meta := extractPaginationMeta(cmd, result)
+
+	if meta.Pagination == nil {
+		t.Fatal("Pagination = nil, want populated")
+	}
+	if meta.Pagination.Type != "cursor" {
+		t.Errorf("Type = %q, want cursor", meta.Pagination.Type)
+	}
+	if !meta.Pagination.HasMore {
+		t.Error("HasMore = false, want true")
+	}
+	if strings.Contains(meta.Pagination.NextCommand, "--start-at") {
+		t.Errorf("NextCommand = %q, want no --start-at", meta.Pagination.NextCommand)
 	}
 }
 
@@ -369,6 +523,21 @@ func testPaginationCommand(t *testing.T, args []string) *cobra.Command {
 	}
 
 	return search
+}
+
+func testCursorCommand(t *testing.T, args []string) *cobra.Command {
+	t.Helper()
+
+	cmd := testPaginationCommand(t, nil)
+	cmd.Flags().String("next-page-token", "", "")
+	if args != nil {
+		cmd.Root().SetArgs(append([]string{"issue", "search"}, args...))
+		if err := cmd.Root().Execute(); err != nil {
+			t.Fatalf("command failed: %v", err)
+		}
+	}
+
+	return cmd
 }
 
 func TestBuildPaginationParams(t *testing.T) {

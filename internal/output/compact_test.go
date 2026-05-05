@@ -247,7 +247,7 @@ func TestCompactOutput_JSONLines(t *testing.T) {
 	meta := Metadata{Timestamp: "2025-01-01T00:00:00Z"}
 
 	var buf bytes.Buffer
-	if err := WriteSuccess(&buf, data, &meta, FormatJSON, WithCompact(true)); err != nil {
+	if err := WriteSuccess(&buf, data, meta, FormatJSON, WithCompact(true)); err != nil {
 		t.Fatalf("WriteSuccess(compact) error = %v", err)
 	}
 
@@ -283,7 +283,7 @@ func TestCompactOutput_SingleObject(t *testing.T) {
 	meta := Metadata{Timestamp: "2025-01-01T00:00:00Z"}
 
 	var buf bytes.Buffer
-	if err := WriteSuccess(&buf, data, &meta, FormatJSON, WithCompact(true)); err != nil {
+	if err := WriteSuccess(&buf, data, meta, FormatJSON, WithCompact(true)); err != nil {
 		t.Fatalf("WriteSuccess(compact) error = %v", err)
 	}
 
@@ -311,10 +311,10 @@ func TestCompactOutput_NoEffectOnCSV(t *testing.T) {
 	data := map[string]any{"key": "PROJ-1", "empty": nil}
 
 	var compactBuf, normalBuf bytes.Buffer
-	if err := WriteSuccess(&compactBuf, data, &Metadata{}, FormatCSV, WithCompact(true)); err != nil {
+	if err := WriteSuccess(&compactBuf, data, Metadata{}, FormatCSV, WithCompact(true)); err != nil {
 		t.Fatalf("WriteSuccess(compact CSV) error = %v", err)
 	}
-	if err := WriteSuccess(&normalBuf, data, &Metadata{}, FormatCSV); err != nil {
+	if err := WriteSuccess(&normalBuf, data, Metadata{}, FormatCSV); err != nil {
 		t.Fatalf("WriteSuccess(normal CSV) error = %v", err)
 	}
 
@@ -333,7 +333,7 @@ func TestCompactOutput_DefaultOff(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	if err := WriteSuccess(&buf, data, &Metadata{}, FormatJSON); err != nil {
+	if err := WriteSuccess(&buf, data, Metadata{}, FormatJSON); err != nil {
 		t.Fatalf("WriteSuccess() error = %v", err)
 	}
 
@@ -355,7 +355,7 @@ func TestCompactOutput_FlattenInEnvelope(t *testing.T) {
 	meta := Metadata{Timestamp: "2025-01-01T00:00:00Z"}
 
 	var buf bytes.Buffer
-	if err := WriteSuccess(&buf, data, &meta, FormatJSON, WithCompact(true)); err != nil {
+	if err := WriteSuccess(&buf, data, meta, FormatJSON, WithCompact(true)); err != nil {
 		t.Fatalf("WriteSuccess(compact) error = %v", err)
 	}
 
@@ -373,5 +373,60 @@ func TestCompactOutput_FlattenInEnvelope(t *testing.T) {
 	}
 	if _, ok := d["status"]; ok {
 		t.Errorf("expected 'status' to be removed after flattening")
+	}
+}
+
+func TestCompact_PaginationNotFlattened(t *testing.T) {
+	t.Parallel()
+
+	// Create a response with pagination metadata containing 3+ fields
+	// (pagination should NOT be flattened since it has more than 1 key)
+	data := map[string]any{
+		"key":     "PROJ-1",
+		"summary": "Test issue",
+	}
+	meta := Metadata{
+		Timestamp: "2025-01-01T00:00:00Z",
+		Pagination: &PaginationMeta{
+			Type:        "cursor",
+			HasMore:     true,
+			NextCommand: "issue search --jql 'project = PROJ' --next-page-token abc123",
+			Returned:    10,
+			NextToken:   "abc123",
+		},
+	}
+
+	var buf bytes.Buffer
+	if err := WriteSuccess(&buf, data, meta, FormatJSON, WithCompact(true)); err != nil {
+		t.Fatalf("WriteSuccess(compact) error = %v", err)
+	}
+
+	var env Envelope
+	if err := json.Unmarshal(buf.Bytes(), &env); err != nil {
+		t.Fatalf("unmarshal envelope: %v", err)
+	}
+
+	// Verify pagination sub-object is NOT flattened
+	if env.Metadata.Pagination == nil {
+		t.Fatal("pagination should not be nil in metadata")
+	}
+	if env.Metadata.Pagination.Type != "cursor" {
+		t.Errorf("pagination.type = %q, want cursor", env.Metadata.Pagination.Type)
+	}
+	if !env.Metadata.Pagination.HasMore {
+		t.Error("pagination.has_more = false, want true")
+	}
+	if env.Metadata.Pagination.NextToken != "abc123" {
+		t.Errorf("pagination.next_token = %q, want abc123", env.Metadata.Pagination.NextToken)
+	}
+
+	// Verify pagination is still a sub-object in the JSON (not flattened to top level)
+	jsonStr := buf.String()
+	if !strings.Contains(jsonStr, `"pagination":{`) {
+		t.Errorf("pagination should be a sub-object in JSON, got: %s", jsonStr)
+	}
+	// Verify pagination fields are NOT at top level of metadata
+	if strings.Contains(jsonStr, `"metadata":{"type":"cursor"`) {
+		t.Error("pagination fields should not be flattened to top level of metadata")
 	}
 }

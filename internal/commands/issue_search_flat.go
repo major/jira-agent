@@ -98,12 +98,6 @@ func flattenIssueSearchResultWithDescriptionFormat(result any, descriptionFormat
 		flat["issues"] = flattenIssues(issues, descriptionFormat)
 	}
 
-	for _, key := range []string{"nextPageToken", "isLast"} {
-		if value, ok := response[key]; ok {
-			flat[key] = value
-		}
-	}
-
 	return flat
 }
 

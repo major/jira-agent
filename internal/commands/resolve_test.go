@@ -13,41 +13,23 @@ func TestResolverMetadata(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		total     int
-		returned  int
 		usageHint string
 	}{
 		{
-			name:      "all fields populated",
-			total:     42,
-			returned:  10,
-			usageHint: "use --max-results to limit",
+			name:      "with usage hint",
+			usageHint: "jira-agent issue assign <key> --assignee <id>",
 		},
 		{
-			name:      "zero values",
-			total:     0,
-			returned:  0,
+			name:      "empty usage hint",
 			usageHint: "",
-		},
-		{
-			name:      "partial results",
-			total:     100,
-			returned:  25,
-			usageHint: "more results available",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			meta := resolverMetadata(tt.total, tt.returned, tt.usageHint)
+			meta := resolverMetadata(tt.usageHint)
 
-			if meta.Total != tt.total {
-				t.Errorf("Total: got %d, want %d", meta.Total, tt.total)
-			}
-			if meta.Returned != tt.returned {
-				t.Errorf("Returned: got %d, want %d", meta.Returned, tt.returned)
-			}
 			if meta.UsageHint != tt.usageHint {
 				t.Errorf("UsageHint: got %q, want %q", meta.UsageHint, tt.usageHint)
 			}

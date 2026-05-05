@@ -179,7 +179,7 @@ func startWorkExecute(ctx context.Context, apiClient *client.Ref, w io.Writer, f
 
 	if len(errMsgs) > 0 {
 		meta := output.NewMetadata()
-		return output.WritePartial(w, result, errMsgs, &meta, format, opts...)
+		return output.WritePartial(w, result, errMsgs, meta, format, opts...)
 	}
 	return output.WriteResult(w, result, format, opts...)
 }
@@ -351,7 +351,7 @@ func closeExecute(ctx context.Context, apiClient *client.Ref, w io.Writer, forma
 
 	if len(errMsgs) > 0 {
 		meta := output.NewMetadata()
-		return output.WritePartial(w, result, errMsgs, &meta, format, opts...)
+		return output.WritePartial(w, result, errMsgs, meta, format, opts...)
 	}
 	return output.WriteResult(w, result, format, opts...)
 }
@@ -522,7 +522,7 @@ func createAndLinkExecute(cmd *cobra.Command, ctx context.Context, apiClient *cl
 			),
 		}
 		meta := output.NewMetadata()
-		return output.WritePartial(w, result, []string{"link: " + err.Error()}, &meta, format, opts...)
+		return output.WritePartial(w, result, []string{"link: " + err.Error()}, meta, format, opts...)
 	}
 
 	result := map[string]any{
@@ -774,7 +774,7 @@ func moveToSprintExecute(ctx context.Context, apiClient *client.Ref, w io.Writer
 
 	if len(errMsgs) > 0 {
 		meta := output.NewMetadata()
-		return output.WritePartial(w, result, errMsgs, &meta, format, opts...)
+		return output.WritePartial(w, result, errMsgs, meta, format, opts...)
 	}
 	return output.WriteResult(w, result, format, opts...)
 }
