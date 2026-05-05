@@ -58,9 +58,10 @@ func buildSchemaPayload(rootCmd *cobra.Command) schemaPayload {
 		version = "dev"
 	}
 
-	commands := make([]schemaCommand, 0)
+	allCmds := allCommands(rootCmd)
+	commands := make([]schemaCommand, 0, len(allCmds))
 	rootPath := rootCmd.CommandPath()
-	for _, cmd := range allCommands(rootCmd) {
+	for _, cmd := range allCmds {
 		if cmd == rootCmd || cmd.Hidden || cmd.Name() == "help" {
 			continue
 		}
