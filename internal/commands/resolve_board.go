@@ -8,6 +8,7 @@ import (
 
 	"github.com/major/jira-agent/internal/client"
 	apperr "github.com/major/jira-agent/internal/errors"
+	"github.com/major/jira-agent/internal/jira"
 	"github.com/major/jira-agent/internal/output"
 )
 
@@ -62,10 +63,11 @@ jira-agent resolve board "Kanban"`,
 			// Map Jira response to resolvedBoard, stripping extra fields
 			boards := make([]resolvedBoard, len(jiraResponse.Values))
 			for i, jiraBoard := range jiraResponse.Values {
+				ext := jira.NewExtract(jiraBoard)
 				boards[i] = resolvedBoard{
-					ID:   getInt64Field(jiraBoard, "id"),
-					Name: getStringField(jiraBoard, "name"),
-					Type: getStringField(jiraBoard, "type"),
+					ID:   ext.Int64("id"),
+					Name: ext.String("name"),
+					Type: ext.String("type"),
 				}
 			}
 
@@ -79,19 +81,4 @@ jira-agent resolve board "Kanban"`,
 	}
 
 	return cmd
-}
-
-// getInt64Field safely extracts an int64 field from a map.
-func getInt64Field(m map[string]any, key string) int64 {
-	if v, ok := m[key]; ok {
-		switch val := v.(type) {
-		case float64:
-			return int64(val)
-		case int64:
-			return val
-		case int:
-			return int64(val)
-		}
-	}
-	return 0
 }

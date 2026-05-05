@@ -21,6 +21,7 @@ Keep this file and any nested `AGENTS.md` files current anytime code changes. Ev
 | `internal/commands/jql_helpers.go` | `buildJQLFromFlags`: pure function that builds JQL from semantic flag values. |
 | `internal/commands/resolve.go` | Parent resolve command, `resolverMetadata` helper, `requireQuery` helper. |
 | `internal/commands/resolve_*.go` | Individual resolver subcommands: user, board, sprint, field, transition. |
+| `internal/jira` | Typed utilities for Jira API data: `Extract` for safe field extraction from `map[string]any`. |
 | `internal/client` | Jira REST API v3 and Agile API HTTP client, Basic auth headers, content-type checks, typed error mapping. |
 | `internal/output` | All user-visible envelopes and CSV/TSV serialization. Output is an LLM-facing contract. |
 | `internal/errors` | Typed errors and exit codes. Preserve wrapping and typed inspection. |
