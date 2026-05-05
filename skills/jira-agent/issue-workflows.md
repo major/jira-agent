@@ -31,6 +31,23 @@ jira-agent issue transition KEY-123 --list --expand transitions.fields
 
 Matches against both transition names and target status names when `--to` is used.
 
+## issue transition-jql
+
+```bash
+jira-agent issue transition-jql --jql 'project = PROJ AND status = "In Progress"' --status Done
+jira-agent issue transition-jql --jql 'assignee = currentUser() AND status = Open' --status "In Progress" --send-notification=false
+jira-agent issue transition-jql --jql 'project = PROJ AND status = Open' --status Done --dry-run
+```
+
+| Flag | Default | Notes |
+|------|---------|-------|
+| `--jql` | | Required. JQL selecting up to 1000 issues |
+| `--status` | | Required. Target status name, matched case-insensitively against bulk transition `to.name` |
+| `--send-notification` | true | Send Jira bulk notification email |
+| `--dry-run` | false | Search and resolve transitions without submitting the bulk task |
+
+Output includes `task_id`, submitted/skipped counts, and `next_command` for `jira-agent issue bulk-status <task_id>`. If some issues cannot transition to the target status, the command submits the valid groups and returns partial output with skipped issue details.
+
 ## issue assign
 
 ```bash

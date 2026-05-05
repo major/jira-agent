@@ -217,6 +217,16 @@ jira-agent issue create-and-link --project PROJ --type Bug --summary "Fix" --lin
 jira-agent issue create-and-link --payload-json '{"fields":{"project":{"key":"PROJ"},"issuetype":{"name":"Task"},"summary":"Task"}}' --link-type Blocks --link-target PROJ-100
 ```
 
+### issue transition-jql
+
+Searches by JQL, resolves matching bulk transition IDs, and submits a fire-and-forget bulk transition task. JQL matches over 1000 issues are rejected.
+
+```bash
+jira-agent issue transition-jql --jql 'project = PROJ AND status = "In Progress"' --status Done
+jira-agent issue transition-jql --jql 'assignee = currentUser() AND status = Open' --status "In Progress" --send-notification=false
+jira-agent issue transition-jql --jql 'project = PROJ AND status = Open' --status Done --dry-run
+```
+
 ### issue move-to-sprint
 
 Moves an issue to a sprint using the Agile API, with optional transition and comment.

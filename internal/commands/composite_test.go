@@ -1448,6 +1448,228 @@ func TestCreateAndAssign(t *testing.T) {
 	})
 }
 
+func TestTransitionJQL(t *testing.T) {
+	t.Parallel()
+
+	t.Run("happy_path", func(t *testing.T) {
+		t.Parallel()
+
+		var bulkBody map[string]any
+		server := transitionJQLServer(t, transitionJQLFixture{
+			searchJSON:      `{"total":3,"issues":[{"key":"PROJ-1","fields":{"status":{"name":"Open"}}},{"key":"PROJ-2","fields":{"status":{"name":"Open"}}},{"key":"PROJ-3","fields":{"status":{"name":"Selected"}}}]}`,
+			transitionsJSON: `{"issueTransitions":[{"issueIdOrKey":"PROJ-1","transitions":[{"id":"21","to":{"name":"Done"}}]},{"issueIdOrKey":"PROJ-2","transitions":[{"id":"21","to":{"name":"Done"}}]},{"issueIdOrKey":"PROJ-3","transitions":[{"id":"31","to":{"name":"Done"}}]}]}`,
+			taskJSON:        `{"taskId":"10644"}`,
+			onBulk: func(body map[string]any) {
+				bulkBody = body
+			},
+		})
+		defer server.Close()
+
+		envelope := runTransitionJQL(t, server.URL, true, false, "--jql", "project = PROJ", "--status", "Done")
+		data := envelopeData(t, envelope)
+		if data["task_id"] != "10644" {
+			t.Errorf("task_id = %v, want 10644", data["task_id"])
+		}
+		if data["issues_submitted"] != float64(3) {
+			t.Errorf("issues_submitted = %v, want 3", data["issues_submitted"])
+		}
+		inputs, ok := bulkBody["bulkTransitionInputs"].([]any)
+		if !ok || len(inputs) != 2 {
+			t.Fatalf("bulkTransitionInputs = %v, want 2 grouped inputs", bulkBody["bulkTransitionInputs"])
+		}
+		if send, ok := bulkBody["sendBulkNotification"].(bool); !ok || !send {
+			t.Errorf("sendBulkNotification = %v, want true", bulkBody["sendBulkNotification"])
+		}
+	})
+
+	t.Run("dry_run_zero_mutations", func(t *testing.T) {
+		t.Parallel()
+
+		var bulkPosts int
+		server := transitionJQLServer(t, transitionJQLFixture{
+			searchJSON:      `{"total":2,"issues":[{"key":"PROJ-1","fields":{"status":{"name":"Open"}}},{"key":"PROJ-2","fields":{"status":{"name":"Selected"}}}]}`,
+			transitionsJSON: `{"issueTransitions":[{"issueIdOrKey":"PROJ-1","transitions":[{"id":"21","to":{"name":"Done"}}]},{"issueIdOrKey":"PROJ-2","transitions":[]}]}`,
+			onBulk: func(map[string]any) {
+				bulkPosts++
+			},
+		})
+		defer server.Close()
+
+		envelope := runTransitionJQL(t, server.URL, false, true, "--jql", "project = PROJ", "--status", "Done")
+		data := envelopeData(t, envelope)
+		if data["command"] != "issue transition-jql" {
+			t.Errorf("command = %v, want issue transition-jql", data["command"])
+		}
+		if data["issue_key"] != "(2 issues)" {
+			t.Errorf("issue_key = %v, want (2 issues)", data["issue_key"])
+		}
+		if bulkPosts != 0 {
+			t.Errorf("bulkPosts = %d, want 0", bulkPosts)
+		}
+	})
+
+	t.Run("write_blocked", func(t *testing.T) {
+		t.Parallel()
+
+		writesDisabled := false
+		dryRunDisabled := false
+		var buf bytes.Buffer
+		cmd := issueTransitionJQLCommand(testCommandClient("http://unused"), &buf, testCommandFormat(), &writesDisabled, &dryRunDisabled)
+		prepareCommandForTest(cmd)
+		cmd.SetArgs([]string{"--jql", "project = PROJ", "--status", "Done"})
+
+		err := cmd.Execute()
+		if err == nil {
+			t.Fatal("cmd.Execute() = nil, want validation error")
+		}
+		var valErr *apperr.ValidationError
+		if !errors.As(err, &valErr) {
+			t.Errorf("error type = %T, want *apperr.ValidationError", err)
+		}
+	})
+
+	t.Run("no_issues", func(t *testing.T) {
+		t.Parallel()
+
+		server := transitionJQLServer(t, transitionJQLFixture{searchJSON: `{"total":0,"issues":[]}`})
+		defer server.Close()
+
+		err := runTransitionJQLError(t, server.URL, true, false, "--jql", "project = EMPTY", "--status", "Done")
+		assertValidationErrorContains(t, err, "matched 0 issues")
+	})
+
+	t.Run("over_limit", func(t *testing.T) {
+		t.Parallel()
+
+		server := transitionJQLServer(t, transitionJQLFixture{searchJSON: `{"total":1500,"issues":[]}`})
+		defer server.Close()
+
+		err := runTransitionJQLError(t, server.URL, true, false, "--jql", "project = BIG", "--status", "Done")
+		assertValidationErrorContains(t, err, "exceeding the 1000-issue")
+	})
+
+	t.Run("mixed_transitions", func(t *testing.T) {
+		t.Parallel()
+
+		server := transitionJQLServer(t, transitionJQLFixture{
+			searchJSON:      `{"total":5,"issues":[{"key":"PROJ-1","fields":{"status":{"name":"Open"}}},{"key":"PROJ-2","fields":{"status":{"name":"Open"}}},{"key":"PROJ-3","fields":{"status":{"name":"Open"}}},{"key":"PROJ-4","fields":{"status":{"name":"Done"}}},{"key":"PROJ-5","fields":{"status":{"name":"Done"}}}]}`,
+			transitionsJSON: `{"issueTransitions":[{"issueIdOrKey":"PROJ-1","transitions":[{"id":"21","to":{"name":"Done"}}]},{"issueIdOrKey":"PROJ-2","transitions":[{"id":"21","to":{"name":"Done"}}]},{"issueIdOrKey":"PROJ-3","transitions":[{"id":"31","to":{"name":"Done"}}]},{"issueIdOrKey":"PROJ-4","transitions":[]},{"issueIdOrKey":"PROJ-5","transitions":[{"id":"99","to":{"name":"Blocked"}}]}]}`,
+			taskJSON:        `{"taskId":"10645"}`,
+		})
+		defer server.Close()
+
+		envelope := runTransitionJQL(t, server.URL, true, false, "--jql", "project = PROJ", "--status", "Done")
+		data := envelopeData(t, envelope)
+		if data["issues_submitted"] != float64(3) {
+			t.Errorf("issues_submitted = %v, want 3", data["issues_submitted"])
+		}
+		if data["issues_skipped"] != float64(2) {
+			t.Errorf("issues_skipped = %v, want 2", data["issues_skipped"])
+		}
+		if len(envelope.Errors) == 0 {
+			t.Error("errors = empty, want skipped issue details")
+		}
+	})
+
+	t.Run("all_skipped", func(t *testing.T) {
+		t.Parallel()
+
+		server := transitionJQLServer(t, transitionJQLFixture{
+			searchJSON:      `{"total":2,"issues":[{"key":"PROJ-1","fields":{"status":{"name":"Done"}}},{"key":"PROJ-2","fields":{"status":{"name":"Done"}}}]}`,
+			transitionsJSON: `{"issueTransitions":[{"issueIdOrKey":"PROJ-1","transitions":[]},{"issueIdOrKey":"PROJ-2","transitions":[{"id":"99","to":{"name":"Blocked"}}]}]}`,
+		})
+		defer server.Close()
+
+		err := runTransitionJQLError(t, server.URL, true, false, "--jql", "project = DONE", "--status", "Done")
+		assertValidationErrorContains(t, err, "no issues can transition to status")
+	})
+}
+
+type transitionJQLFixture struct {
+	searchJSON      string
+	transitionsJSON string
+	taskJSON        string
+	onBulk          func(map[string]any)
+}
+
+func transitionJQLServer(t *testing.T, fixture transitionJQLFixture) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/search/jql":
+			body := testhelpers.DecodeJSONBody(t, r)
+			if body["maxResults"] != float64(1000) {
+				t.Errorf("maxResults = %v, want 1000", body["maxResults"])
+			}
+			testhelpers.WriteJSONResponse(t, w, fixture.searchJSON)
+		case r.Method == http.MethodGet && r.URL.Path == "/bulk/issues/transition":
+			if r.URL.Query().Get("issueIdsOrKeys") == "" {
+				t.Error("issueIdsOrKeys query = empty, want keys")
+			}
+			testhelpers.WriteJSONResponse(t, w, fixture.transitionsJSON)
+		case r.Method == http.MethodPost && r.URL.Path == "/bulk/issues/transition":
+			body := testhelpers.DecodeJSONBody(t, r)
+			if fixture.onBulk != nil {
+				fixture.onBulk(body)
+			}
+			if fixture.taskJSON == "" {
+				fixture.taskJSON = `{"taskId":"10644"}`
+			}
+			testhelpers.WriteJSONResponse(t, w, fixture.taskJSON)
+		default:
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+}
+
+func runTransitionJQL(t *testing.T, serverURL string, allowWrites, dryRun bool, args ...string) output.Envelope {
+	t.Helper()
+	var buf bytes.Buffer
+	cmd := issueTransitionJQLCommand(testCommandClient(serverURL), &buf, testCommandFormat(), &allowWrites, &dryRun)
+	prepareCommandForTest(cmd)
+	cmd.SetArgs(args)
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("cmd.Execute() error = %v", err)
+	}
+	var envelope output.Envelope
+	if err := json.Unmarshal(buf.Bytes(), &envelope); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v", err)
+	}
+	return envelope
+}
+
+func runTransitionJQLError(t *testing.T, serverURL string, allowWrites, dryRun bool, args ...string) error {
+	t.Helper()
+	var buf bytes.Buffer
+	cmd := issueTransitionJQLCommand(testCommandClient(serverURL), &buf, testCommandFormat(), &allowWrites, &dryRun)
+	prepareCommandForTest(cmd)
+	cmd.SetArgs(args)
+	return cmd.Execute()
+}
+
+func envelopeData(t *testing.T, envelope output.Envelope) map[string]any {
+	t.Helper()
+	data, ok := envelope.Data.(map[string]any)
+	if !ok {
+		t.Fatalf("data type = %T, want map[string]any", envelope.Data)
+	}
+	return data
+}
+
+func assertValidationErrorContains(t *testing.T, err error, want string) {
+	t.Helper()
+	if err == nil {
+		t.Fatalf("cmd.Execute() = nil, want validation error containing %q", want)
+	}
+	var valErr *apperr.ValidationError
+	if !errors.As(err, &valErr) {
+		t.Fatalf("error type = %T, want *apperr.ValidationError", err)
+	}
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error = %q, want to contain %q", err.Error(), want)
+	}
+}
+
 func TestMoveToSprint(t *testing.T) {
 	t.Parallel()
 

@@ -389,6 +389,23 @@ jira-agent issue create-and-link --project PROJ --type Story --summary "New" --l
 | `--project`, `--type`, `--summary` | Required when not using `--payload-json` |
 | `--dry-run` | Preview without mutating |
 
+### issue transition-jql
+
+Searches issues with POST `/rest/api/3/search/jql`, resolves bulk transition IDs by target status, and submits a fire-and-forget bulk transition task. Rejects JQL matching more than 1000 issues.
+
+```bash
+jira-agent issue transition-jql --jql 'project = PROJ AND status = "In Progress"' --status Done
+jira-agent issue transition-jql --jql 'assignee = currentUser() AND status = Open' --status "In Progress" --send-notification=false
+jira-agent issue transition-jql --jql 'project = PROJ AND status = Open' --status Done --dry-run
+```
+
+| Flag | Default | Notes |
+|------|---------|-------|
+| `--jql` | | Required. JQL selecting up to 1000 issues |
+| `--status` | | Required. Target status name, matched case-insensitively against transition `to.name` |
+| `--send-notification` | true | Send Jira bulk notification email |
+| `--dry-run` | false | Search and resolve transitions, then output matched, skipped, and target counts without submitting the bulk task |
+
 ### issue move-to-sprint
 
 Moves an issue to a sprint using the Agile API, with optional transition and comment. Sprint move failure is fatal; transition and comment failures are partial.

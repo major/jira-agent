@@ -2179,6 +2179,7 @@
       "search",
       "start-work",
       "transition",
+      "transition-jql",
       "vote",
       "watcher",
       "worklog"
@@ -4627,6 +4628,45 @@
         "annotations": {
           "cobra_annotation_mutually_exclusive": [
             "to transition-id"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue transition-jql",
+    "use": "transition-jql",
+    "short": "Bulk transition issues selected by JQL",
+    "example": "jira-agent issue transition-jql --jql 'project = PROJ AND status = \"In Progress\"' --status Done\njira-agent issue transition-jql --jql 'assignee = currentUser() AND status = Open' --status \"In Progress\" --send-notification=false",
+    "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "jql",
+        "type": "string",
+        "usage": "JQL query to select issues",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
+          ]
+        }
+      },
+      {
+        "name": "send-notification",
+        "type": "bool",
+        "default": "true",
+        "usage": "Send bulk notification email"
+      },
+      {
+        "name": "status",
+        "type": "string",
+        "usage": "Target status name to transition to",
+        "annotations": {
+          "cobra_annotation_bash_completion_one_required_flag": [
+            "true"
           ]
         }
       }

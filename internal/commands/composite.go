@@ -2,9 +2,12 @@ package commands
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"maps"
+	"sort"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -406,6 +409,13 @@ type createAndAssignParams struct {
 	skipAssign  bool
 }
 
+// transitionJQLParams holds the parsed flags for the transition-jql composite command.
+type transitionJQLParams struct {
+	jql              string
+	targetStatus     string
+	sendNotification bool
+}
+
 // issueCreateAndAssignCommand returns a composite command that creates an issue
 // and assigns it in one invocation.
 func issueCreateAndAssignCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites, dryRun *bool) *cobra.Command {
@@ -547,6 +557,303 @@ func createAndAssignExecute(cmd *cobra.Command, ctx context.Context, apiClient *
 		"assignee": p.assignee,
 	}
 	return output.WriteResult(w, result, format, opts...)
+}
+
+// issueTransitionJQLCommand returns a composite command that searches issues by
+// JQL, resolves available transition IDs, and submits a Jira bulk transition.
+func issueTransitionJQLCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites, dryRun *bool) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "transition-jql",
+		Short: "Bulk transition issues selected by JQL",
+		Example: `jira-agent issue transition-jql --jql 'project = PROJ AND status = "In Progress"' --status Done
+jira-agent issue transition-jql --jql 'assignee = currentUser() AND status = Open' --status "In Progress" --send-notification=false`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			isDry := IsDryRun(dryRun)
+			if !isDry {
+				if err := requireWriteAccess(allowWrites); err != nil {
+					return err
+				}
+			}
+
+			p := transitionJQLParams{
+				jql:              mustGetString(cmd, "jql"),
+				targetStatus:     mustGetString(cmd, "status"),
+				sendNotification: mustGetBool(cmd, "send-notification"),
+			}
+			if strings.TrimSpace(p.jql) == "" {
+				return apperr.NewValidationError("--jql is required", nil)
+			}
+			if strings.TrimSpace(p.targetStatus) == "" {
+				return apperr.NewValidationError("--status is required", nil)
+			}
+
+			ctx := cmd.Context()
+			state, err := transitionJQLPrepare(ctx, apiClient, &p)
+			if err != nil {
+				return err
+			}
+
+			opts := CompactOptsFromCmd(cmd)
+			if isDry {
+				return transitionJQLDryRun(w, *format, p, state, opts...)
+			}
+			return transitionJQLExecute(ctx, apiClient, w, *format, p, state, opts...)
+		},
+	}
+	cmd.Flags().String("jql", "", "JQL query to select issues")
+	cmd.Flags().String("status", "", "Target status name to transition to")
+	cmd.Flags().Bool("send-notification", true, "Send bulk notification email")
+	_ = cmd.MarkFlagRequired("jql")
+	_ = cmd.MarkFlagRequired("status")
+	SetCommandCategory(cmd, commandCategoryWorkflow)
+	return cmd
+}
+
+type transitionJQLState struct {
+	issueKeys      []string
+	statusCounts   map[string]int
+	transitionKeys map[string][]string
+	skipped        []string
+}
+
+func transitionJQLPrepare(ctx context.Context, apiClient *client.Ref, p *transitionJQLParams) (transitionJQLState, error) {
+	var state transitionJQLState
+	searchBody := map[string]any{
+		"jql":        p.jql,
+		"fields":     []string{"key", "status"},
+		"maxResults": 1000,
+	}
+
+	var searchResult map[string]any
+	if err := apiClient.Post(ctx, "/search/jql", searchBody, &searchResult); err != nil {
+		return state, err
+	}
+
+	total := intFromAny(searchResult["total"])
+	if total > 1000 {
+		return state, apperr.NewValidationError(
+			fmt.Sprintf("JQL matched %d issues, exceeding the 1000-issue Jira bulk limit", total),
+			nil,
+			apperr.WithNextCommand("jira-agent issue transition-jql --jql '<narrower JQL>' --status "+shellQuoteFlagValue(p.targetStatus)),
+		)
+	}
+	if total == 0 {
+		return state, apperr.NewValidationError("JQL matched 0 issues", nil)
+	}
+
+	state.issueKeys, state.statusCounts = transitionJQLIssueState(searchResult)
+	if len(state.issueKeys) == 0 {
+		return state, apperr.NewValidationError("JQL matched 0 issues", nil)
+	}
+
+	var transitions map[string]any
+	params := map[string]string{"issueIdsOrKeys": strings.Join(state.issueKeys, ",")}
+	if err := apiClient.Get(ctx, "/bulk/issues/transition", params, &transitions); err != nil {
+		return state, err
+	}
+	state.transitionKeys, state.skipped = groupTransitionJQLIssues(state.issueKeys, transitions, p.targetStatus)
+	if len(state.transitionKeys) == 0 {
+		return state, apperr.NewValidationError(fmt.Sprintf("no issues can transition to status %q", p.targetStatus), nil)
+	}
+	return state, nil
+}
+
+func transitionJQLIssueState(searchResult map[string]any) (keys []string, statusCounts map[string]int) {
+	issues, _ := searchResult["issues"].([]any)
+	keys = make([]string, 0, len(issues))
+	statusCounts = map[string]int{}
+	for _, issue := range issues {
+		issueMap, ok := issue.(map[string]any)
+		if !ok {
+			continue
+		}
+		key, _ := issueMap["key"].(string)
+		if key == "" {
+			continue
+		}
+		keys = append(keys, key)
+		status := transitionJQLIssueStatus(issueMap)
+		if status == "" {
+			status = "(unknown)"
+		}
+		statusCounts[status]++
+	}
+	return keys, statusCounts
+}
+
+func transitionJQLIssueStatus(issue map[string]any) string {
+	fields, ok := issue["fields"].(map[string]any)
+	if !ok {
+		return ""
+	}
+	status, ok := fields["status"].(map[string]any)
+	if !ok {
+		return ""
+	}
+	name, _ := status["name"].(string)
+	return name
+}
+
+func groupTransitionJQLIssues(issueKeys []string, transitions map[string]any, targetStatus string) (groups map[string][]string, skipped []string) {
+	groups = map[string][]string{}
+	skipped = make([]string, 0)
+	seen := map[string]struct{}{}
+	for _, item := range transitionJQLIssueTransitionEntries(transitions) {
+		key, list := transitionJQLTransitionEntry(item)
+		if key == "" {
+			continue
+		}
+		seen[key] = struct{}{}
+		if id := transitionJQLMatchingTransitionID(list, targetStatus); id != "" {
+			groups[id] = append(groups[id], key)
+		} else {
+			skipped = append(skipped, key)
+		}
+	}
+	for _, key := range issueKeys {
+		if _, ok := seen[key]; !ok {
+			skipped = append(skipped, key)
+		}
+	}
+	return groups, skipped
+}
+
+func transitionJQLIssueTransitionEntries(response map[string]any) []any {
+	for _, field := range []string{"issueTransitions", "issues", "values"} {
+		if entries, ok := response[field].([]any); ok {
+			return entries
+		}
+	}
+	return nil
+}
+
+func transitionJQLTransitionEntry(entry any) (key string, transitions []any) {
+	m, ok := entry.(map[string]any)
+	if !ok {
+		return "", nil
+	}
+	key, _ = m["issueIdOrKey"].(string)
+	if key == "" {
+		key, _ = m["key"].(string)
+	}
+	if key == "" {
+		key, _ = m["issueKey"].(string)
+	}
+	for _, field := range []string{"transitions", "availableTransitions"} {
+		if transitions, ok := m[field].([]any); ok {
+			return key, transitions
+		}
+	}
+	return key, nil
+}
+
+func transitionJQLMatchingTransitionID(transitions []any, targetStatus string) string {
+	for _, transition := range transitions {
+		m, ok := transition.(map[string]any)
+		if !ok {
+			continue
+		}
+		to, _ := m["to"].(map[string]any)
+		name, _ := to["name"].(string)
+		if strings.EqualFold(name, targetStatus) {
+			id, _ := m["id"].(string)
+			return id
+		}
+	}
+	return ""
+}
+
+func transitionJQLDryRun(w io.Writer, format output.Format, p transitionJQLParams, state transitionJQLState, opts ...output.WriteOption) error {
+	before := map[string]any{
+		"issues_matched":   len(state.issueKeys),
+		"current_statuses": state.statusCounts,
+	}
+	after := map[string]any{
+		"target_status":        p.targetStatus,
+		"issues_to_transition": transitionJQLSubmissionCount(state.transitionKeys),
+		"issues_skipped":       len(state.skipped),
+	}
+	return WriteDryRunResult(w, DryRunResult{
+		Command:  "issue transition-jql",
+		IssueKey: fmt.Sprintf("(%d issues)", len(state.issueKeys)),
+		Before:   before,
+		After:    after,
+		Diff:     ComputeFieldDiff(before, after),
+	}, format, opts...)
+}
+
+func transitionJQLExecute(ctx context.Context, apiClient *client.Ref, w io.Writer, format output.Format, p transitionJQLParams, state transitionJQLState, opts ...output.WriteOption) error {
+	inputs := transitionJQLBulkInputs(state.transitionKeys)
+	body := map[string]any{
+		"bulkTransitionInputs": inputs,
+		"sendBulkNotification": p.sendNotification,
+	}
+	var response map[string]any
+	if err := apiClient.Post(ctx, "/bulk/issues/transition", body, &response); err != nil {
+		return err
+	}
+	taskID := transitionJQLTaskID(response)
+	result := map[string]any{
+		"task_id":          taskID,
+		"issues_submitted": transitionJQLSubmissionCount(state.transitionKeys),
+		"issues_skipped":   len(state.skipped),
+		"next_command":     "jira-agent issue bulk-status " + shellQuoteFlagValue(taskID),
+	}
+	if len(state.skipped) > 0 {
+		return output.WritePartial(w, result, []string{fmt.Sprintf("skipped issues without a valid transition to %q: %s", p.targetStatus, strings.Join(state.skipped, ", "))}, output.NewMetadata(), format, opts...)
+	}
+	return output.WriteResult(w, result, format, opts...)
+}
+
+func transitionJQLBulkInputs(groups map[string][]string) []map[string]any {
+	ids := make([]string, 0, len(groups))
+	for id := range groups {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	inputs := make([]map[string]any, 0, len(ids))
+	for _, id := range ids {
+		keys := append([]string(nil), groups[id]...)
+		sort.Strings(keys)
+		inputs = append(inputs, map[string]any{
+			"selectedIssueIdsOrKeys": keys,
+			"transitionId":           id,
+		})
+	}
+	return inputs
+}
+
+func transitionJQLSubmissionCount(groups map[string][]string) int {
+	var count int
+	for _, keys := range groups {
+		count += len(keys)
+	}
+	return count
+}
+
+func transitionJQLTaskID(response map[string]any) string {
+	for _, field := range []string{"taskId", "task_id", "id"} {
+		if id, ok := response[field].(string); ok {
+			return id
+		}
+	}
+	return ""
+}
+
+func intFromAny(value any) int {
+	switch v := value.(type) {
+	case int:
+		return v
+	case int64:
+		return int(v)
+	case float64:
+		return int(v)
+	case json.Number:
+		n, _ := v.Int64()
+		return int(n)
+	default:
+		return 0
+	}
 }
 
 // issueCreateAndLinkCommand returns a composite command that creates an issue
