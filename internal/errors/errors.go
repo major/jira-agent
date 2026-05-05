@@ -209,6 +209,16 @@ type exitCoder interface {
 	ExitCode() int
 }
 
+// Compile-time interface satisfaction: every error type must provide an exit
+// code for CLI consumers. Checking exitCoder implicitly verifies error too.
+var (
+	_ exitCoder = (*JiraError)(nil)
+	_ exitCoder = (*AuthError)(nil)
+	_ exitCoder = (*NotFoundError)(nil)
+	_ exitCoder = (*APIError)(nil)
+	_ exitCoder = (*ValidationError)(nil)
+)
+
 // ExitCodeFor determines the appropriate exit code for the given error.
 // Returns 0 if err is nil, otherwise extracts the exit code from the error
 // chain or defaults to 1.

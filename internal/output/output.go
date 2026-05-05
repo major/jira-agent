@@ -31,6 +31,13 @@ type remediationProvider interface {
 	AvailableActions() []string
 }
 
+// Compile-time interface satisfaction: jira-agent error types must fulfill the
+// output package's error introspection contracts.
+var (
+	_ errorDetailsProvider = (*apperr.JiraError)(nil)
+	_ remediationProvider  = (*apperr.JiraError)(nil)
+)
+
 // PaginationMeta holds pagination details for response envelopes that contain a
 // page of Jira API results.
 type PaginationMeta struct {
