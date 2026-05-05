@@ -199,13 +199,13 @@ func boardDeleteCommand(apiClient *client.Ref, w io.Writer, format *output.Forma
 }
 
 func parseBoardID(boardID string) (int64, error) {
-	return parsePositiveIntID(boardID, "board ID")
+	return parsePositiveIntID(boardID, "board ID", apperr.WithNextCommand("jira-agent resolve board <name>"))
 }
 
-func parsePositiveIntID(value, label string) (int64, error) {
+func parsePositiveIntID(value, label string, opts ...apperr.ErrorOption) (int64, error) {
 	parsedID, err := strconv.ParseInt(value, 10, 64)
 	if err != nil || parsedID <= 0 {
-		return 0, apperr.NewValidationError(label+" must be a positive integer", err)
+		return 0, apperr.NewValidationError(label+" must be a positive integer", err, opts...)
 	}
 
 	return parsedID, nil

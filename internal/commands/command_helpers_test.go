@@ -1034,6 +1034,44 @@ func TestParseBoardID(t *testing.T) {
 	}
 }
 
+func TestParseBoardIDNudge(t *testing.T) {
+	t.Parallel()
+
+	_, err := parseBoardID("my-board")
+	if err == nil {
+		t.Fatalf("parseBoardID() error = nil, want ValidationError")
+	}
+
+	var validationErr *apperr.ValidationError
+	if !errors.As(err, &validationErr) {
+		t.Fatalf("error type = %T, want *ValidationError", err)
+	}
+
+	wantNextCommand := "jira-agent resolve board <name>"
+	if validationErr.NextCommand() != wantNextCommand {
+		t.Errorf("NextCommand() = %q, want %q", validationErr.NextCommand(), wantNextCommand)
+	}
+}
+
+func TestParseSprintIDNudge(t *testing.T) {
+	t.Parallel()
+
+	_, err := parseSprintID("my-sprint")
+	if err == nil {
+		t.Fatalf("parseSprintID() error = nil, want ValidationError")
+	}
+
+	var validationErr *apperr.ValidationError
+	if !errors.As(err, &validationErr) {
+		t.Fatalf("error type = %T, want *ValidationError", err)
+	}
+
+	wantNextCommand := "jira-agent resolve sprint --board-id <board-id> <name>"
+	if validationErr.NextCommand() != wantNextCommand {
+		t.Errorf("NextCommand() = %q, want %q", validationErr.NextCommand(), wantNextCommand)
+	}
+}
+
 func TestParseFilterShareShorthand(t *testing.T) {
 	t.Parallel()
 

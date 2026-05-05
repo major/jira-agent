@@ -39,7 +39,7 @@ jira-agent sprint swap 100 101`,
 }
 
 func parseSprintID(sprintID string) (int64, error) {
-	return parsePositiveIntID(sprintID, "sprint ID")
+	return parsePositiveIntID(sprintID, "sprint ID", apperr.WithNextCommand("jira-agent resolve sprint --board-id <board-id> <name>"))
 }
 
 // sprintListCommand lists sprints for a given board.
