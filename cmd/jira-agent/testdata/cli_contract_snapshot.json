@@ -5906,6 +5906,7 @@
       "list",
       "move-issues",
       "property",
+      "summarize",
       "swap",
       "update"
     ]
@@ -6180,6 +6181,23 @@
             "true"
           ]
         }
+      }
+    ]
+  },
+  {
+    "path": "jira-agent sprint summarize",
+    "use": "summarize \u003csprint-id\u003e",
+    "short": "Summarize sprint status counts and story points",
+    "example": "jira-agent sprint summarize 42\njira-agent sprint summarize 42 --story-points-field customfield_10016",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    },
+    "local_flags": [
+      {
+        "name": "story-points-field",
+        "type": "string",
+        "usage": "Custom field ID for story points (e.g. customfield_10016)"
       }
     ]
   },
