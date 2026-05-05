@@ -120,9 +120,7 @@ jira-agent user search --query "john.doe@example.com"`,
 			if err := apiClient.Get(ctx, "/users/search", params, &users); err != nil {
 				return err
 			}
-			meta := output.NewMetadata()
-			meta.Returned = len(users)
-			return output.WriteSuccess(w, users, &meta, *format)
+			return output.WriteSuccess(w, users, output.NewMetadata(), *format)
 		},
 	}
 	cmd.Flags().String("query", "", "User search query")
@@ -144,10 +142,7 @@ func userGroupsCommand(apiClient *client.Ref, w io.Writer, format *output.Format
 			if err := apiClient.Get(ctx, "/user/groups", map[string]string{"accountId": accountID}, &groups); err != nil {
 				return err
 			}
-			meta := output.NewMetadata()
-			meta.Returned = len(groups)
-			meta.Total = len(groups)
-			return output.WriteSuccess(w, groups, &meta, *format)
+			return output.WriteSuccess(w, groups, output.NewMetadata(), *format)
 		},
 	}
 	cmd.Flags().String("account-id", "", "User account ID")
@@ -494,10 +489,7 @@ func filterFavoritesCommand(apiClient *client.Ref, w io.Writer, format *output.F
 			if err := apiClient.Get(ctx, "/filter/favou"+"rite", nil, &filters); err != nil {
 				return err
 			}
-			meta := output.NewMetadata()
-			meta.Returned = len(filters)
-			meta.Total = len(filters)
-			return output.WriteSuccess(w, filters, &meta, *format)
+			return output.WriteSuccess(w, filters, output.NewMetadata(), *format)
 		},
 	}
 }
@@ -519,10 +511,7 @@ func filterPermissionsCommand(apiClient *client.Ref, w io.Writer, format *output
 			if err := apiClient.Get(ctx, "/filter/"+filterIDPath+"/permission", nil, &permissions); err != nil {
 				return err
 			}
-			meta := output.NewMetadata()
-			meta.Returned = len(permissions)
-			meta.Total = len(permissions)
-			return output.WriteSuccess(w, permissions, &meta, *format)
+			return output.WriteSuccess(w, permissions, output.NewMetadata(), *format)
 		},
 	}
 }
@@ -550,10 +539,7 @@ jira-agent filter share 10001 --type project --project-id 10000`,
 			if err := apiClient.Post(ctx, "/filter/"+filterIDPath+"/permission", body, &permissions); err != nil {
 				return err
 			}
-			meta := output.NewMetadata()
-			meta.Returned = len(permissions)
-			meta.Total = len(permissions)
-			return output.WriteSuccess(w, permissions, &meta, *format)
+			return output.WriteSuccess(w, permissions, output.NewMetadata(), *format)
 		}),
 	}
 	addFilterShareFlags(cmd)

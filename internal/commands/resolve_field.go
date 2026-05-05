@@ -47,9 +47,6 @@ jira-agent resolve field "story points"`,
 				return err
 			}
 
-			// Extract total from response
-			jiraTotal, _ := jiraResponse["total"].(float64)
-
 			// Extract values array from response
 			values, ok := jiraResponse["values"]
 			if !ok {
@@ -93,12 +90,10 @@ jira-agent resolve field "story points"`,
 
 			// Build metadata with usage hint
 			meta := resolverMetadata(
-				int(jiraTotal),
-				len(fields),
 				"jira-agent issue get <issue-key> --fields <id>",
 			)
 
-			return output.WriteSuccess(w, fields, &meta, *format)
+			return output.WriteSuccess(w, fields, meta, *format)
 		},
 	}
 

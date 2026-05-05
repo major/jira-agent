@@ -134,12 +134,6 @@ func TestResolveFieldMatch(t *testing.T) {
 	}
 
 	// Verify metadata counts
-	if envelope.Metadata.Total != 2 {
-		t.Errorf("metadata.total: got %d, want 2", envelope.Metadata.Total)
-	}
-	if envelope.Metadata.Returned != 2 {
-		t.Errorf("metadata.returned: got %d, want 2", envelope.Metadata.Returned)
-	}
 }
 
 func TestResolveFieldSingleMatch(t *testing.T) {
@@ -185,12 +179,6 @@ func TestResolveFieldSingleMatch(t *testing.T) {
 		t.Errorf("data length: got %d, want 1", len(data))
 	}
 
-	if envelope.Metadata.Total != 1 {
-		t.Errorf("metadata.total: got %d, want 1", envelope.Metadata.Total)
-	}
-	if envelope.Metadata.Returned != 1 {
-		t.Errorf("metadata.returned: got %d, want 1", envelope.Metadata.Returned)
-	}
 }
 
 func TestResolveFieldNotFound(t *testing.T) {

@@ -133,12 +133,10 @@ jira-agent resolve transition --issue PROJ-123 "In Progress"`,
 
 			// Build metadata with usage hint
 			meta := resolverMetadata(
-				len(matches),
-				len(matches),
 				fmt.Sprintf("jira-agent issue transition %s --transition-id <id>", issueKey),
 			)
 
-			return output.WriteSuccess(w, matches, &meta, *format)
+			return output.WriteSuccess(w, matches, meta, *format)
 		},
 	}
 

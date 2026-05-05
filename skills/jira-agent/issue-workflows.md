@@ -271,7 +271,7 @@ jira-agent issue changelog bulk-fetch --issues KEY-123,KEY-456 \
   --field-ids status,assignee --max-results 100 --next-page-token TOKEN
 ```
 
-Returns field change history. Direct issue changelog listing uses offset pagination. Use `list-by-ids` when Jira returned specific changelog IDs. Use `bulk-fetch` for cross-issue changelog sync, optionally filtered to up to 10 field IDs and paginated with `--next-page-token`.
+Returns field change history. Direct issue changelog listing uses offset pagination with metadata in `metadata.pagination`. Use `list-by-ids` when Jira returned specific changelog IDs. Use `bulk-fetch` for cross-issue changelog sync, optionally filtered to up to 10 field IDs and paginated with `--next-page-token` (cursor token from `metadata.pagination.next_token`).
 
 ## Ranking
 

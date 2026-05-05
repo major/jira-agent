@@ -116,7 +116,7 @@ func runShortcutSearch(cmd *cobra.Command, apiClient *client.Ref, w io.Writer, f
 	}
 	meta := extractPaginationMeta(cmd, result)
 	if !isJSONOutputFormat(format) {
-		return output.WriteSuccess(w, result, &meta, format, CompactOptsFromCmd(cmd)...)
+		return output.WriteSuccess(w, result, meta, format, CompactOptsFromCmd(cmd)...)
 	}
-	return output.WriteSuccess(w, flattenIssueSearchResult(result), &meta, format, CompactOptsFromCmd(cmd)...)
+	return output.WriteSuccess(w, flattenIssueSearchResult(result), meta, format, CompactOptsFromCmd(cmd)...)
 }

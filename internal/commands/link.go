@@ -71,10 +71,7 @@ func issueLinkListCommand(apiClient *client.Ref, w io.Writer, format *output.For
 			if err != nil {
 				return err
 			}
-			meta := output.NewMetadata()
-			meta.Total = len(links)
-			meta.Returned = len(links)
-			return output.WriteSuccess(w, links, &meta, *format)
+			return output.WriteSuccess(w, links, output.NewMetadata(), *format)
 		},
 	}
 	return cmd
@@ -166,11 +163,7 @@ func issueLinkTypesCommand(apiClient *client.Ref, w io.Writer, format *output.Fo
 				return err
 			}
 
-			items, _ := result["issueLinkTypes"].([]any)
-			meta := output.NewMetadata()
-			meta.Total = len(items)
-			meta.Returned = len(items)
-			return output.WriteSuccess(w, result, &meta, *format)
+			return output.WriteSuccess(w, result, output.NewMetadata(), *format)
 		},
 	}
 	return cmd
@@ -197,10 +190,7 @@ func remoteLinkListCommand(apiClient *client.Ref, w io.Writer, format *output.Fo
 			if err := apiClient.Get(ctx, path, nil, &result); err != nil {
 				return err
 			}
-			meta := output.NewMetadata()
-			meta.Total = len(result)
-			meta.Returned = len(result)
-			return output.WriteSuccess(w, result, &meta, *format)
+			return output.WriteSuccess(w, result, output.NewMetadata(), *format)
 		},
 	}
 	cmd.Flags().String("global-id", "", "Filter by stable global ID")

@@ -316,9 +316,9 @@ jira-agent issue search --jql "project = PROJ" --raw`,
 			}
 			meta := extractPaginationMeta(cmd, result)
 			if !isJSONOutputFormat(*format) {
-				return output.WriteSuccess(w, convertDescriptionOutputFields(result, descriptionFormat), &meta, *format, CompactOptsFromCmd(cmd)...)
+				return output.WriteSuccess(w, convertDescriptionOutputFields(result, descriptionFormat), meta, *format, CompactOptsFromCmd(cmd)...)
 			}
-			return output.WriteSuccess(w, flattenIssueSearchResultWithDescriptionFormat(result, descriptionFormat), &meta, *format, CompactOptsFromCmd(cmd)...)
+			return output.WriteSuccess(w, flattenIssueSearchResultWithDescriptionFormat(result, descriptionFormat), meta, *format, CompactOptsFromCmd(cmd)...)
 		},
 	}
 	cmd.Flags().String("jql", "", "JQL query string (required)")
@@ -734,7 +734,7 @@ jira-agent issue changelog bulk-fetch --issues PROJ-1,PROJ-2 --field-ids status,
 				body["nextPageToken"] = token
 			}
 
-			return writeAPIResult(w, *format, func(result any) error {
+			return writePaginatedAPIResult(cmd, w, *format, func(result any) error {
 				return apiClient.Post(ctx, "/changelog/bulkfetch", body, result)
 			})
 		},
@@ -816,8 +816,13 @@ jira-agent issue count --jql "assignee = currentUser() AND resolution = Unresolv
 			if err := apiClient.Post(ctx, "/search/jql", body, &result); err != nil {
 				return err
 			}
-			meta := extractPaginationMeta(cmd, result)
-			return output.WriteSuccess(w, map[string]any{"total": meta.Total}, &meta, *format)
+			total := 0
+			if resultMap, ok := result.(map[string]any); ok {
+				if value, ok := resultMap["total"].(float64); ok {
+					total = int(value)
+				}
+			}
+			return output.WriteSuccess(w, map[string]any{"total": total}, output.NewMetadata(), *format)
 		},
 	}
 	cmd.Flags().String("jql", "", "JQL query to count results for (required)")

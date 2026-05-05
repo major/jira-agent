@@ -53,6 +53,24 @@ func runCommandAction(t *testing.T, cmd *cobra.Command, args ...string) string {
 	return buf.String()
 }
 
+func assertNoPaginationMetadata(t *testing.T, outputBytes []byte) {
+	t.Helper()
+
+	var env struct {
+		Metadata map[string]any `json:"metadata"`
+	}
+	if err := json.Unmarshal(outputBytes, &env); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v, output %s", err, string(outputBytes))
+	}
+	timestamp, ok := env.Metadata["timestamp"].(string)
+	if !ok || timestamp == "" {
+		t.Errorf("metadata timestamp = %v, want populated string", env.Metadata["timestamp"])
+	}
+	if _, ok := env.Metadata["pagination"]; ok {
+		t.Errorf("metadata = %v, want no pagination key for non-paginated output", env.Metadata)
+	}
+}
+
 func prepareCommandForTest(cmd *cobra.Command) {
 	cmd.SetContext(context.Background())
 	if cmd.RunE != nil && len(cmd.Commands()) > 0 {
@@ -1201,9 +1219,7 @@ func TestFieldListCommand(t *testing.T) {
 
 	var buf bytes.Buffer
 	runCommandAction(t, fieldListCommand(testCommandClient(server.URL), &buf, testCommandFormat()))
-	if !bytes.Contains(buf.Bytes(), []byte(`"returned":2`)) {
-		t.Errorf("output = %q, want returned metadata", buf.String())
-	}
+	assertNoPaginationMetadata(t, buf.Bytes())
 }
 
 func TestFieldSearchCommand(t *testing.T) {
@@ -1277,9 +1293,7 @@ func TestReferenceListCommands(t *testing.T) {
 
 			var buf bytes.Buffer
 			runCommandAction(t, tt.cmd(testCommandClient(server.URL), &buf, testCommandFormat()))
-			if !bytes.Contains(buf.Bytes(), []byte(`"returned":2`)) {
-				t.Errorf("output = %q, want returned metadata", buf.String())
-			}
+			assertNoPaginationMetadata(t, buf.Bytes())
 		})
 	}
 }
@@ -1333,9 +1347,7 @@ func TestUserCommands(t *testing.T) {
 
 		var buf bytes.Buffer
 		runCommandAction(t, userSearchCommand(testCommandClient(server.URL), &buf, testCommandFormat()), "--query", "ada", "--start-at", "5")
-		if !bytes.Contains(buf.Bytes(), []byte(`"returned":1`)) {
-			t.Errorf("output = %q, want returned metadata", buf.String())
-		}
+		assertNoPaginationMetadata(t, buf.Bytes())
 	})
 
 	t.Run("groups", func(t *testing.T) {
@@ -1354,9 +1366,7 @@ func TestUserCommands(t *testing.T) {
 
 		var buf bytes.Buffer
 		runCommandAction(t, userGroupsCommand(testCommandClient(server.URL), &buf, testCommandFormat()), "--account-id", "abc123")
-		if !bytes.Contains(buf.Bytes(), []byte(`"returned":1`)) {
-			t.Errorf("output = %q, want returned metadata", buf.String())
-		}
+		assertNoPaginationMetadata(t, buf.Bytes())
 	})
 }
 
@@ -1601,9 +1611,7 @@ func TestFilterCommands(t *testing.T) {
 
 		var buf bytes.Buffer
 		runCommandAction(t, filterPermissionsCommand(testCommandClient(server.URL), &buf, testCommandFormat()), "10000")
-		if !bytes.Contains(buf.Bytes(), []byte(`"returned":1`)) {
-			t.Errorf("output = %q, want returned metadata", buf.String())
-		}
+		assertNoPaginationMetadata(t, buf.Bytes())
 	})
 
 	t.Run("share", func(t *testing.T) {
@@ -1629,9 +1637,7 @@ func TestFilterCommands(t *testing.T) {
 
 		var buf bytes.Buffer
 		runCommandAction(t, filterShareCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites()), "--with", "user:abc123", "10000")
-		if !bytes.Contains(buf.Bytes(), []byte(`"returned":1`)) {
-			t.Errorf("output = %q, want returned metadata", buf.String())
-		}
+		assertNoPaginationMetadata(t, buf.Bytes())
 	})
 
 	t.Run("share escapes filter ID path segment", func(t *testing.T) {
@@ -1723,9 +1729,7 @@ func TestFilterCommands(t *testing.T) {
 
 		var buf bytes.Buffer
 		runCommandAction(t, filterFavoritesCommand(testCommandClient(server.URL), &buf, testCommandFormat()))
-		if !bytes.Contains(buf.Bytes(), []byte(`"returned":1`)) {
-			t.Errorf("output = %q, want returned metadata", buf.String())
-		}
+		assertNoPaginationMetadata(t, buf.Bytes())
 	})
 }
 
@@ -1838,9 +1842,7 @@ func TestDashboardCommands(t *testing.T) {
 
 		var buf bytes.Buffer
 		runCommandAction(t, dashboardGadgetsCommand(testCommandClient(server.URL), &buf, testCommandFormat()), "--module-key", "activity-stream", "10000")
-		if !bytes.Contains(buf.Bytes(), []byte(`"returned":1`)) {
-			t.Errorf("output = %q, want returned metadata", buf.String())
-		}
+		assertNoPaginationMetadata(t, buf.Bytes())
 	})
 
 	t.Run("create", func(t *testing.T) {
@@ -1998,9 +2000,7 @@ func TestPermissionCommands(t *testing.T) {
 
 		var buf bytes.Buffer
 		runCommandAction(t, permissionSchemeListCommand(testCommandClient(server.URL), &buf, testCommandFormat()), "--expand", "permissions")
-		if !bytes.Contains(buf.Bytes(), []byte(`"returned":1`)) {
-			t.Errorf("output = %q, want returned metadata", buf.String())
-		}
+		assertNoPaginationMetadata(t, buf.Bytes())
 	})
 
 	t.Run("schemes project", func(t *testing.T) {
@@ -2084,9 +2084,7 @@ func TestWorkflowCommands(t *testing.T) {
 
 		var buf bytes.Buffer
 		runCommandAction(t, workflowStatusesCommand(testCommandClient(server.URL), &buf, testCommandFormat()))
-		if !bytes.Contains(buf.Bytes(), []byte(`"returned":1`)) {
-			t.Errorf("output = %q, want returned metadata", buf.String())
-		}
+		assertNoPaginationMetadata(t, buf.Bytes())
 	})
 
 	t.Run("scheme list", func(t *testing.T) {
@@ -2200,9 +2198,7 @@ func TestStatusCommands(t *testing.T) {
 
 		var buf bytes.Buffer
 		runCommandAction(t, statusCategoriesCommand(testCommandClient(server.URL), &buf, testCommandFormat()))
-		if !bytes.Contains(buf.Bytes(), []byte(`"returned":2`)) {
-			t.Errorf("output = %q, want returned metadata", buf.String())
-		}
+		assertNoPaginationMetadata(t, buf.Bytes())
 	})
 }
 
@@ -2245,9 +2241,7 @@ func TestIssueTypeCommands(t *testing.T) {
 
 		var buf bytes.Buffer
 		runCommandAction(t, issueTypeProjectCommand(testCommandClient(server.URL), &buf, testCommandFormat()), "10000")
-		if !bytes.Contains(buf.Bytes(), []byte(`"returned":1`)) {
-			t.Errorf("output = %q, want returned metadata", buf.String())
-		}
+		assertNoPaginationMetadata(t, buf.Bytes())
 	})
 }
 
@@ -2670,9 +2664,7 @@ func TestProjectCommands(t *testing.T) {
 
 		var buf bytes.Buffer
 		runCommandAction(t, projectCategoriesCommand(testCommandClient(server.URL), &buf, testCommandFormat()))
-		if !bytes.Contains(buf.Bytes(), []byte(`"returned":1`)) {
-			t.Errorf("output = %q, want returned metadata", buf.String())
-		}
+		assertNoPaginationMetadata(t, buf.Bytes())
 	})
 
 	t.Run("category", func(t *testing.T) {
@@ -2716,9 +2708,7 @@ func TestRoleCommands(t *testing.T) {
 
 		var buf bytes.Buffer
 		runCommandAction(t, roleListCommand(testCommandClient(server.URL), &buf, testCommandFormat()))
-		if !bytes.Contains(buf.Bytes(), []byte(`"returned":1`)) {
-			t.Errorf("output = %q, want returned metadata", buf.String())
-		}
+		assertNoPaginationMetadata(t, buf.Bytes())
 	})
 
 	t.Run("get", func(t *testing.T) {
@@ -2928,9 +2918,7 @@ func TestIssueLinkCommands(t *testing.T) {
 
 		var buf bytes.Buffer
 		runCommandAction(t, issueLinkListCommand(testCommandClient(server.URL), &buf, testCommandFormat()), "TEST-1")
-		if !bytes.Contains(buf.Bytes(), []byte(`"returned":1`)) {
-			t.Errorf("output = %q, want returned metadata", buf.String())
-		}
+		assertNoPaginationMetadata(t, buf.Bytes())
 	})
 
 	t.Run("get", func(t *testing.T) {
@@ -2967,9 +2955,7 @@ func TestIssueLinkCommands(t *testing.T) {
 
 		var buf bytes.Buffer
 		runCommandAction(t, issueLinkTypesCommand(testCommandClient(server.URL), &buf, testCommandFormat()))
-		if !bytes.Contains(buf.Bytes(), []byte(`"returned":1`)) {
-			t.Errorf("output = %q, want returned metadata", buf.String())
-		}
+		assertNoPaginationMetadata(t, buf.Bytes())
 	})
 
 	t.Run("add", func(t *testing.T) {
@@ -3066,9 +3052,7 @@ func TestRemoteLinkCommands(t *testing.T) {
 			remoteLinkListCommand(testCommandClient(server.URL), &buf, testCommandFormat()),
 			"--global-id", "system=https://example.com&id=1", "TEST-1",
 		)
-		if !bytes.Contains(buf.Bytes(), []byte(`"returned":1`)) {
-			t.Errorf("output = %q, want returned metadata", buf.String())
-		}
+		assertNoPaginationMetadata(t, buf.Bytes())
 	})
 
 	t.Run("get", func(t *testing.T) {
@@ -3349,9 +3333,7 @@ func TestAttachmentCommands(t *testing.T) {
 
 		var buf bytes.Buffer
 		runCommandAction(t, attachmentListCommand(testCommandClient(server.URL), &buf, testCommandFormat()), "TEST-1")
-		if !bytes.Contains(buf.Bytes(), []byte(`"returned":1`)) {
-			t.Errorf("output = %q, want returned metadata", buf.String())
-		}
+		assertNoPaginationMetadata(t, buf.Bytes())
 	})
 
 	t.Run("add", func(t *testing.T) {
@@ -4493,9 +4475,6 @@ func TestIssueCountCommand(t *testing.T) {
 			Data struct {
 				Total int `json:"total"`
 			} `json:"data"`
-			Metadata struct {
-				Total int `json:"total"`
-			} `json:"metadata"`
 		}
 		if err := json.Unmarshal(buf.Bytes(), &got); err != nil {
 			t.Fatalf("json.Unmarshal() error = %v, output %s", err, buf.String())
@@ -4503,9 +4482,7 @@ func TestIssueCountCommand(t *testing.T) {
 		if got.Data.Total != 42 {
 			t.Errorf("data.total = %d, want 42", got.Data.Total)
 		}
-		if got.Metadata.Total != 42 {
-			t.Errorf("metadata.total = %d, want 42", got.Metadata.Total)
-		}
+		assertNoPaginationMetadata(t, buf.Bytes())
 	})
 
 	t.Run("requires jql", func(t *testing.T) {

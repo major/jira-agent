@@ -214,10 +214,7 @@ func attachmentListCommand(apiClient *client.Ref, w io.Writer, format *output.Fo
 			if err != nil {
 				return err
 			}
-			meta := output.NewMetadata()
-			meta.Total = len(attachments)
-			meta.Returned = len(attachments)
-			return output.WriteSuccess(w, attachments, &meta, *format)
+			return output.WriteSuccess(w, attachments, output.NewMetadata(), *format)
 		},
 	}
 	return cmd

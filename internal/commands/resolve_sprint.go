@@ -98,15 +98,10 @@ jira-agent resolve sprint --board-id 42 --state active "Sprint"`,
 
 			// Build metadata with usage hint
 			meta := resolverMetadata(
-				totalMatches,
-				len(matches),
 				"jira-agent sprint get <id>",
 			)
-			if totalMatches > len(matches) {
-				meta.HasMore = true
-			}
 
-			return output.WriteSuccess(w, matches, &meta, *format)
+			return output.WriteSuccess(w, matches, meta, *format)
 		},
 	}
 

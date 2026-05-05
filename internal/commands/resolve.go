@@ -32,12 +32,10 @@ jira-agent resolve transition --issue PROJ-123 "Done"`,
 	return cmd
 }
 
-// resolverMetadata builds metadata for resolve commands with total, returned,
-// and usage hint fields.
-func resolverMetadata(total, returned int, usageHint string) output.Metadata {
+// resolverMetadata builds metadata for resolve commands with a usage hint
+// suggesting the next command to run with the resolved ID.
+func resolverMetadata(usageHint string) output.Metadata {
 	meta := output.NewMetadata()
-	meta.Total = total
-	meta.Returned = returned
 	meta.UsageHint = usageHint
 	return meta
 }

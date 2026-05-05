@@ -227,7 +227,7 @@ jira-agent epic orphans --fields key,summary
 jira-agent epic orphans --jql "project = PROJ" --fields key,summary,status
 ```
 
-Lists issues with no epic. Use `--jql` to scope by project or other criteria. Same pagination flags as `epic issues`.
+Lists issues with no epic. Use `--jql` to scope by project or other criteria. Same pagination flags as `epic issues`. Pagination metadata is in `metadata.pagination`.
 
 ### epic remove-issues
 

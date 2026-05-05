@@ -99,8 +99,6 @@ func TestFlattenIssueSearchResult(t *testing.T) {
 
 	got := flattenIssueSearchResult(result)
 	want := map[string]any{
-		"nextPageToken": "next-page",
-		"isLast":        false,
 		"issues": []map[string]any{
 			{
 				"key":               "PROJ-1",
@@ -116,6 +114,15 @@ func TestFlattenIssueSearchResult(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("flattenIssueSearchResult() = %#v, want %#v", got, want)
+	}
+	flat, ok := got.(map[string]any)
+	if !ok {
+		t.Fatalf("flattenIssueSearchResult() type = %T, want map[string]any", got)
+	}
+	for _, key := range []string{"nextPageToken", "isLast"} {
+		if _, ok := flat[key]; ok {
+			t.Errorf("flattenIssueSearchResult() included %q, want omitted", key)
+		}
 	}
 }
 
@@ -163,6 +170,131 @@ func TestIssueSearchCommand_FlattensJSONByDefault(t *testing.T) {
 	}
 	if !reflect.DeepEqual(issue, wantIssue) {
 		t.Errorf("issue = %#v, want %#v", issue, wantIssue)
+	}
+}
+
+func TestIssueSearchCommand_CursorPaginationMetadata(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("method = %s, want %s", r.Method, http.MethodPost)
+		}
+		if r.URL.Path != "/search/jql" {
+			t.Errorf("path = %s, want /search/jql", r.URL.Path)
+		}
+		testhelpers.WriteJSONResponse(t, w, issueSearchResponseJSON())
+	}))
+	defer server.Close()
+
+	var buf bytes.Buffer
+	runCommandAction(
+		t,
+		issueSearchCommand(testCommandClient(server.URL), &buf, testCommandFormat()),
+		"--jql", "project = RSPEED",
+		"--max-results", "50",
+		"--fields", "key,summary",
+	)
+
+	env := decodeEnvelope(t, buf.Bytes())
+	pagination := requirePaginationMetadata(t, &env)
+	if pagination.Type != "cursor" {
+		t.Errorf("pagination type = %q, want cursor", pagination.Type)
+	}
+	if !pagination.HasMore {
+		t.Error("pagination has_more = false, want true")
+	}
+	if pagination.NextToken != "next-page" {
+		t.Errorf("pagination next_token = %q, want next-page", pagination.NextToken)
+	}
+	wantNextCommand := "search --fields key,summary --jql \"project = RSPEED\" --max-results 50 --next-page-token next-page"
+	if pagination.NextCommand != wantNextCommand {
+		t.Errorf("pagination next_command = %q, want %q", pagination.NextCommand, wantNextCommand)
+	}
+	data, ok := env.Data.(map[string]any)
+	if !ok {
+		t.Fatalf("data type = %T, want map[string]any", env.Data)
+	}
+	for _, key := range []string{"nextPageToken", "isLast"} {
+		if _, ok := data[key]; ok {
+			t.Errorf("data included %q, want omitted", key)
+		}
+	}
+}
+
+func TestIssueSearchCommand_CursorPaginationMetadataLastPage(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		testhelpers.WriteJSONResponse(t, w, `{
+			"maxResults": 50,
+			"nextPageToken": "",
+			"isLast": true,
+			"issues": [{"key":"RSPEED-2911","fields":{"summary":"Done"}}]
+		}`)
+	}))
+	defer server.Close()
+
+	var buf bytes.Buffer
+	runCommandAction(
+		t,
+		issueSearchCommand(testCommandClient(server.URL), &buf, testCommandFormat()),
+		"--jql", "project = RSPEED",
+		"--fields", "key,summary",
+	)
+
+	env := decodeEnvelope(t, buf.Bytes())
+	pagination := requirePaginationMetadata(t, &env)
+	if pagination.Type != "cursor" {
+		t.Errorf("pagination type = %q, want cursor", pagination.Type)
+	}
+	if pagination.HasMore {
+		t.Error("pagination has_more = true, want false")
+	}
+	if pagination.NextToken != "" {
+		t.Errorf("pagination next_token = %q, want empty", pagination.NextToken)
+	}
+	if pagination.NextCommand != "" {
+		t.Errorf("pagination next_command = %q, want empty", pagination.NextCommand)
+	}
+}
+
+func TestIssueMineCommand_OffsetPaginationMetadata(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body := testhelpers.DecodeJSONBody(t, r)
+		if body["startAt"] != float64(0) {
+			t.Errorf("startAt = %v, want 0", body["startAt"])
+		}
+		testhelpers.WriteJSONResponse(t, w, `{
+			"startAt": 0,
+			"maxResults": 50,
+			"total": 42,
+			"issues": [{"key":"RSPEED-2911","fields":{"summary":"Mine"}}]
+		}`)
+	}))
+	defer server.Close()
+
+	var buf bytes.Buffer
+	runCommandAction(t, issueMineCommand(testCommandClient(server.URL), &buf, testCommandFormat()))
+
+	env := decodeEnvelope(t, buf.Bytes())
+	pagination := requirePaginationMetadata(t, &env)
+	if pagination.Type != "offset" {
+		t.Errorf("pagination type = %q, want offset", pagination.Type)
+	}
+	if pagination.Total != 42 {
+		t.Errorf("pagination total = %d, want 42", pagination.Total)
+	}
+	if pagination.StartAt != 0 {
+		t.Errorf("pagination start_at = %d, want 0", pagination.StartAt)
+	}
+	if pagination.MaxResults != 50 {
+		t.Errorf("pagination max_results = %d, want 50", pagination.MaxResults)
+	}
+	if !pagination.HasMore {
+		t.Error("pagination has_more = false, want true")
 	}
 }
 
@@ -527,18 +659,16 @@ func assertRequestedFields(t *testing.T, body map[string]any, want []string) {
 func decodeFirstSearchIssue(t *testing.T, outputBytes []byte) map[string]any {
 	t.Helper()
 
-	var env output.Envelope
-	if err := json.Unmarshal(outputBytes, &env); err != nil {
-		t.Fatalf("unmarshal envelope: %v", err)
+	env := decodeEnvelope(t, outputBytes)
+	pagination := requirePaginationMetadata(t, &env)
+	if pagination.Total != 22 {
+		t.Errorf("metadata total = %d, want 22", pagination.Total)
 	}
-	if env.Metadata.Total != 22 {
-		t.Errorf("metadata total = %d, want 22", env.Metadata.Total)
+	if pagination.Returned != 1 {
+		t.Errorf("metadata returned = %d, want 1", pagination.Returned)
 	}
-	if env.Metadata.Returned != 1 {
-		t.Errorf("metadata returned = %d, want 1", env.Metadata.Returned)
-	}
-	if env.Metadata.MaxResults != 50 {
-		t.Errorf("metadata max results = %d, want 50", env.Metadata.MaxResults)
+	if pagination.MaxResults != 50 {
+		t.Errorf("metadata max results = %d, want 50", pagination.MaxResults)
 	}
 
 	data, ok := env.Data.(map[string]any)
@@ -556,10 +686,31 @@ func decodeFirstSearchIssue(t *testing.T, outputBytes []byte) map[string]any {
 	if !ok {
 		t.Fatalf("issue type = %T, want map[string]any", issues[0])
 	}
-	if data["nextPageToken"] != "next-page" {
-		t.Errorf("nextPageToken = %v, want next-page", data["nextPageToken"])
+	for _, key := range []string{"nextPageToken", "isLast"} {
+		if _, ok := data[key]; ok {
+			t.Errorf("data included %q, want omitted", key)
+		}
 	}
 	return issue
+}
+
+func decodeEnvelope(t *testing.T, outputBytes []byte) output.Envelope {
+	t.Helper()
+
+	var env output.Envelope
+	if err := json.Unmarshal(outputBytes, &env); err != nil {
+		t.Fatalf("unmarshal envelope: %v", err)
+	}
+	return env
+}
+
+func requirePaginationMetadata(t *testing.T, env *output.Envelope) *output.PaginationMeta {
+	t.Helper()
+
+	if env.Metadata.Pagination == nil {
+		t.Fatal("metadata pagination = nil, want populated")
+	}
+	return env.Metadata.Pagination
 }
 
 func decodeFirstSearchIssueWithoutMetadataCheck(t *testing.T, outputBytes []byte) map[string]any {
@@ -699,4 +850,60 @@ func issueGetDescriptionResponseJSON() string {
 			}
 		}
 	}`
+}
+
+func TestIssueSearchRaw_CursorPagination(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		testhelpers.WriteJSONResponse(t, w, `{
+			"issues": [
+				{"key":"PROJ-1","summary":"First issue"},
+				{"key":"PROJ-2","summary":"Second issue"}
+			],
+			"nextPageToken": "cursor123",
+			"isLast": false
+		}`)
+	}))
+	defer server.Close()
+
+	var buf bytes.Buffer
+	runCommandAction(
+		t,
+		issueSearchCommand(testCommandClient(server.URL), &buf, testCommandFormat()),
+		"--jql", "project = PROJ",
+		"--raw",
+	)
+
+	env := decodeEnvelope(t, buf.Bytes())
+	pagination := requirePaginationMetadata(t, &env)
+
+	// Verify cursor metadata is present
+	if pagination.Type != "cursor" {
+		t.Errorf("pagination type = %q, want cursor", pagination.Type)
+	}
+	if !pagination.HasMore {
+		t.Error("pagination has_more = false, want true")
+	}
+	if pagination.NextToken != "cursor123" {
+		t.Errorf("pagination next_token = %q, want cursor123", pagination.NextToken)
+	}
+	if pagination.NextCommand == "" {
+		t.Error("pagination next_command is empty, want non-empty")
+	}
+	if !strings.Contains(pagination.NextCommand, "--next-page-token cursor123") {
+		t.Errorf("pagination next_command = %q, want to contain --next-page-token cursor123", pagination.NextCommand)
+	}
+
+	// Verify raw data still contains cursor fields (raw = unmodified)
+	data, ok := env.Data.(map[string]any)
+	if !ok {
+		t.Fatalf("data type = %T, want map[string]any", env.Data)
+	}
+	if _, ok := data["nextPageToken"]; !ok {
+		t.Error("raw data missing nextPageToken field (raw mode should preserve it)")
+	}
+	if _, ok := data["isLast"]; !ok {
+		t.Error("raw data missing isLast field (raw mode should preserve it)")
+	}
 }

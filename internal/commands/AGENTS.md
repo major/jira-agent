@@ -72,16 +72,16 @@ Return typed validation errors rather than generic `fmt.Errorf` for user-correct
 ## Output helpers
 
 - Use `writeAPIResult(w, format, call)` for single-result API calls.
-- Use `writePaginatedAPIResult(w, format, call)` for list/search calls with pagination metadata.
-- Default JSON removes noisy Jira API metadata such as `self`, `expand`, `avatarUrls`, `iconUrl`, and nested `statusCategory` objects. `issue get` and `issue search` convert ADF descriptions to plain text by default via `--description-output-format text|markdown|adf`, while `--raw` preserves Jira's original ADF. `issue search` additionally reshapes Jira's response into flattened `.data.issues[]` rows, while `--raw` uses the unmodified paginated API response.
+- Use `writePaginatedAPIResult(w, format, call)` for list/search calls with pagination metadata. This function nests pagination fields under `metadata.pagination` with `type` ("offset" or "cursor").
+- Default JSON removes noisy Jira API metadata such as `self`, `expand`, `avatarUrls`, `iconUrl`, and nested `statusCategory` objects. `issue get` and `issue search` convert ADF descriptions to plain text by default via `--description-output-format text|markdown|adf`, while `--raw` preserves Jira's original ADF. `issue search` additionally reshapes Jira's response into flattened `.data.issues[]` rows, while `--raw` uses the unmodified paginated API response. Also extracts `issueChangeLogs` array. Pagination fields are nested under `metadata.pagination`.
 - Do not write JSON, CSV, TSV, or errors directly from commands.
-- Preserve pagination metadata extraction for arrays named `issues`, `values`, `comments`, and `worklogs`.
+- Preserve pagination metadata extraction for arrays named `issues`, `values`, `comments`, `worklogs`, `records`, and `issueChangeLogs`.
 
 ## Pagination and query params
 
-- Standard offset pagination flags are `--max-results` default 50 and `--start-at` default 0.
-- `buildPaginationParams` builds API params from pagination plus optional filters.
-- Some Jira endpoints use cursor tokens such as `nextPageToken`; document and test those exceptions.
+- Standard offset pagination flags are `--max-results` default 50 and `--start-at` default 0. These values appear in `metadata.pagination.max_results` and `metadata.pagination.start_at`.
+- `buildPaginationParams` builds API params from pagination plus optional filters. Output metadata is nested under `metadata.pagination`.
+- Some Jira endpoints use cursor tokens such as `nextPageToken`; `issue search` and `changelog bulk-fetch` use cursor pagination. Cursor responses expose `metadata.pagination.next_token` and `metadata.pagination.has_more` (derived from `isLast`). Use `--next-page-token` flag to pass the token to the next call.
 - `appendQueryParams` sorts query keys for deterministic URLs and tests.
 - Use `escapePathSegment` for path segments, not raw string interpolation.
 

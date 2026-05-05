@@ -366,7 +366,7 @@ func writeRawAPIResult(w io.Writer, format output.Format, call apiResultFunc) er
 		return err
 	}
 	meta := output.NewMetadata()
-	return output.WriteRawSuccess(w, result, &meta, format)
+	return output.WriteRawSuccess(w, result, meta, format)
 }
 
 // writePaginatedAPIResult runs an API call that writes into result, extracts
@@ -377,7 +377,7 @@ func writePaginatedAPIResult(cmd *cobra.Command, w io.Writer, format output.Form
 		return err
 	}
 	meta := extractPaginationMeta(cmd, result)
-	return output.WriteSuccess(w, result, &meta, format)
+	return output.WriteSuccess(w, result, meta, format)
 }
 
 // writeRawPaginatedAPIResult preserves Jira's original JSON shape for commands
@@ -388,7 +388,7 @@ func writeRawPaginatedAPIResult(cmd *cobra.Command, w io.Writer, format output.F
 		return err
 	}
 	meta := extractPaginationMeta(cmd, result)
-	return output.WriteRawSuccess(w, result, &meta, format)
+	return output.WriteRawSuccess(w, result, meta, format)
 }
 
 // splitTrimmed splits s by comma and trims whitespace from each element,
@@ -491,35 +491,79 @@ func extractPaginationMeta(cmd *cobra.Command, result any) output.Metadata {
 	if !ok {
 		return meta
 	}
+	_, hasNextPageToken := m["nextPageToken"]
+	_, hasIsLast := m["isLast"]
+	if hasNextPageToken || hasIsLast {
+		pagination := output.PaginationMeta{Type: "cursor"}
+		if v, ok := m["total"].(float64); ok {
+			pagination.Total = int(v)
+		}
+		if v, ok := m["maxResults"].(float64); ok {
+			pagination.MaxResults = int(v)
+		} else if cmd != nil {
+			pagination.MaxResults, _ = cmd.Flags().GetInt("max-results")
+		}
+		for _, key := range []string{"issues", "values", "comments", "worklogs", "records", "issueChangeLogs"} {
+			if items, ok := m[key].([]any); ok {
+				pagination.Returned = len(items)
+				break
+			}
+		}
+		if v, ok := m["nextPageToken"].(string); ok {
+			pagination.NextToken = v
+		}
+		isLast, _ := m["isLast"].(bool)
+		pagination.HasMore = !isLast && pagination.NextToken != ""
+		if pagination.HasMore {
+			pagination.NextCommand = buildNextPageCommandCursor(cmd, pagination.NextToken)
+		}
+		meta.Pagination = &pagination
+		return meta
+	}
+	pagination := output.PaginationMeta{Type: "offset"}
 	if v, ok := m["total"].(float64); ok {
-		meta.Total = int(v)
+		pagination.Total = int(v)
 	}
 	if v, ok := m["startAt"].(float64); ok {
-		meta.StartAt = int(v)
+		pagination.StartAt = int(v)
 	}
 	if v, ok := m["offset"].(float64); ok {
-		meta.StartAt = int(v)
+		pagination.StartAt = int(v)
 	}
 	if v, ok := m["maxResults"].(float64); ok {
-		meta.MaxResults = int(v)
+		pagination.MaxResults = int(v)
 	}
 	if v, ok := m["limit"].(float64); ok {
-		meta.MaxResults = int(v)
+		pagination.MaxResults = int(v)
 	}
-	for _, key := range []string{"issues", "values", "comments", "worklogs", "records"} {
+	for _, key := range []string{"issues", "values", "comments", "worklogs", "records", "issueChangeLogs"} {
 		if items, ok := m[key].([]any); ok {
-			meta.Returned = len(items)
+			pagination.Returned = len(items)
 			break
 		}
 	}
-	meta.HasMore = meta.Total > meta.StartAt+meta.Returned
-	if meta.HasMore {
-		meta.NextCommand = buildNextPageCommand(cmd, meta.StartAt+meta.Returned)
+	pagination.HasMore = pagination.Total > pagination.StartAt+pagination.Returned
+	if pagination.HasMore {
+		pagination.NextCommand = buildNextPageCommand(cmd, pagination.StartAt+pagination.Returned)
 	}
+	meta.Pagination = &pagination
 	return meta
 }
 
 func buildNextPageCommand(cmd *cobra.Command, nextStartAt int) string {
+	return buildNextPageCommandBase(cmd, map[string]bool{"start-at": true},
+		"--start-at", strconv.Itoa(nextStartAt))
+}
+
+func buildNextPageCommandCursor(cmd *cobra.Command, token string) string {
+	return buildNextPageCommandBase(cmd, map[string]bool{"next-page-token": true, "start-at": true},
+		"--next-page-token", shellQuoteFlagValue(token))
+}
+
+// buildNextPageCommandBase reconstructs the current command with pagination
+// flags replaced. skipFlags names the flags to omit (they get replaced by
+// trailingParts). Both offset and cursor helpers delegate here.
+func buildNextPageCommandBase(cmd *cobra.Command, skipFlags map[string]bool, trailingParts ...string) string {
 	if cmd == nil {
 		return ""
 	}
@@ -529,7 +573,7 @@ func buildNextPageCommand(cmd *cobra.Command, nextStartAt int) string {
 		parts = append(parts, shellQuoteFlagValue(arg))
 	}
 	cmd.Flags().Visit(func(flag *pflag.Flag) {
-		if flag.Name == "start-at" {
+		if skipFlags[flag.Name] {
 			return
 		}
 		parts = append(parts, "--"+flag.Name)
@@ -537,7 +581,7 @@ func buildNextPageCommand(cmd *cobra.Command, nextStartAt int) string {
 			parts = append(parts, shellQuoteFlagValue(flag.Value.String()))
 		}
 	})
-	parts = append(parts, "--start-at", strconv.Itoa(nextStartAt))
+	parts = append(parts, trailingParts...)
 	return strings.Join(parts, " ")
 }
 

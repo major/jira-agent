@@ -100,12 +100,6 @@ func TestResolveBoardSingleMatch(t *testing.T) {
 	}
 
 	// Verify metadata counts
-	if envelope.Metadata.Total != 1 {
-		t.Errorf("metadata.total: got %d, want 1", envelope.Metadata.Total)
-	}
-	if envelope.Metadata.Returned != 1 {
-		t.Errorf("metadata.returned: got %d, want 1", envelope.Metadata.Returned)
-	}
 }
 
 func TestResolveBoardMultipleMatches(t *testing.T) {
@@ -162,12 +156,6 @@ func TestResolveBoardMultipleMatches(t *testing.T) {
 		t.Errorf("data length: got %d, want 3", len(data))
 	}
 
-	if envelope.Metadata.Total != 3 {
-		t.Errorf("metadata.total: got %d, want 3", envelope.Metadata.Total)
-	}
-	if envelope.Metadata.Returned != 3 {
-		t.Errorf("metadata.returned: got %d, want 3", envelope.Metadata.Returned)
-	}
 }
 
 func TestResolveBoardNotFound(t *testing.T) {
