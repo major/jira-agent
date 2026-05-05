@@ -25,6 +25,7 @@ This is the entry point. Command details are split by theme:
 | [agile.md](agile.md) | Board, sprint, epic, backlog |
 | [project-management.md](project-management.md) | Project, project property, component, version |
 | [admin-reference.md](admin-reference.md) | Field, user, group, filter, permission, dashboard, workflow, status, priority, resolution, issuetype, label, JQL, audit records, tasks, time tracking, server-info |
+| (this file) | Resolve (ID lookup): user, board, sprint, field, transition |
 
 ## Resolve (ID Lookup)
 
