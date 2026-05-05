@@ -558,6 +558,52 @@ func TestMetadataHasMoreExplicitFalse(t *testing.T) {
 	}
 }
 
+func TestMetadataUsageHintPresent(t *testing.T) {
+	t.Parallel()
+
+	meta := Metadata{
+		Timestamp: "2025-01-01T00:00:00Z",
+		UsageHint: "jira-agent issue assign PROJ-123 --assignee <account_id>",
+	}
+
+	encoded, err := json.Marshal(meta)
+	if err != nil {
+		t.Fatalf("marshal Metadata error = %v, want nil", err)
+	}
+
+	if !strings.Contains(string(encoded), `"usage_hint"`) {
+		t.Errorf("metadata JSON = %s, want usage_hint key present", encoded)
+	}
+	if !strings.Contains(string(encoded), "jira-agent issue assign PROJ-123") {
+		t.Errorf("metadata JSON = %s, want usage_hint value present", encoded)
+	}
+}
+
+func TestMetadataUsageHintOmitted(t *testing.T) {
+	t.Parallel()
+
+	meta := Metadata{Timestamp: "2025-01-01T00:00:00Z"}
+
+	encoded, err := json.Marshal(meta)
+	if err != nil {
+		t.Fatalf("marshal Metadata error = %v, want nil", err)
+	}
+
+	if strings.Contains(string(encoded), "usage_hint") {
+		t.Errorf("metadata JSON = %s, want usage_hint omitted when empty", encoded)
+	}
+}
+
+func TestNewMetadataUsageHintEmpty(t *testing.T) {
+	t.Parallel()
+
+	meta := NewMetadata()
+
+	if meta.UsageHint != "" {
+		t.Errorf("UsageHint = %q, want empty string", meta.UsageHint)
+	}
+}
+
 func TestWriteResult_JSON(t *testing.T) {
 	t.Parallel()
 

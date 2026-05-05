@@ -41,6 +41,7 @@ type Metadata struct {
 	MaxResults  int    `json:"max_results,omitempty"`
 	HasMore     bool   `json:"has_more"`
 	NextCommand string `json:"next_command,omitempty"`
+	UsageHint   string `json:"usage_hint,omitempty"`
 }
 
 // NewMetadata returns metadata pre-populated with the current UTC timestamp.
