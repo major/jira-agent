@@ -131,7 +131,7 @@ func dashboardGadgetsCommand(apiClient *client.Ref, w io.Writer, format *output.
 			meta := output.NewMetadata()
 			meta.Returned = countNamedArray(result, "gadgets")
 			meta.Total = meta.Returned
-			return output.WriteSuccess(w, result, meta, *format)
+			return output.WriteSuccess(w, result, &meta, *format)
 		},
 	}
 	cmd.Flags().String("module-key", "", "Filter by gadget module key")
@@ -383,7 +383,7 @@ func permissionSchemeListCommand(apiClient *client.Ref, w io.Writer, format *out
 			meta := output.NewMetadata()
 			meta.Returned = countNamedArray(result, "permissionSchemes")
 			meta.Total = meta.Returned
-			return output.WriteSuccess(w, result, meta, *format)
+			return output.WriteSuccess(w, result, &meta, *format)
 		},
 	}
 	cmd.Flags().String("expand", "", "Comma-separated expansions")

@@ -365,7 +365,8 @@ func writeRawAPIResult(w io.Writer, format output.Format, call apiResultFunc) er
 	if err := call(&result); err != nil {
 		return err
 	}
-	return output.WriteRawSuccess(w, result, output.NewMetadata(), format)
+	meta := output.NewMetadata()
+	return output.WriteRawSuccess(w, result, &meta, format)
 }
 
 // writePaginatedAPIResult runs an API call that writes into result, extracts
@@ -376,7 +377,7 @@ func writePaginatedAPIResult(cmd *cobra.Command, w io.Writer, format output.Form
 		return err
 	}
 	meta := extractPaginationMeta(cmd, result)
-	return output.WriteSuccess(w, result, meta, format)
+	return output.WriteSuccess(w, result, &meta, format)
 }
 
 // writeRawPaginatedAPIResult preserves Jira's original JSON shape for commands
@@ -387,7 +388,7 @@ func writeRawPaginatedAPIResult(cmd *cobra.Command, w io.Writer, format output.F
 		return err
 	}
 	meta := extractPaginationMeta(cmd, result)
-	return output.WriteRawSuccess(w, result, meta, format)
+	return output.WriteRawSuccess(w, result, &meta, format)
 }
 
 // splitTrimmed splits s by comma and trims whitespace from each element,

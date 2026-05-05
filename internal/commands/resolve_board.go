@@ -22,8 +22,8 @@ type resolvedBoard struct {
 // board queries (name) to board IDs.
 func boardResolveCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "board <query>",
-		Short:   "Resolve board by name",
+		Use:   "board <query>",
+		Short: "Resolve board by name",
 		Example: `jira-agent resolve board "My Scrum Board"
 jira-agent resolve board "Kanban"`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -76,7 +76,7 @@ jira-agent resolve board "Kanban"`,
 				"jira-agent resolve sprint --board-id <id> <sprint-name>",
 			)
 
-			return output.WriteSuccess(w, boards, meta, *format)
+			return output.WriteSuccess(w, boards, &meta, *format)
 		},
 	}
 

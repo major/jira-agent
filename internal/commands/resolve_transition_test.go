@@ -174,6 +174,85 @@ func TestResolveTransitionMatchByToName(t *testing.T) {
 	}
 }
 
+func TestResolveTransitionMultipleMatches(t *testing.T) {
+	t.Parallel()
+
+	mockResponse := `{
+		"transitions": [
+			{
+				"id": "11",
+				"name": "In Progress",
+				"to": {
+					"name": "In Progress"
+				}
+			},
+			{
+				"id": "21",
+				"name": "In Review",
+				"to": {
+					"name": "In Review"
+				}
+			},
+			{
+				"id": "31",
+				"name": "Resolve",
+				"to": {
+					"name": "Done"
+				}
+			}
+		]
+	}`
+
+	server := testhelpers.NewJSONServer(t, "GET", "/issue/PROJ-123/transitions", mockResponse)
+	defer server.Close()
+
+	var buf bytes.Buffer
+	cmd := transitionResolveCommand(testCommandClient(server.URL), &buf, testCommandFormat())
+
+	prepareCommandForTest(cmd)
+	cmd.SetContext(context.Background())
+	cmd.SetOut(&buf)
+	cmd.SetArgs([]string{"--issue", "PROJ-123", "In"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+
+	var envelope output.Envelope
+	if err := json.Unmarshal(buf.Bytes(), &envelope); err != nil {
+		t.Fatalf("unmarshal response: %v (result: %q)", err, buf.String())
+	}
+
+	data, ok := envelope.Data.([]any)
+	if !ok {
+		t.Fatalf("data type: got %T, want []any", envelope.Data)
+	}
+
+	if len(data) != 2 {
+		t.Errorf("data length: got %d, want 2", len(data))
+	}
+
+	for i, item := range data {
+		transition, ok := item.(map[string]any)
+		if !ok {
+			t.Fatalf("transition[%d] type: got %T, want map[string]any", i, item)
+		}
+		if id, ok := transition["id"].(string); !ok || id == "" {
+			t.Errorf("transition[%d] id: got %v, want non-empty string", i, transition["id"])
+		}
+		if name, ok := transition["name"].(string); !ok || name == "" {
+			t.Errorf("transition[%d] name: got %v, want non-empty string", i, transition["name"])
+		}
+	}
+
+	if envelope.Metadata.Total != 2 {
+		t.Errorf("metadata.total: got %d, want 2", envelope.Metadata.Total)
+	}
+	if envelope.Metadata.Returned != 2 {
+		t.Errorf("metadata.returned: got %d, want 2", envelope.Metadata.Returned)
+	}
+}
+
 func TestResolveTransitionNotFound(t *testing.T) {
 	t.Parallel()
 

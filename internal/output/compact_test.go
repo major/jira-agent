@@ -137,9 +137,9 @@ func TestCompactFlatten(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name      string
-		input     map[string]any
-		wantKeys  map[string]any
+		name       string
+		input      map[string]any
+		wantKeys   map[string]any
 		wantAbsent []string
 	}{
 		{
@@ -247,7 +247,7 @@ func TestCompactOutput_JSONLines(t *testing.T) {
 	meta := Metadata{Timestamp: "2025-01-01T00:00:00Z"}
 
 	var buf bytes.Buffer
-	if err := WriteSuccess(&buf, data, meta, FormatJSON, WithCompact(true)); err != nil {
+	if err := WriteSuccess(&buf, data, &meta, FormatJSON, WithCompact(true)); err != nil {
 		t.Fatalf("WriteSuccess(compact) error = %v", err)
 	}
 
@@ -283,7 +283,7 @@ func TestCompactOutput_SingleObject(t *testing.T) {
 	meta := Metadata{Timestamp: "2025-01-01T00:00:00Z"}
 
 	var buf bytes.Buffer
-	if err := WriteSuccess(&buf, data, meta, FormatJSON, WithCompact(true)); err != nil {
+	if err := WriteSuccess(&buf, data, &meta, FormatJSON, WithCompact(true)); err != nil {
 		t.Fatalf("WriteSuccess(compact) error = %v", err)
 	}
 
@@ -311,10 +311,10 @@ func TestCompactOutput_NoEffectOnCSV(t *testing.T) {
 	data := map[string]any{"key": "PROJ-1", "empty": nil}
 
 	var compactBuf, normalBuf bytes.Buffer
-	if err := WriteSuccess(&compactBuf, data, Metadata{}, FormatCSV, WithCompact(true)); err != nil {
+	if err := WriteSuccess(&compactBuf, data, &Metadata{}, FormatCSV, WithCompact(true)); err != nil {
 		t.Fatalf("WriteSuccess(compact CSV) error = %v", err)
 	}
-	if err := WriteSuccess(&normalBuf, data, Metadata{}, FormatCSV); err != nil {
+	if err := WriteSuccess(&normalBuf, data, &Metadata{}, FormatCSV); err != nil {
 		t.Fatalf("WriteSuccess(normal CSV) error = %v", err)
 	}
 
@@ -333,7 +333,7 @@ func TestCompactOutput_DefaultOff(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	if err := WriteSuccess(&buf, data, Metadata{}, FormatJSON); err != nil {
+	if err := WriteSuccess(&buf, data, &Metadata{}, FormatJSON); err != nil {
 		t.Fatalf("WriteSuccess() error = %v", err)
 	}
 
@@ -355,7 +355,7 @@ func TestCompactOutput_FlattenInEnvelope(t *testing.T) {
 	meta := Metadata{Timestamp: "2025-01-01T00:00:00Z"}
 
 	var buf bytes.Buffer
-	if err := WriteSuccess(&buf, data, meta, FormatJSON, WithCompact(true)); err != nil {
+	if err := WriteSuccess(&buf, data, &meta, FormatJSON, WithCompact(true)); err != nil {
 		t.Fatalf("WriteSuccess(compact) error = %v", err)
 	}
 

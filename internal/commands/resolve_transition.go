@@ -63,8 +63,8 @@ func filterTransitions(transitionsAny []any, query string) (matches []resolvedTr
 // transition queries (by name or target status) to transition IDs.
 func transitionResolveCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "transition <query>",
-		Short:   "Resolve transition by name or target status",
+		Use:   "transition <query>",
+		Short: "Resolve transition by name or target status",
 		Example: `jira-agent resolve transition --issue PROJ-123 "Done"
 jira-agent resolve transition --issue PROJ-123 "In Progress"`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -127,7 +127,7 @@ jira-agent resolve transition --issue PROJ-123 "In Progress"`,
 				fmt.Sprintf("jira-agent issue transition %s --transition-id <id>", issueKey),
 			)
 
-			return output.WriteSuccess(w, matches, meta, *format)
+			return output.WriteSuccess(w, matches, &meta, *format)
 		},
 	}
 

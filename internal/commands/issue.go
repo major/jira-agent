@@ -316,9 +316,9 @@ jira-agent issue search --jql "project = PROJ" --raw`,
 			}
 			meta := extractPaginationMeta(cmd, result)
 			if !isJSONOutputFormat(*format) {
-				return output.WriteSuccess(w, convertDescriptionOutputFields(result, descriptionFormat), meta, *format, CompactOptsFromCmd(cmd)...)
+				return output.WriteSuccess(w, convertDescriptionOutputFields(result, descriptionFormat), &meta, *format, CompactOptsFromCmd(cmd)...)
 			}
-			return output.WriteSuccess(w, flattenIssueSearchResultWithDescriptionFormat(result, descriptionFormat), meta, *format, CompactOptsFromCmd(cmd)...)
+			return output.WriteSuccess(w, flattenIssueSearchResultWithDescriptionFormat(result, descriptionFormat), &meta, *format, CompactOptsFromCmd(cmd)...)
 		},
 	}
 	cmd.Flags().String("jql", "", "JQL query string (required)")
@@ -817,7 +817,7 @@ jira-agent issue count --jql "assignee = currentUser() AND resolution = Unresolv
 				return err
 			}
 			meta := extractPaginationMeta(cmd, result)
-			return output.WriteSuccess(w, map[string]any{"total": meta.Total}, meta, *format)
+			return output.WriteSuccess(w, map[string]any{"total": meta.Total}, &meta, *format)
 		},
 	}
 	cmd.Flags().String("jql", "", "JQL query to count results for (required)")

@@ -23,8 +23,8 @@ type resolvedSprint struct {
 // sprint queries (name) to sprint IDs on a specific board.
 func sprintResolveCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "sprint <query>",
-		Short:   "Resolve sprint by name on a board",
+		Use:   "sprint <query>",
+		Short: "Resolve sprint by name on a board",
 		Example: `jira-agent resolve sprint --board-id 42 "Sprint 5"
 jira-agent resolve sprint --board-id 42 --state active "Sprint"`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -51,8 +51,8 @@ jira-agent resolve sprint --board-id 42 --state active "Sprint"`,
 				return err
 			}
 
-		// Get state filter
-		state, _ := cmd.Flags().GetString("state")
+			// Get state filter
+			state, _ := cmd.Flags().GetString("state")
 
 			// Call Jira Agile API to search for sprints
 			params := map[string]string{
@@ -106,7 +106,7 @@ jira-agent resolve sprint --board-id 42 --state active "Sprint"`,
 				meta.HasMore = true
 			}
 
-			return output.WriteSuccess(w, matches, meta, *format)
+			return output.WriteSuccess(w, matches, &meta, *format)
 		},
 	}
 

@@ -23,8 +23,8 @@ type resolvedUser struct {
 // user queries (email or display name) to account IDs.
 func userResolveCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "user <query>",
-		Short:   "Resolve user by email or display name",
+		Use:   "user <query>",
+		Short: "Resolve user by email or display name",
 		Example: `jira-agent resolve user "john@example.com"
 jira-agent resolve user "John Doe"`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -75,7 +75,7 @@ jira-agent resolve user "John Doe"`,
 				"jira-agent issue assign <issue-key> --assignee <account_id>",
 			)
 
-			return output.WriteSuccess(w, users, meta, *format)
+			return output.WriteSuccess(w, users, &meta, *format)
 		},
 	}
 

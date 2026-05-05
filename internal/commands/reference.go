@@ -147,7 +147,7 @@ func issueTypeProjectCommand(apiClient *client.Ref, w io.Writer, format *output.
 			meta := output.NewMetadata()
 			meta.Total = len(items)
 			meta.Returned = len(items)
-			return output.WriteSuccess(w, items, meta, *format)
+			return output.WriteSuccess(w, items, &meta, *format)
 		},
 	}
 	return cmd
@@ -212,7 +212,7 @@ func flatListCommand(
 			meta := output.NewMetadata()
 			meta.Total = len(items)
 			meta.Returned = len(items)
-			return output.WriteSuccess(w, items, meta, *format)
+			return output.WriteSuccess(w, items, &meta, *format)
 		},
 	}
 	return cmd

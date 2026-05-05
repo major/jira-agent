@@ -49,7 +49,7 @@ func fieldListCommand(apiClient *client.Ref, w io.Writer, format *output.Format)
 			meta.Total = len(fields)
 			meta.Returned = len(fields)
 
-			return output.WriteSuccess(w, fields, meta, *format)
+			return output.WriteSuccess(w, fields, &meta, *format)
 		},
 	}
 	return cmd
@@ -91,7 +91,7 @@ jira-agent field search --query "story points"`,
 			}
 
 			meta := extractPaginationMeta(cmd, result)
-			return output.WriteSuccess(w, values, meta, *format)
+			return output.WriteSuccess(w, values, &meta, *format)
 		},
 	}
 	cmd.Flags().String("query", "", "Filter fields by name (substring match)")
