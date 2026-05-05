@@ -1,6 +1,6 @@
 ---
 name: jira-agent
-description: "Jira Cloud CLI for AI agents. Structured JSON/CSV/TSV output, semantic exit codes. Covers: issue CRUD, search, bulk ops (create/fetch/delete/edit/move/transition), transitions, assignments, comments, worklogs, watchers, votes, attachments, issue links, remote links, changelog, ranking, notifications; agile boards, sprints, epics, backlogs; projects, components, versions; fields (contexts/options), users, groups, filters, permissions, dashboards, workflows, statuses, priorities, resolutions, issue types, labels, JQL helpers, audit records, tasks, time tracking configuration, and server info. Triggers: 'jira', 'jira issue', 'jira search', 'jql', 'jira create', 'jira bulk', 'jira transition', 'jira assign', 'jira comment', 'jira worklog', 'jira sprint', 'jira epic', 'jira board', 'jira backlog', 'jira component', 'jira version', 'jira project', 'jira field', 'jira user', 'jira group', 'jira filter', 'jira permission', 'jira dashboard', 'jira workflow', 'jira status', 'jira-agent'."
+description: "Jira Cloud CLI for AI agents. Structured JSON/CSV/TSV output, semantic exit codes. Covers: issue CRUD, search, bulk ops (create/fetch/delete/edit/move/transition), transitions, assignments, comments, worklogs, watchers, votes, attachments, issue links, remote links, changelog, ranking, notifications; agile boards, sprints, epics, backlogs; projects, components, versions; fields (contexts/options), users, groups, filters, permissions, dashboards, workflows, statuses, priorities, resolutions, issue types, labels, JQL helpers, audit records, tasks, time tracking configuration, and server info; resolve (ID lookup) for users, boards, sprints, fields, and transitions. Triggers: 'jira', 'jira issue', 'jira search', 'jql', 'jira create', 'jira bulk', 'jira transition', 'jira assign', 'jira comment', 'jira worklog', 'jira sprint', 'jira epic', 'jira board', 'jira backlog', 'jira component', 'jira version', 'jira project', 'jira field', 'jira user', 'jira group', 'jira filter', 'jira permission', 'jira dashboard', 'jira workflow', 'jira status', 'jira resolve', 'resolve user', 'resolve board', 'jira-agent'."
 metadata:
   author: "Major Hayden"
   version: "2.0.0"
@@ -25,6 +25,52 @@ This is the entry point. Command details are split by theme:
 | [agile.md](agile.md) | Board, sprint, epic, backlog |
 | [project-management.md](project-management.md) | Project, project property, component, version |
 | [admin-reference.md](admin-reference.md) | Field, user, group, filter, permission, dashboard, workflow, status, priority, resolution, issuetype, label, JQL, audit records, tasks, time tracking, server-info |
+
+## Resolve (ID Lookup)
+
+Resolvers translate human-readable names into the numeric or opaque IDs that Jira write commands require. All resolvers are read-only and appear in `jira-agent schema` with `category: "discovery"`.
+
+### Subcommands
+
+| Command | Required flags | Resolves |
+|---------|---------------|---------|
+| `resolve user <query>` | | email/name to `account_id` |
+| `resolve board <name>` | | board name to `id` |
+| `resolve sprint --board-id <id> <name>` | `--board-id` | sprint name to `id` |
+| `resolve field <query>` | | field name to `id` |
+| `resolve transition --issue <key> <name>` | `--issue` | transition name to `id` |
+
+### Examples
+
+```bash
+jira-agent resolve user "john@example.com"
+jira-agent resolve board "My Scrum Board"
+jira-agent resolve sprint --board-id 42 "Sprint 5"
+jira-agent resolve sprint --board-id 42 --state active "Sprint 5"
+jira-agent resolve field "story points"
+jira-agent resolve transition --issue PROJ-123 "Done"
+```
+
+### Output contract
+
+Each resolver returns a `data` array of matched objects plus a `metadata.usage_hint` with the ready-to-run follow-up command:
+
+```json
+{
+  "data": [{"id": "...", "display_name": "..."}],
+  "metadata": {
+    "total": 1,
+    "returned": 1,
+    "usage_hint": "jira-agent issue assign PROJ-123 --assignee <account_id>"
+  }
+}
+```
+
+Field-specific shapes: `resolve user` includes `account_id`, `display_name`, `email_address`, `active`; `resolve board` includes `id`, `name`, `type`; `resolve sprint` includes `id`, `name`, `state`; `resolve field` includes `id`, `name`, `custom`; `resolve transition` includes `id`, `name`.
+
+### Validation nudges
+
+When a command that needs a board ID or sprint ID receives a name instead, the error includes `next_command` pointing to the appropriate resolver. Follow it to get the ID, then retry.
 
 ## Auth
 
