@@ -3,6 +3,7 @@ package output
 import (
 	"bytes"
 	"encoding/csv"
+	"errors"
 	"strings"
 	"testing"
 )
@@ -91,6 +92,31 @@ func TestNormalizeToMaps_Errors(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "requires a map, slice, or struct") {
 		t.Errorf("normalizeToMaps() error = %q, want requires a map, slice, or struct", err.Error())
+	}
+}
+
+// failWriter is an io.Writer that always returns an error. Small writes
+// succeed inside bufio's buffer, so the error surfaces only when the
+// csv.Writer is flushed.
+type failWriter struct{}
+
+func (failWriter) Write([]byte) (int, error) {
+	return 0, errors.New("disk full")
+}
+
+func TestWriteDelimited_FlushError(t *testing.T) {
+	t.Parallel()
+
+	data := []map[string]any{
+		{"key": "VAL-1", "summary": "test issue"},
+	}
+
+	err := writeDelimited(failWriter{}, data, ',')
+	if err == nil {
+		t.Fatal("writeDelimited() error = nil, want flush error propagated")
+	}
+	if !strings.Contains(err.Error(), "disk full") {
+		t.Errorf("writeDelimited() error = %q, want containing %q", err.Error(), "disk full")
 	}
 }
 
