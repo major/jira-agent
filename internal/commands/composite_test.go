@@ -1,0 +1,541 @@
+package commands
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	apperr "github.com/major/jira-agent/internal/errors"
+	"github.com/major/jira-agent/internal/output"
+	"github.com/major/jira-agent/internal/testhelpers"
+)
+
+func TestStartWork(t *testing.T) {
+	t.Parallel()
+
+	t.Run("happy path", func(t *testing.T) {
+		t.Parallel()
+
+		var requests int
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requests++
+			switch requests {
+			case 1:
+				if r.Method != http.MethodGet || r.URL.Path != "/myself" {
+					t.Errorf("request 1: got %s %s, want GET /myself", r.Method, r.URL.Path)
+				}
+				testhelpers.WriteJSONResponse(t, w, `{"accountId":"abc123","displayName":"Test User"}`)
+			case 2:
+				if r.Method != http.MethodGet || r.URL.Path != "/issue/PROJ-123" {
+					t.Errorf("request 2: got %s %s, want GET /issue/PROJ-123", r.Method, r.URL.Path)
+				}
+				testhelpers.WriteJSONResponse(t, w, `{"fields":{"status":{"name":"Open"},"assignee":null}}`)
+			case 3:
+				if r.Method != http.MethodGet || r.URL.Path != "/issue/PROJ-123/transitions" {
+					t.Errorf("request 3: got %s %s, want GET /issue/PROJ-123/transitions", r.Method, r.URL.Path)
+				}
+				testhelpers.WriteJSONResponse(t, w, `{"transitions":[{"id":"21","name":"Start Progress","to":{"name":"In Progress"}}]}`)
+			case 4:
+				if r.Method != http.MethodPost || r.URL.Path != "/issue/PROJ-123/transitions" {
+					t.Errorf("request 4: got %s %s, want POST /issue/PROJ-123/transitions", r.Method, r.URL.Path)
+				}
+				body := testhelpers.DecodeJSONBody(t, r)
+				transition := body["transition"].(map[string]any)
+				if transition["id"] != "21" {
+					t.Errorf("transition id = %v, want 21", transition["id"])
+				}
+				w.WriteHeader(http.StatusNoContent)
+			case 5:
+				if r.Method != http.MethodPut || r.URL.Path != "/issue/PROJ-123/assignee" {
+					t.Errorf("request 5: got %s %s, want PUT /issue/PROJ-123/assignee", r.Method, r.URL.Path)
+				}
+				body := testhelpers.DecodeJSONBody(t, r)
+				if body["accountId"] != "abc123" {
+					t.Errorf("accountId = %v, want abc123", body["accountId"])
+				}
+				w.WriteHeader(http.StatusNoContent)
+			default:
+				t.Errorf("unexpected request %d: %s %s", requests, r.Method, r.URL.Path)
+			}
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		runCommandAction(
+			t,
+			issueStartWorkCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites(), testDryRun()),
+			"PROJ-123",
+		)
+
+		var envelope output.Envelope
+		if err := json.Unmarshal(buf.Bytes(), &envelope); err != nil {
+			t.Fatalf("json.Unmarshal() error = %v", err)
+		}
+		data, ok := envelope.Data.(map[string]any)
+		if !ok {
+			t.Fatalf("data type = %T, want map[string]any", envelope.Data)
+		}
+		if data["key"] != "PROJ-123" {
+			t.Errorf("key = %v, want PROJ-123", data["key"])
+		}
+		if data["transitioned"] != true {
+			t.Errorf("transitioned = %v, want true", data["transitioned"])
+		}
+		if data["assigned"] != true {
+			t.Errorf("assigned = %v, want true", data["assigned"])
+		}
+		if data["to"] != "In Progress" {
+			t.Errorf("to = %v, want In Progress", data["to"])
+		}
+		if requests != 5 {
+			t.Errorf("requests = %d, want 5", requests)
+		}
+	})
+
+	t.Run("with comment", func(t *testing.T) {
+		t.Parallel()
+
+		var requests int
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requests++
+			switch requests {
+			case 1:
+				testhelpers.WriteJSONResponse(t, w, `{"accountId":"abc123","displayName":"Test User"}`)
+			case 2:
+				testhelpers.WriteJSONResponse(t, w, `{"fields":{"status":{"name":"Open"},"assignee":null}}`)
+			case 3:
+				testhelpers.WriteJSONResponse(t, w, `{"transitions":[{"id":"21","to":{"name":"In Progress"}}]}`)
+			case 4:
+				w.WriteHeader(http.StatusNoContent)
+			case 5:
+				w.WriteHeader(http.StatusNoContent)
+			case 6:
+				if r.Method != http.MethodPost || r.URL.Path != "/issue/PROJ-123/comment" {
+					t.Errorf("request 6: got %s %s, want POST /issue/PROJ-123/comment", r.Method, r.URL.Path)
+				}
+				body := testhelpers.DecodeJSONBody(t, r)
+				if body["body"] == nil {
+					t.Error("comment body = nil, want ADF content")
+				}
+				testhelpers.WriteJSONResponse(t, w, `{"id":"10001"}`)
+			default:
+				t.Errorf("unexpected request %d: %s %s", requests, r.Method, r.URL.Path)
+			}
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		runCommandAction(
+			t,
+			issueStartWorkCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites(), testDryRun()),
+			"--comment", "Starting work", "PROJ-123",
+		)
+
+		var envelope output.Envelope
+		if err := json.Unmarshal(buf.Bytes(), &envelope); err != nil {
+			t.Fatalf("json.Unmarshal() error = %v", err)
+		}
+		data, ok := envelope.Data.(map[string]any)
+		if !ok {
+			t.Fatalf("data type = %T, want map[string]any", envelope.Data)
+		}
+		if data["commented"] != true {
+			t.Errorf("commented = %v, want true", data["commented"])
+		}
+		if requests != 6 {
+			t.Errorf("requests = %d, want 6", requests)
+		}
+	})
+
+	t.Run("custom assignee", func(t *testing.T) {
+		t.Parallel()
+
+		var requests int
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requests++
+			switch requests {
+			case 1:
+				if r.URL.Path != "/issue/PROJ-123" {
+					t.Errorf("request 1: path = %s, want /issue/PROJ-123", r.URL.Path)
+				}
+				testhelpers.WriteJSONResponse(t, w, `{"fields":{"status":{"name":"Open"},"assignee":null}}`)
+			case 2:
+				testhelpers.WriteJSONResponse(t, w, `{"transitions":[{"id":"21","to":{"name":"In Progress"}}]}`)
+			case 3:
+				w.WriteHeader(http.StatusNoContent)
+			case 4:
+				body := testhelpers.DecodeJSONBody(t, r)
+				if body["accountId"] != "def456" {
+					t.Errorf("accountId = %v, want def456", body["accountId"])
+				}
+				w.WriteHeader(http.StatusNoContent)
+			default:
+				t.Errorf("unexpected request %d: %s %s", requests, r.Method, r.URL.Path)
+			}
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		runCommandAction(
+			t,
+			issueStartWorkCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites(), testDryRun()),
+			"--assignee", "def456", "PROJ-123",
+		)
+
+		var envelope output.Envelope
+		if err := json.Unmarshal(buf.Bytes(), &envelope); err != nil {
+			t.Fatalf("json.Unmarshal() error = %v", err)
+		}
+		data, ok := envelope.Data.(map[string]any)
+		if !ok {
+			t.Fatalf("data type = %T, want map[string]any", envelope.Data)
+		}
+		if data["assignee"] != "def456" {
+			t.Errorf("assignee = %v, want def456", data["assignee"])
+		}
+		if requests != 4 {
+			t.Errorf("requests = %d, want 4 (no /myself call)", requests)
+		}
+	})
+
+	t.Run("partial failure assign", func(t *testing.T) {
+		t.Parallel()
+
+		var requests int
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requests++
+			switch requests {
+			case 1:
+				testhelpers.WriteJSONResponse(t, w, `{"accountId":"abc123","displayName":"Test User"}`)
+			case 2:
+				testhelpers.WriteJSONResponse(t, w, `{"fields":{"status":{"name":"Open"},"assignee":null}}`)
+			case 3:
+				testhelpers.WriteJSONResponse(t, w, `{"transitions":[{"id":"21","to":{"name":"In Progress"}}]}`)
+			case 4:
+				w.WriteHeader(http.StatusNoContent)
+			case 5:
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusForbidden)
+				_, _ = w.Write([]byte(`{"errorMessages":["Permission denied"]}`))
+			default:
+				t.Errorf("unexpected request %d: %s %s", requests, r.Method, r.URL.Path)
+			}
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		runCommandAction(
+			t,
+			issueStartWorkCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites(), testDryRun()),
+			"PROJ-123",
+		)
+
+		var envelope output.Envelope
+		if err := json.Unmarshal(buf.Bytes(), &envelope); err != nil {
+			t.Fatalf("json.Unmarshal() error = %v", err)
+		}
+		data, ok := envelope.Data.(map[string]any)
+		if !ok {
+			t.Fatalf("data type = %T, want map[string]any", envelope.Data)
+		}
+		if data["transitioned"] != true {
+			t.Errorf("transitioned = %v, want true", data["transitioned"])
+		}
+		if data["assigned"] != false {
+			t.Errorf("assigned = %v, want false", data["assigned"])
+		}
+		if len(envelope.Errors) == 0 {
+			t.Error("errors = empty, want at least one error")
+		}
+		if data["next_command"] == nil {
+			t.Error("next_command = nil, want remediation command")
+		}
+		if requests != 5 {
+			t.Errorf("requests = %d, want 5", requests)
+		}
+	})
+
+	t.Run("skip assign", func(t *testing.T) {
+		t.Parallel()
+
+		var requests int
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requests++
+			switch requests {
+			case 1:
+				if r.URL.Path != "/issue/PROJ-123" {
+					t.Errorf("request 1: path = %s, want /issue/PROJ-123", r.URL.Path)
+				}
+				testhelpers.WriteJSONResponse(t, w, `{"fields":{"status":{"name":"Open"},"assignee":null}}`)
+			case 2:
+				if r.URL.Path != "/issue/PROJ-123/transitions" {
+					t.Errorf("request 2: path = %s, want /issue/PROJ-123/transitions", r.URL.Path)
+				}
+				testhelpers.WriteJSONResponse(t, w, `{"transitions":[{"id":"21","to":{"name":"In Progress"}}]}`)
+			case 3:
+				if r.Method != http.MethodPost {
+					t.Errorf("request 3: method = %s, want POST", r.Method)
+				}
+				w.WriteHeader(http.StatusNoContent)
+			default:
+				t.Errorf("unexpected request %d: %s %s (no /myself or PUT expected)", requests, r.Method, r.URL.Path)
+			}
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		runCommandAction(
+			t,
+			issueStartWorkCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites(), testDryRun()),
+			"--skip-assign", "PROJ-123",
+		)
+
+		var envelope output.Envelope
+		if err := json.Unmarshal(buf.Bytes(), &envelope); err != nil {
+			t.Fatalf("json.Unmarshal() error = %v", err)
+		}
+		data, ok := envelope.Data.(map[string]any)
+		if !ok {
+			t.Fatalf("data type = %T, want map[string]any", envelope.Data)
+		}
+		if data["transitioned"] != true {
+			t.Errorf("transitioned = %v, want true", data["transitioned"])
+		}
+		if _, hasAssigned := data["assigned"]; hasAssigned {
+			t.Errorf("assigned field present, want absent when --skip-assign")
+		}
+		if requests != 3 {
+			t.Errorf("requests = %d, want 3", requests)
+		}
+	})
+
+	t.Run("skip transition", func(t *testing.T) {
+		t.Parallel()
+
+		var requests int
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requests++
+			switch requests {
+			case 1:
+				if r.URL.Path != "/myself" {
+					t.Errorf("request 1: path = %s, want /myself", r.URL.Path)
+				}
+				testhelpers.WriteJSONResponse(t, w, `{"accountId":"abc123","displayName":"Test User"}`)
+			case 2:
+				if r.URL.Path != "/issue/PROJ-123" {
+					t.Errorf("request 2: path = %s, want /issue/PROJ-123", r.URL.Path)
+				}
+				testhelpers.WriteJSONResponse(t, w, `{"fields":{"status":{"name":"Open"},"assignee":null}}`)
+			case 3:
+				if r.Method != http.MethodPut || r.URL.Path != "/issue/PROJ-123/assignee" {
+					t.Errorf("request 3: got %s %s, want PUT /issue/PROJ-123/assignee", r.Method, r.URL.Path)
+				}
+				w.WriteHeader(http.StatusNoContent)
+			default:
+				t.Errorf("unexpected request %d: %s %s (no transitions expected)", requests, r.Method, r.URL.Path)
+			}
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		runCommandAction(
+			t,
+			issueStartWorkCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites(), testDryRun()),
+			"--skip-transition", "PROJ-123",
+		)
+
+		var envelope output.Envelope
+		if err := json.Unmarshal(buf.Bytes(), &envelope); err != nil {
+			t.Fatalf("json.Unmarshal() error = %v", err)
+		}
+		data, ok := envelope.Data.(map[string]any)
+		if !ok {
+			t.Fatalf("data type = %T, want map[string]any", envelope.Data)
+		}
+		if _, hasTransitioned := data["transitioned"]; hasTransitioned {
+			t.Errorf("transitioned field present, want absent when --skip-transition")
+		}
+		if data["assigned"] != true {
+			t.Errorf("assigned = %v, want true", data["assigned"])
+		}
+		if requests != 3 {
+			t.Errorf("requests = %d, want 3", requests)
+		}
+	})
+
+	t.Run("dry run", func(t *testing.T) {
+		t.Parallel()
+
+		var requests int
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requests++
+			switch requests {
+			case 1:
+				testhelpers.WriteJSONResponse(t, w, `{"accountId":"abc123","displayName":"Test User"}`)
+			case 2:
+				testhelpers.WriteJSONResponse(t, w, `{"fields":{"status":{"name":"Open"},"assignee":null}}`)
+			case 3:
+				testhelpers.WriteJSONResponse(t, w, `{"transitions":[{"id":"21","to":{"name":"In Progress"}}]}`)
+			default:
+				t.Errorf("unexpected request %d: %s %s (dry-run should only GET)", requests, r.Method, r.URL.Path)
+			}
+		}))
+		defer server.Close()
+
+		dryRunEnabled := true
+		var buf bytes.Buffer
+		runCommandAction(
+			t,
+			issueStartWorkCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites(), &dryRunEnabled),
+			"PROJ-123",
+		)
+
+		var envelope output.Envelope
+		if err := json.Unmarshal(buf.Bytes(), &envelope); err != nil {
+			t.Fatalf("json.Unmarshal() error = %v", err)
+		}
+		data, ok := envelope.Data.(map[string]any)
+		if !ok {
+			t.Fatalf("data type = %T, want map[string]any", envelope.Data)
+		}
+		if data["command"] != "issue start-work" {
+			t.Errorf("command = %v, want issue start-work", data["command"])
+		}
+		if data["issue_key"] != "PROJ-123" {
+			t.Errorf("issue_key = %v, want PROJ-123", data["issue_key"])
+		}
+
+		// Verify diff contains expected changes
+		diffRaw, ok := data["diff"].([]any)
+		if !ok {
+			t.Fatalf("diff type = %T, want []any", data["diff"])
+		}
+		if len(diffRaw) < 2 {
+			t.Errorf("diff length = %d, want at least 2 (status + assignee)", len(diffRaw))
+		}
+
+		if requests != 3 {
+			t.Errorf("requests = %d, want 3 (only GETs)", requests)
+		}
+	})
+
+	t.Run("dry run skips write check", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch r.URL.Path {
+			case "/myself":
+				testhelpers.WriteJSONResponse(t, w, `{"accountId":"abc123"}`)
+			case "/issue/PROJ-123":
+				testhelpers.WriteJSONResponse(t, w, `{"fields":{"status":{"name":"Open"},"assignee":null}}`)
+			case "/issue/PROJ-123/transitions":
+				testhelpers.WriteJSONResponse(t, w, `{"transitions":[{"id":"21","to":{"name":"In Progress"}}]}`)
+			default:
+				t.Errorf("unexpected path: %s", r.URL.Path)
+			}
+		}))
+		defer server.Close()
+
+		// Writes disabled but dry-run enabled: should succeed
+		writesDisabled := false
+		dryRunEnabled := true
+		var buf bytes.Buffer
+		runCommandAction(
+			t,
+			issueStartWorkCommand(testCommandClient(server.URL), &buf, testCommandFormat(), &writesDisabled, &dryRunEnabled),
+			"PROJ-123",
+		)
+
+		if !strings.Contains(buf.String(), `"command"`) {
+			t.Errorf("output missing dry-run command field: %s", buf.String())
+		}
+	})
+
+	t.Run("write blocked", func(t *testing.T) {
+		t.Parallel()
+
+		writesDisabled := false
+		dryRunDisabled := false
+		var buf bytes.Buffer
+		cmd := issueStartWorkCommand(testCommandClient("http://unused"), &buf, testCommandFormat(), &writesDisabled, &dryRunDisabled)
+		prepareCommandForTest(cmd)
+		cmd.SetArgs([]string{"PROJ-123"})
+
+		err := cmd.Execute()
+		if err == nil {
+			t.Fatal("cmd.Execute() = nil, want validation error")
+		}
+
+		var valErr *apperr.ValidationError
+		if !errors.As(err, &valErr) {
+			t.Errorf("error type = %T, want *apperr.ValidationError", err)
+		}
+	})
+
+	t.Run("missing issue key", func(t *testing.T) {
+		t.Parallel()
+
+		var buf bytes.Buffer
+		cmd := issueStartWorkCommand(testCommandClient("http://unused"), &buf, testCommandFormat(), testAllowWrites(), testDryRun())
+		prepareCommandForTest(cmd)
+		cmd.SetArgs([]string{})
+
+		err := cmd.Execute()
+		if err == nil {
+			t.Fatal("cmd.Execute() = nil, want validation error")
+		}
+
+		var valErr *apperr.ValidationError
+		if !errors.As(err, &valErr) {
+			t.Errorf("error type = %T, want *apperr.ValidationError", err)
+		}
+	})
+
+	t.Run("custom status", func(t *testing.T) {
+		t.Parallel()
+
+		var requests int
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requests++
+			switch requests {
+			case 1:
+				testhelpers.WriteJSONResponse(t, w, `{"fields":{"status":{"name":"Open"},"assignee":null}}`)
+			case 2:
+				testhelpers.WriteJSONResponse(t, w, `{"transitions":[{"id":"31","to":{"name":"In Review"}}]}`)
+			case 3:
+				body := testhelpers.DecodeJSONBody(t, r)
+				transition := body["transition"].(map[string]any)
+				if transition["id"] != "31" {
+					t.Errorf("transition id = %v, want 31", transition["id"])
+				}
+				w.WriteHeader(http.StatusNoContent)
+			default:
+				t.Errorf("unexpected request %d: %s %s", requests, r.Method, r.URL.Path)
+			}
+		}))
+		defer server.Close()
+
+		var buf bytes.Buffer
+		runCommandAction(
+			t,
+			issueStartWorkCommand(testCommandClient(server.URL), &buf, testCommandFormat(), testAllowWrites(), testDryRun()),
+			"--status", "In Review", "--skip-assign", "PROJ-123",
+		)
+
+		var envelope output.Envelope
+		if err := json.Unmarshal(buf.Bytes(), &envelope); err != nil {
+			t.Fatalf("json.Unmarshal() error = %v", err)
+		}
+		data, ok := envelope.Data.(map[string]any)
+		if !ok {
+			t.Fatalf("data type = %T, want map[string]any", envelope.Data)
+		}
+		if data["to"] != "In Review" {
+			t.Errorf("to = %v, want In Review", data["to"])
+		}
+	})
+}

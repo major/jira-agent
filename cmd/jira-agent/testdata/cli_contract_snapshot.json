@@ -2170,6 +2170,7 @@
       "rank",
       "remote-link",
       "search",
+      "start-work",
       "transition",
       "vote",
       "watcher",
@@ -3886,6 +3887,47 @@
         "name": "reconcile-issues",
         "type": "string",
         "usage": "Comma-separated issue IDs to reconcile for approximate-count drift"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent issue start-work",
+    "use": "start-work \u003cissue-key\u003e",
+    "short": "Transition, assign, and optionally comment on an issue in one step",
+    "example": "jira-agent issue start-work PROJ-123\njira-agent issue start-work PROJ-123 --status \"In Review\" --comment \"Starting review\"\njira-agent issue start-work PROJ-123 --skip-assign --comment \"Picked up\"\njira-agent issue start-work PROJ-123 --assignee abc123 --skip-transition",
+    "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
+      "jira-agent/write-protected": "true"
+    },
+    "local_flags": [
+      {
+        "name": "assignee",
+        "type": "string",
+        "usage": "Account ID to assign (default: self)"
+      },
+      {
+        "name": "comment",
+        "type": "string",
+        "usage": "Comment to add after transition"
+      },
+      {
+        "name": "skip-assign",
+        "type": "bool",
+        "default": "false",
+        "usage": "Skip assignment step"
+      },
+      {
+        "name": "skip-transition",
+        "type": "bool",
+        "default": "false",
+        "usage": "Skip transition step"
+      },
+      {
+        "name": "status",
+        "type": "string",
+        "default": "In Progress",
+        "usage": "Target status for transition"
       }
     ]
   },

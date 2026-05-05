@@ -22,7 +22,7 @@ import (
 )
 
 // IssueCommand returns the "issue" parent command with all subcommands.
-func IssueCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool, dryRun *bool) *cobra.Command {
+func IssueCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites, dryRun *bool) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "issue",
 		Short: "Issue operations (get, search, create, edit, delete, transition, assign, comment, changelog, rank, count, notify, meta, bulk, property)",
@@ -63,6 +63,7 @@ jira-agent issue transition PROJ-123 --to "In Progress"`,
 		issueNotifyCommand(apiClient, w, format, allowWrites),
 		issueMetaCommand(apiClient, w, format),
 		issuePropertyCommand(apiClient, w, format, allowWrites),
+		issueStartWorkCommand(apiClient, w, format, allowWrites, dryRun),
 	)
 	return cmd
 }
