@@ -27,6 +27,7 @@ jira-agent resolve transition --issue PROJ-123 "Done"`,
 	cmd.AddCommand(userResolveCommand(apiClient, w, format))
 	cmd.AddCommand(boardResolveCommand(apiClient, w, format))
 	cmd.AddCommand(sprintResolveCommand(apiClient, w, format))
+	cmd.AddCommand(fieldResolveCommand(apiClient, w, format))
 	return cmd
 }
 
