@@ -116,6 +116,9 @@ jira-agent project list --output csv`,
 			if cmd.Name() == cmd.Root().Name() {
 				return nil
 			}
+			if cmd.Annotations["jira-agent/requires-auth"] == "false" {
+				return nil
+			}
 
 			verbose, err := cmd.Flags().GetBool("verbose")
 			if err != nil {
@@ -204,6 +207,7 @@ jira-agent project list --output csv`,
 		commands.JQLCommand(apiClient, w, outputFormat),
 	)
 	commands.MarkWriteProtectedCommands(rootCmd)
+	rootCmd.AddCommand(commands.SchemaCommand(rootCmd, w, outputFormat))
 
 	return rootCmd
 }

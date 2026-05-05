@@ -119,6 +119,7 @@
       "project",
       "resolution",
       "role",
+      "schema",
       "server-info",
       "sprint",
       "status",
@@ -5118,6 +5119,16 @@
     "annotations": {
       "jira-agent/category": "discovery",
       "jira-agent/requires-auth": "true"
+    }
+  },
+  {
+    "path": "jira-agent schema",
+    "use": "schema",
+    "short": "Output machine-readable CLI schema",
+    "example": "jira-agent schema",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "false"
     }
   },
   {
