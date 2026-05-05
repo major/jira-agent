@@ -5,6 +5,9 @@
     "short": "CLI tool for LLMs to interact with Jira Cloud REST API",
     "long": "Project repository: https://github.com/major/jira-agent\nFile new bugs and RFEs there.",
     "example": "jira-agent issue get PROJ-123 --fields key,summary,status\njira-agent issue search --jql \"assignee = currentUser()\"\njira-agent project list --output csv",
+    "annotations": {
+      "jira-agent/requires-auth": "false"
+    },
     "local_flags": [
       {
         "name": "config",
@@ -109,7 +112,9 @@
     "short": "Work with Jira audit records",
     "example": "jira-agent audit list\njira-agent audit list --from 2024-01-01T00:00:00.000+0000 --to 2024-12-31T23:59:59.000+0000\njira-agent audit list --filter \"user created\" --limit 25",
     "annotations": {
-      "jira-agent/default-subcommand": "list"
+      "jira-agent/category": "admin",
+      "jira-agent/default-subcommand": "list",
+      "jira-agent/requires-auth": "true"
     },
     "subcommands": [
       "list"
@@ -120,6 +125,10 @@
     "use": "list",
     "short": "List Jira audit records",
     "example": "jira-agent audit list\njira-agent audit list --from 2024-01-01T00:00:00.000+0000 --to 2024-12-31T23:59:59.000+0000\njira-agent audit list --filter \"user created\" --limit 25",
+    "annotations": {
+      "jira-agent/category": "admin",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "filter",
@@ -156,7 +165,9 @@
     "short": "Agile backlog operations (list, move)",
     "example": "jira-agent backlog list --board-id 42\njira-agent backlog move --issues PROJ-1,PROJ-2",
     "annotations": {
-      "jira-agent/default-subcommand": "list"
+      "jira-agent/category": "read",
+      "jira-agent/default-subcommand": "list",
+      "jira-agent/requires-auth": "true"
     },
     "subcommands": [
       "list",
@@ -168,6 +179,10 @@
     "use": "list",
     "short": "List backlog issues for a board",
     "example": "jira-agent backlog list --board-id 42",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "board-id",
@@ -209,6 +224,8 @@
     "short": "Move issues to the backlog",
     "example": "jira-agent backlog move --issues PROJ-1,PROJ-2",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -230,7 +247,9 @@
     "short": "Jira Software board operations (list, create, get, filter, delete, properties)",
     "example": "jira-agent board list\njira-agent board create --name \"Team board\" --type scrum --filter 10000\njira-agent board get 42\njira-agent board filter 10000\njira-agent board issues 42 --jql \"status = Open\"\njira-agent board property list 42",
     "annotations": {
-      "jira-agent/default-subcommand": "list"
+      "jira-agent/category": "discovery",
+      "jira-agent/default-subcommand": "list",
+      "jira-agent/requires-auth": "true"
     },
     "subcommands": [
       "config",
@@ -250,7 +269,11 @@
     "path": "jira-agent board config",
     "use": "config",
     "short": "Get board configuration (columns, estimation, ranking)",
-    "example": "jira-agent board config 42"
+    "example": "jira-agent board config 42",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent board create",
@@ -258,6 +281,8 @@
     "short": "Create a Jira Software board",
     "example": "jira-agent board create --name \"Team board\" --type scrum --filter 10000\njira-agent board create --name \"Team board\" --type kanban --filter 10000 --location-project PROJ",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -290,6 +315,8 @@
     "short": "Delete a Jira Software board",
     "example": "jira-agent board delete 42",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     }
   },
@@ -298,6 +325,10 @@
     "use": "epics",
     "short": "List epics on a board",
     "example": "jira-agent board epics 42",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "done",
@@ -324,6 +355,10 @@
     "use": "filter",
     "short": "List boards using a filter",
     "example": "jira-agent board filter 10000\njira-agent board filter 10000 --max-results 25",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "max-results",
@@ -343,13 +378,21 @@
     "path": "jira-agent board get",
     "use": "get",
     "short": "Get Jira Software board details by ID",
-    "example": "jira-agent board get 42"
+    "example": "jira-agent board get 42",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent board issues",
     "use": "issues",
     "short": "List issues on a board",
     "example": "jira-agent board issues 42\njira-agent board issues 42 --jql \"status = Open\"",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "expand",
@@ -385,6 +428,10 @@
     "use": "list",
     "short": "List Jira Software boards",
     "example": "jira-agent board list\njira-agent board list --type scrum\njira-agent board list --project PROJ",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "max-results",
@@ -420,6 +467,10 @@
     "use": "projects",
     "short": "List projects associated with a board",
     "example": "jira-agent board projects 42",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "max-results",
@@ -441,7 +492,9 @@
     "short": "Manage board properties",
     "example": "jira-agent board property list 42\njira-agent board property get 42 com.example.flag\njira-agent board property set 42 com.example.flag --value-json '{\"enabled\":true}'",
     "annotations": {
-      "jira-agent/default-subcommand": "list"
+      "jira-agent/category": "discovery",
+      "jira-agent/default-subcommand": "list",
+      "jira-agent/requires-auth": "true"
     },
     "subcommands": [
       "delete",
@@ -456,6 +509,8 @@
     "short": "Delete a board property",
     "example": "jira-agent board property delete 42 com.example.flag",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     }
   },
@@ -463,13 +518,21 @@
     "path": "jira-agent board property get",
     "use": "get \u003cboard ID\u003e \u003cproperty-key\u003e",
     "short": "Get a board property",
-    "example": "jira-agent board property get 42 com.example.flag"
+    "example": "jira-agent board property get 42 com.example.flag",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent board property list",
     "use": "list \u003cboard ID\u003e",
     "short": "List board property keys",
-    "example": "jira-agent board property list 42"
+    "example": "jira-agent board property list 42",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent board property set",
@@ -477,6 +540,8 @@
     "short": "Set a board property",
     "example": "jira-agent board property set 42 com.example.flag --value-json '{\"enabled\":true}'",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -497,6 +562,10 @@
     "use": "versions",
     "short": "List versions associated with a board",
     "example": "jira-agent board versions 42",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "max-results",
@@ -518,7 +587,9 @@
     "short": "Project component operations (list, get, create, update, delete, issue-counts)",
     "example": "jira-agent component list --project PROJ\njira-agent component get 10100\njira-agent component create --project PROJ --name \"Backend\"",
     "annotations": {
-      "jira-agent/default-subcommand": "list"
+      "jira-agent/category": "read",
+      "jira-agent/default-subcommand": "list",
+      "jira-agent/requires-auth": "true"
     },
     "subcommands": [
       "create",
@@ -535,6 +606,8 @@
     "short": "Create a project component",
     "example": "jira-agent component create --project PROJ --name \"Backend\"\njira-agent component create --project PROJ --name \"Frontend\" --lead-account-id 5b10a284",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -571,6 +644,8 @@
     "short": "Delete a project component",
     "example": "jira-agent component delete 10100",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -585,19 +660,31 @@
     "path": "jira-agent component get",
     "use": "get \u003ccomponent-id\u003e",
     "short": "Get component details by ID",
-    "example": "jira-agent component get 10100"
+    "example": "jira-agent component get 10100",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent component issue-counts",
     "use": "issue-counts \u003ccomponent-id\u003e",
     "short": "Get related issue counts for a component",
-    "example": "jira-agent component issue-counts 10100"
+    "example": "jira-agent component issue-counts 10100",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent component list",
     "use": "list",
     "short": "List project components",
     "example": "jira-agent component list --project PROJ",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "max-results",
@@ -629,6 +716,8 @@
     "short": "Update a project component",
     "example": "jira-agent component update 10100 --name \"Backend Services\"",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -660,7 +749,9 @@
     "short": "Work with Jira dashboards",
     "example": "jira-agent dashboard list\njira-agent dashboard get 10001\njira-agent dashboard gadgets 10001",
     "annotations": {
-      "jira-agent/default-subcommand": "list"
+      "jira-agent/category": "read",
+      "jira-agent/default-subcommand": "list",
+      "jira-agent/requires-auth": "true"
     },
     "subcommands": [
       "copy",
@@ -678,6 +769,8 @@
     "short": "Copy a dashboard",
     "example": "jira-agent dashboard copy 10001 --name \"Team dashboard copy\"\njira-agent dashboard copy 10001 --name \"Team dashboard copy\" --extend-admin-permissions",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -722,6 +815,8 @@
     "short": "Create a dashboard",
     "example": "jira-agent dashboard create --name \"Team dashboard\"\njira-agent dashboard create --name \"Team dashboard\" --share-permissions-json '[{\"type\":\"authenticated\"}]'\njira-agent dashboard create --body-json '{\"name\":\"Team dashboard\",\"sharePermissions\":[],\"editPermissions\":[]}'",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -766,6 +861,8 @@
     "short": "Delete a dashboard",
     "example": "jira-agent dashboard delete 10001",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     }
   },
@@ -774,6 +871,10 @@
     "use": "gadgets \u003cdashboard-id\u003e",
     "short": "List dashboard gadgets",
     "example": "jira-agent dashboard gadgets 10001",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "gadget-id",
@@ -796,13 +897,21 @@
     "path": "jira-agent dashboard get",
     "use": "get \u003cdashboard-id\u003e",
     "short": "Get a dashboard",
-    "example": "jira-agent dashboard get 10001"
+    "example": "jira-agent dashboard get 10001",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent dashboard list",
     "use": "list",
     "short": "List dashboards",
     "example": "jira-agent dashboard list\njira-agent dashboard list --filter my\njira-agent dashboard list --search \"ops\"",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "filter",
@@ -834,6 +943,8 @@
     "short": "Update a dashboard",
     "example": "jira-agent dashboard update 10001 --name \"Team dashboard\"\njira-agent dashboard update 10001 --name \"Team dashboard\" --description \"Team metrics\"\njira-agent dashboard update 10001 --body-json '{\"name\":\"Team dashboard\",\"sharePermissions\":[],\"editPermissions\":[]}'",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -878,7 +989,9 @@
     "short": "Agile epic operations (get, issues, move-issues, orphans, remove-issues, rank)",
     "example": "jira-agent epic get PROJ-50\njira-agent epic issues PROJ-50\njira-agent epic move-issues PROJ-50 --issues PROJ-1,PROJ-2",
     "annotations": {
-      "jira-agent/default-subcommand": "get"
+      "jira-agent/category": "read",
+      "jira-agent/default-subcommand": "get",
+      "jira-agent/requires-auth": "true"
     },
     "subcommands": [
       "get",
@@ -893,13 +1006,21 @@
     "path": "jira-agent epic get",
     "use": "get",
     "short": "Get epic details by ID or key",
-    "example": "jira-agent epic get PROJ-50\njira-agent epic get 12345"
+    "example": "jira-agent epic get PROJ-50\njira-agent epic get 12345",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent epic issues",
     "use": "issues",
     "short": "List issues in an epic",
     "example": "jira-agent epic issues PROJ-50\njira-agent epic issues PROJ-50 --jql \"status = Open\"",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "fields",
@@ -931,6 +1052,8 @@
     "short": "Move issues to an epic",
     "example": "jira-agent epic move-issues PROJ-50 --issues PROJ-1,PROJ-2",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -951,6 +1074,10 @@
     "use": "orphans",
     "short": "List issues without an epic",
     "example": "jira-agent epic orphans",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "fields",
@@ -982,6 +1109,8 @@
     "short": "Rank an epic before or after another epic",
     "example": "jira-agent epic rank PROJ-50 --before PROJ-49\njira-agent epic rank PROJ-50 --after PROJ-51",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -1003,6 +1132,8 @@
     "short": "Remove issues from their epic",
     "example": "jira-agent epic remove-issues --issues PROJ-1,PROJ-2",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -1027,7 +1158,9 @@
     "short": "Work with Jira fields",
     "example": "jira-agent field list\njira-agent field search --type custom --query \"story points\"",
     "annotations": {
-      "jira-agent/default-subcommand": "list"
+      "jira-agent/category": "discovery",
+      "jira-agent/default-subcommand": "list",
+      "jira-agent/requires-auth": "true"
     },
     "subcommands": [
       "context",
@@ -1042,7 +1175,9 @@
     "short": "Custom field context operations (list, create, update, delete)",
     "example": "jira-agent field context list customfield_10001\njira-agent field context create customfield_10001 --name \"Global context\"",
     "annotations": {
-      "jira-agent/default-subcommand": "list"
+      "jira-agent/category": "discovery",
+      "jira-agent/default-subcommand": "list",
+      "jira-agent/requires-auth": "true"
     },
     "subcommands": [
       "create",
@@ -1057,6 +1192,8 @@
     "short": "Create a context for a custom field",
     "example": "jira-agent field context create customfield_10001 --name \"Global context\"",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -1093,6 +1230,8 @@
     "short": "Delete a custom field context",
     "example": "jira-agent field context delete customfield_10001 10200",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     }
   },
@@ -1101,6 +1240,10 @@
     "use": "list \u003cfield-id\u003e",
     "short": "List contexts for a custom field",
     "example": "jira-agent field context list customfield_10001",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "max-results",
@@ -1122,6 +1265,8 @@
     "short": "Update a custom field context",
     "example": "jira-agent field context update customfield_10001 10200 --name \"Updated context\"",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -1141,7 +1286,11 @@
     "path": "jira-agent field list",
     "use": "list",
     "short": "List all fields (system and custom)",
-    "example": "jira-agent field list"
+    "example": "jira-agent field list",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent field option",
@@ -1149,7 +1298,9 @@
     "short": "Custom field option operations (list, create, update, delete, reorder)",
     "example": "jira-agent field option list customfield_10001 10200\njira-agent field option create customfield_10001 10200 --options-json '[{\"value\":\"Option A\"}]'",
     "annotations": {
-      "jira-agent/default-subcommand": "list"
+      "jira-agent/category": "discovery",
+      "jira-agent/default-subcommand": "list",
+      "jira-agent/requires-auth": "true"
     },
     "subcommands": [
       "create",
@@ -1165,6 +1316,8 @@
     "short": "Create options for a custom field context",
     "example": "jira-agent field option create customfield_10001 10200 --options-json '[{\"value\":\"Option A\"},{\"value\":\"Option B\"}]'",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -1186,6 +1339,8 @@
     "short": "Delete a custom field option",
     "example": "jira-agent field option delete customfield_10001 10200 10300",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     }
   },
@@ -1194,6 +1349,10 @@
     "use": "list \u003cfield-id\u003e \u003ccontext-id\u003e",
     "short": "List options for a custom field context",
     "example": "jira-agent field option list customfield_10001 10200",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "max-results",
@@ -1215,6 +1374,8 @@
     "short": "Reorder custom field options",
     "example": "jira-agent field option reorder customfield_10001 10200 --option-ids 10300,10301,10302\njira-agent field option reorder customfield_10001 10200 --option-ids 10301 --after 10300",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -1251,6 +1412,8 @@
     "short": "Update options for a custom field context",
     "example": "jira-agent field option update customfield_10001 10200 --options-json '[{\"id\":\"10300\",\"value\":\"Updated option\"}]'",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -1287,6 +1450,10 @@
     "use": "search",
     "short": "Search fields with filtering and pagination",
     "example": "jira-agent field search --type custom\njira-agent field search --query \"story points\"",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "max-results",
@@ -1318,7 +1485,9 @@
     "short": "Work with Jira filters",
     "example": "jira-agent filter list\njira-agent filter get 10001\njira-agent filter favorites",
     "annotations": {
-      "jira-agent/default-subcommand": "list"
+      "jira-agent/category": "read",
+      "jira-agent/default-subcommand": "list",
+      "jira-agent/requires-auth": "true"
     },
     "subcommands": [
       "create",
@@ -1339,6 +1508,8 @@
     "short": "Create a filter",
     "example": "jira-agent filter create --name \"My open bugs\" --jql \"project = PROJ AND type = Bug AND status = Open\"",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -1381,7 +1552,9 @@
     "short": "Work with the default filter share scope",
     "example": "jira-agent filter default-share-scope get\njira-agent filter default-share-scope set --scope PRIVATE",
     "annotations": {
-      "jira-agent/default-subcommand": "get"
+      "jira-agent/category": "read",
+      "jira-agent/default-subcommand": "get",
+      "jira-agent/requires-auth": "true"
     },
     "subcommands": [
       "get",
@@ -1392,7 +1565,11 @@
     "path": "jira-agent filter default-share-scope get",
     "use": "get",
     "short": "Get the default filter share scope",
-    "example": "jira-agent filter default-share-scope get"
+    "example": "jira-agent filter default-share-scope get",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent filter default-share-scope set",
@@ -1400,6 +1577,8 @@
     "short": "Set the default filter share scope",
     "example": "jira-agent filter default-share-scope set --scope PRIVATE",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -1421,6 +1600,8 @@
     "short": "Delete a filter",
     "example": "jira-agent filter delete 10001",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     }
   },
@@ -1428,13 +1609,21 @@
     "path": "jira-agent filter favorites",
     "use": "favorites",
     "short": "List favorite filters",
-    "example": "jira-agent filter favorites"
+    "example": "jira-agent filter favorites",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent filter get",
     "use": "get \u003cfilter-id\u003e",
     "short": "Get a filter",
     "example": "jira-agent filter get 10001",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "expand",
@@ -1457,6 +1646,10 @@
     ],
     "short": "Search filters",
     "example": "jira-agent filter list\njira-agent filter list --expand owner,jql",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "account-id",
@@ -1523,7 +1716,11 @@
     "path": "jira-agent filter permissions",
     "use": "permissions \u003cfilter-id\u003e",
     "short": "List filter share permissions",
-    "example": "jira-agent filter permissions 10001"
+    "example": "jira-agent filter permissions 10001",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent filter share",
@@ -1531,6 +1728,8 @@
     "short": "Add a filter share permission",
     "example": "jira-agent filter share 10001 --with user:5b10a2844c20165700ede21g\njira-agent filter share 10001 --with group:team-group-id\njira-agent filter share 10001 --type project --project-id 10000",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -1588,6 +1787,8 @@
     "short": "Remove a filter share permission",
     "example": "jira-agent filter unshare 10001 --permission-id 10002",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -1609,6 +1810,8 @@
     "short": "Update a filter",
     "example": "jira-agent filter update 10001 --name \"Updated filter\" --jql \"project = PROJ AND status != Done\"",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -1651,7 +1854,9 @@
     "short": "Work with Jira groups",
     "example": "jira-agent group list\njira-agent group get --groupname \"jira-users\"\njira-agent group members --groupname \"jira-users\"",
     "annotations": {
-      "jira-agent/default-subcommand": "list"
+      "jira-agent/category": "read",
+      "jira-agent/default-subcommand": "list",
+      "jira-agent/requires-auth": "true"
     },
     "subcommands": [
       "add-member",
@@ -1670,6 +1875,8 @@
     "short": "Add a user to a group",
     "example": "jira-agent group add-member --groupname \"dev-team\" --account-id 5b10a2844c20165700ede21g",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -1701,6 +1908,8 @@
     "short": "Create a group",
     "example": "jira-agent group create \"new-team\"",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     }
   },
@@ -1710,6 +1919,8 @@
     "short": "Delete a group",
     "example": "jira-agent group delete --groupname \"old-team\"",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -1740,6 +1951,10 @@
     "use": "get",
     "short": "Get group details",
     "example": "jira-agent group get --groupname \"jira-users\"\njira-agent group get --group-id abc-123",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "expand",
@@ -1763,6 +1978,10 @@
     "use": "list",
     "short": "Find groups",
     "example": "jira-agent group list",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "case-insensitive",
@@ -1788,6 +2007,10 @@
     "use": "member-picker",
     "short": "Search users and groups for pickers",
     "example": "jira-agent group member-picker --query \"john\"",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "issue-key",
@@ -1817,6 +2040,10 @@
     "use": "members",
     "short": "List members of a group",
     "example": "jira-agent group members --groupname \"jira-users\"",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "group-id",
@@ -1854,6 +2081,8 @@
     "short": "Remove a user from a group",
     "example": "jira-agent group remove-member --groupname \"dev-team\" --account-id 5b10a2844c20165700ede21g",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -1884,6 +2113,10 @@
     "use": "issue",
     "short": "Issue operations (get, search, create, edit, delete, transition, assign, comment, changelog, rank, count, notify, meta, bulk, property)",
     "example": "jira-agent issue get PROJ-123\njira-agent issue search --jql \"project = PROJ AND status = Open\"\njira-agent issue create --project PROJ --type Story --summary \"New feature\"\njira-agent issue transition PROJ-123 --to \"In Progress\"",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    },
     "subcommands": [
       "assign",
       "attachment",
@@ -1924,6 +2157,8 @@
     "short": "Assign issue to a user",
     "example": "jira-agent issue assign PROJ-123 5b10a2844c20165700ede21g\njira-agent issue assign PROJ-123 --unassign\njira-agent issue assign PROJ-123 --default",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -1947,7 +2182,9 @@
     "short": "Attachment operations (list, add, get, delete)",
     "example": "jira-agent issue attachment list PROJ-123\njira-agent issue attachment add PROJ-123 --file report.pdf\njira-agent issue attachment get 10001",
     "annotations": {
-      "jira-agent/default-subcommand": "list"
+      "jira-agent/category": "read",
+      "jira-agent/default-subcommand": "list",
+      "jira-agent/requires-auth": "true"
     },
     "subcommands": [
       "add",
@@ -1962,6 +2199,8 @@
     "short": "Add an attachment to an issue",
     "example": "jira-agent issue attachment add PROJ-123 --file report.pdf\njira-agent issue attachment add PROJ-123 --file doc.pdf --file image.png",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -1984,6 +2223,8 @@
     "short": "Delete an attachment",
     "example": "jira-agent issue attachment delete 10001",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     }
   },
@@ -1991,19 +2232,31 @@
     "path": "jira-agent issue attachment get",
     "use": "get \u003cattachment-id\u003e",
     "short": "Get attachment metadata",
-    "example": "jira-agent issue attachment get 10001"
+    "example": "jira-agent issue attachment get 10001",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent issue attachment list",
     "use": "list \u003cissue-key\u003e",
     "short": "List attachments on an issue",
-    "example": "jira-agent issue attachment list PROJ-123"
+    "example": "jira-agent issue attachment list PROJ-123",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent issue bulk",
     "use": "bulk",
     "short": "Bulk issue operations",
     "example": "jira-agent issue bulk fetch --issues PROJ-1,PROJ-2 --fields key,summary,status\njira-agent issue bulk create --issues-json '[{\"fields\":{\"project\":{\"key\":\"PROJ\"},\"issuetype\":{\"name\":\"Task\"},\"summary\":\"Task 1\"}}]'\njira-agent issue bulk transition --transitions-json '[{\"selectedIssueIdsOrKeys\":[\"PROJ-1\"],\"transitionId\":\"11\"}]'",
+    "annotations": {
+      "jira-agent/category": "bulk",
+      "jira-agent/requires-auth": "true"
+    },
     "subcommands": [
       "create",
       "delete",
@@ -2022,6 +2275,8 @@
     "short": "Create multiple issues from Jira issueUpdates JSON",
     "example": "jira-agent issue bulk create --issues-json '[{\"fields\":{\"project\":{\"key\":\"PROJ\"},\"issuetype\":{\"name\":\"Task\"},\"summary\":\"Task 1\"}}]'",
     "annotations": {
+      "jira-agent/category": "bulk",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -2038,6 +2293,8 @@
     "short": "Bulk delete issues (up to 1000)",
     "example": "jira-agent issue bulk delete --issues PROJ-1,PROJ-2,PROJ-3\njira-agent issue bulk delete --issues PROJ-1,PROJ-2 --send-notification=false",
     "annotations": {
+      "jira-agent/category": "bulk",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -2060,6 +2317,8 @@
     "short": "Bulk edit issues (up to 1000 issues, 200 fields)",
     "example": "jira-agent issue bulk edit --payload-json '{\"selectedIssueIdsOrKeys\":[\"PROJ-1\",\"PROJ-2\"],\"selectedActions\":[\"priority\"],\"editedFieldsInput\":{\"priority\":{\"name\":\"High\"}}}'",
     "annotations": {
+      "jira-agent/category": "bulk",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -2075,6 +2334,10 @@
     "use": "edit-fields",
     "short": "List editable fields for bulk edit",
     "example": "jira-agent issue bulk edit-fields --issues PROJ-1,PROJ-2\njira-agent issue bulk edit-fields --issues PROJ-1,PROJ-2 --search-text priority",
+    "annotations": {
+      "jira-agent/category": "bulk",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "ending-before",
@@ -2103,6 +2366,10 @@
     "use": "fetch",
     "short": "Fetch multiple issues by key or ID",
     "example": "jira-agent issue bulk fetch --issues PROJ-1,PROJ-2,PROJ-3\njira-agent issue bulk fetch --issues PROJ-1,PROJ-2 --fields key,summary,status",
+    "annotations": {
+      "jira-agent/category": "bulk",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "expand",
@@ -2138,6 +2405,8 @@
     "short": "Bulk move issues to a target project and issue type (up to 1000)",
     "example": "jira-agent issue bulk move --payload-json '{\"targetToSourcesMapping\":{\"DEST\":{\"issueIdsOrKeys\":[\"PROJ-1\"],\"targetIssueType\":\"Task\"}}}'",
     "annotations": {
+      "jira-agent/category": "bulk",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -2152,7 +2421,11 @@
     "path": "jira-agent issue bulk status",
     "use": "status \u003ctask-id\u003e",
     "short": "Get bulk issue operation progress",
-    "example": "jira-agent issue bulk status 10641"
+    "example": "jira-agent issue bulk status 10641",
+    "annotations": {
+      "jira-agent/category": "bulk",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent issue bulk transition",
@@ -2160,6 +2433,8 @@
     "short": "Bulk transition issue statuses (up to 1000)",
     "example": "jira-agent issue bulk transition --transitions-json '[{\"selectedIssueIdsOrKeys\":[\"PROJ-1\"],\"transitionId\":\"11\"}]'\njira-agent issue bulk transition --transitions-json '[{\"selectedIssueIdsOrKeys\":[\"PROJ-1\"],\"transitionId\":\"11\"}]' --send-notification=false",
     "annotations": {
+      "jira-agent/category": "bulk",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -2181,6 +2456,10 @@
     "use": "transitions",
     "short": "List available transitions for bulk transition",
     "example": "jira-agent issue bulk transitions --issues PROJ-1,PROJ-2,PROJ-3",
+    "annotations": {
+      "jira-agent/category": "bulk",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "ending-before",
@@ -2206,6 +2485,8 @@
     "example": "jira-agent issue bulk-create --issues-json '[{\"fields\":{\"project\":{\"key\":\"PROJ\"},\"issuetype\":{\"name\":\"Task\"},\"summary\":\"Task 1\"}}]'",
     "hidden": true,
     "annotations": {
+      "jira-agent/category": "bulk",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -2223,6 +2504,8 @@
     "example": "jira-agent issue bulk-delete --issues PROJ-1,PROJ-2,PROJ-3\njira-agent issue bulk-delete --issues PROJ-1,PROJ-2 --send-notification=false",
     "hidden": true,
     "annotations": {
+      "jira-agent/category": "bulk",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -2246,6 +2529,8 @@
     "example": "jira-agent issue bulk-edit --payload-json '{\"selectedIssueIdsOrKeys\":[\"PROJ-1\",\"PROJ-2\"],\"selectedActions\":[\"priority\"],\"editedFieldsInput\":{\"priority\":{\"name\":\"High\"}}}'",
     "hidden": true,
     "annotations": {
+      "jira-agent/category": "bulk",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -2262,6 +2547,10 @@
     "short": "List editable fields for bulk edit",
     "example": "jira-agent issue bulk-edit-fields --issues PROJ-1,PROJ-2\njira-agent issue bulk-edit-fields --issues PROJ-1,PROJ-2 --search-text priority",
     "hidden": true,
+    "annotations": {
+      "jira-agent/category": "bulk",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "ending-before",
@@ -2291,6 +2580,10 @@
     "short": "Fetch multiple issues by key or ID",
     "example": "jira-agent issue bulk-fetch --issues PROJ-1,PROJ-2,PROJ-3\njira-agent issue bulk-fetch --issues PROJ-1,PROJ-2 --fields key,summary,status",
     "hidden": true,
+    "annotations": {
+      "jira-agent/category": "bulk",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "expand",
@@ -2327,6 +2620,8 @@
     "example": "jira-agent issue bulk-move --payload-json '{\"targetToSourcesMapping\":{\"DEST\":{\"issueIdsOrKeys\":[\"PROJ-1\"],\"targetIssueType\":\"Task\"}}}'",
     "hidden": true,
     "annotations": {
+      "jira-agent/category": "bulk",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -2342,7 +2637,11 @@
     "use": "bulk-status \u003ctask-id\u003e",
     "short": "Get bulk issue operation progress",
     "example": "jira-agent issue bulk-status 10641",
-    "hidden": true
+    "hidden": true,
+    "annotations": {
+      "jira-agent/category": "bulk",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent issue bulk-transition",
@@ -2351,6 +2650,8 @@
     "example": "jira-agent issue bulk-transition --transitions-json '[{\"selectedIssueIdsOrKeys\":[\"PROJ-1\"],\"transitionId\":\"11\"}]'\njira-agent issue bulk-transition --transitions-json '[{\"selectedIssueIdsOrKeys\":[\"PROJ-1\"],\"transitionId\":\"11\"}]' --send-notification=false",
     "hidden": true,
     "annotations": {
+      "jira-agent/category": "bulk",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -2373,6 +2674,10 @@
     "short": "List available transitions for bulk transition",
     "example": "jira-agent issue bulk-transitions --issues PROJ-1,PROJ-2,PROJ-3",
     "hidden": true,
+    "annotations": {
+      "jira-agent/category": "bulk",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "ending-before",
@@ -2396,6 +2701,10 @@
     "use": "changelog \u003cissue-key\u003e",
     "short": "List changelog entries for an issue",
     "example": "jira-agent issue changelog PROJ-123\njira-agent issue changelog PROJ-123 --max-results 10\njira-agent issue changelog list-by-ids PROJ-123 --ids 10001,10002\njira-agent issue changelog bulk-fetch --issues PROJ-1,PROJ-2",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "max-results",
@@ -2420,6 +2729,10 @@
     "use": "bulk-fetch",
     "short": "Bulk fetch changelogs for issues",
     "example": "jira-agent issue changelog bulk-fetch --issues PROJ-1,PROJ-2\njira-agent issue changelog bulk-fetch --issues PROJ-1,PROJ-2 --field-ids status,assignee --max-results 100",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "field-ids",
@@ -2449,6 +2762,10 @@
     "use": "list-by-ids \u003cissue-key\u003e",
     "short": "Get issue changelogs by IDs",
     "example": "jira-agent issue changelog list-by-ids PROJ-123 --ids 10001,10002",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "ids",
@@ -2463,7 +2780,9 @@
     "short": "Comment operations (list, add, edit, delete)",
     "example": "jira-agent issue comment list PROJ-123\njira-agent issue comment add PROJ-123 --body \"This is a comment\"",
     "annotations": {
-      "jira-agent/default-subcommand": "list"
+      "jira-agent/category": "read",
+      "jira-agent/default-subcommand": "list",
+      "jira-agent/requires-auth": "true"
     },
     "subcommands": [
       "add",
@@ -2480,6 +2799,8 @@
     "short": "Add a comment to an issue",
     "example": "jira-agent issue comment add PROJ-123 --body \"This is a comment\"\njira-agent issue comment add PROJ-123 --body \"Internal note\" --visibility-type role --visibility-value Developers",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -2517,6 +2838,8 @@
     "short": "Delete a comment",
     "example": "jira-agent issue comment delete PROJ-123 10001",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     }
   },
@@ -2526,6 +2849,8 @@
     "short": "Edit an existing comment",
     "example": "jira-agent issue comment edit PROJ-123 10001 --body \"Updated comment\"\njira-agent issue comment edit PROJ-123 10001 --body \"Updated\" --notify=false",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -2574,6 +2899,10 @@
     "use": "get \u003cissue-key\u003e \u003ccomment-id\u003e",
     "short": "Get a single comment",
     "example": "jira-agent issue comment get PROJ-123 10001",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "expand",
@@ -2586,13 +2915,21 @@
     "path": "jira-agent issue comment list",
     "use": "list \u003cissue-key\u003e",
     "short": "List comments on an issue",
-    "example": "jira-agent issue comment list PROJ-123\njira-agent issue comment list PROJ-123 --order-by -created"
+    "example": "jira-agent issue comment list PROJ-123\njira-agent issue comment list PROJ-123 --order-by -created",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent issue comment list-by-ids",
     "use": "list-by-ids",
     "short": "Get comments by IDs",
     "example": "jira-agent issue comment list-by-ids --ids 10001,10002",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "expand",
@@ -2611,6 +2948,10 @@
     "use": "count",
     "short": "Count issues matching a JQL query",
     "example": "jira-agent issue count --jql \"project = PROJ AND status = Open\"\njira-agent issue count --jql \"assignee = currentUser() AND resolution = Unresolved\"",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "jql",
@@ -2625,6 +2966,8 @@
     "short": "Create a new issue",
     "example": "jira-agent issue create --project PROJ --type Story --summary \"New feature\"\njira-agent issue create --project PROJ --type Bug --summary \"Fix login\" --priority High --labels bug,urgent\njira-agent issue create --project PROJ --type Task --summary \"Subtask\" --parent PROJ-100",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -2698,6 +3041,8 @@
     "short": "Delete an issue",
     "example": "jira-agent issue delete PROJ-123\njira-agent issue delete PROJ-123 --delete-subtasks",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -2715,6 +3060,8 @@
     "short": "Update issue fields",
     "example": "jira-agent issue edit PROJ-123 --summary \"Updated summary\"\njira-agent issue edit PROJ-123 --priority High --labels bug,critical\njira-agent issue edit PROJ-123 --fields-json '{\"customfield_10001\":\"value\"}'",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -2788,6 +3135,10 @@
     "use": "get \u003cissue-key\u003e",
     "short": "Get issue by key or ID",
     "example": "jira-agent issue get PROJ-123\njira-agent issue get PROJ-123 --fields key,summary,status,assignee\njira-agent issue get PROJ-123 --fields description --description-output-format markdown\njira-agent issue get PROJ-123 --expand changelog\njira-agent issue get PROJ-123 --raw",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "description-output-format",
@@ -2842,7 +3193,9 @@
     "short": "Issue link operations (list, add, delete, types)",
     "example": "jira-agent issue link list PROJ-123\njira-agent issue link add --type Blocks --inward PROJ-1 --outward PROJ-2\njira-agent issue link types",
     "annotations": {
-      "jira-agent/default-subcommand": "list"
+      "jira-agent/category": "read",
+      "jira-agent/default-subcommand": "list",
+      "jira-agent/requires-auth": "true"
     },
     "subcommands": [
       "add",
@@ -2858,6 +3211,8 @@
     "short": "Add a link between two issues",
     "example": "jira-agent issue link add --type Blocks --inward PROJ-1 --outward PROJ-2\njira-agent issue link add --type-id 10001 --inward PROJ-1 --outward PROJ-2",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -2904,6 +3259,8 @@
     "short": "Delete an issue link",
     "example": "jira-agent issue link delete 12345",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     }
   },
@@ -2911,25 +3268,41 @@
     "path": "jira-agent issue link get",
     "use": "get \u003clink-id\u003e",
     "short": "Get an issue link",
-    "example": "jira-agent issue link get 12345"
+    "example": "jira-agent issue link get 12345",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent issue link list",
     "use": "list \u003cissue-key\u003e",
     "short": "List issue links on an issue",
-    "example": "jira-agent issue link list PROJ-123"
+    "example": "jira-agent issue link list PROJ-123",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent issue link types",
     "use": "types",
     "short": "List issue link types",
-    "example": "jira-agent issue link types"
+    "example": "jira-agent issue link types",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent issue meta",
     "use": "meta",
     "short": "Get create or edit metadata for issues",
     "example": "jira-agent issue meta --project PROJ\njira-agent issue meta --project PROJ --type Story\njira-agent issue meta --operation edit --issue PROJ-123",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "issue",
@@ -2955,6 +3328,8 @@
     "short": "Send an email notification for an issue",
     "example": "jira-agent issue notify PROJ-123 --subject \"Action needed\" --text-body \"Please review\"\njira-agent issue notify PROJ-123 --subject \"Update\" --to-watchers --to-assignee",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -3015,6 +3390,10 @@
     "use": "picker",
     "short": "Find issues for picker UI",
     "example": "jira-agent issue picker --query PROJ-123\njira-agent issue picker --query login --current-jql \"project = PROJ\" --show-subtasks=false",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "current-issue-key",
@@ -3056,7 +3435,9 @@
     "short": "Manage issue properties",
     "example": "jira-agent issue property list PROJ-123\njira-agent issue property get PROJ-123 com.example.flag\njira-agent issue property set PROJ-123 com.example.flag --value-json '{\"enabled\":true}'",
     "annotations": {
-      "jira-agent/default-subcommand": "list"
+      "jira-agent/category": "read",
+      "jira-agent/default-subcommand": "list",
+      "jira-agent/requires-auth": "true"
     },
     "subcommands": [
       "delete",
@@ -3071,6 +3452,8 @@
     "short": "Delete an issue property",
     "example": "jira-agent issue property delete PROJ-123 com.example.flag",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     }
   },
@@ -3078,13 +3461,21 @@
     "path": "jira-agent issue property get",
     "use": "get \u003cissue key\u003e \u003cproperty-key\u003e",
     "short": "Get an issue property",
-    "example": "jira-agent issue property get PROJ-123 com.example.flag"
+    "example": "jira-agent issue property get PROJ-123 com.example.flag",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent issue property list",
     "use": "list \u003cissue key\u003e",
     "short": "List issue property keys",
-    "example": "jira-agent issue property list PROJ-123"
+    "example": "jira-agent issue property list PROJ-123",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent issue property set",
@@ -3092,6 +3483,8 @@
     "short": "Set an issue property",
     "example": "jira-agent issue property set PROJ-123 com.example.flag --value-json '{\"enabled\":true}'",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -3113,6 +3506,8 @@
     "short": "Rank issues before or after a target issue",
     "example": "jira-agent issue rank --issues PROJ-1,PROJ-2 --before PROJ-10\njira-agent issue rank --issues PROJ-5 --after PROJ-3",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -3147,7 +3542,9 @@
     "short": "Remote issue link operations (list, add, edit, delete)",
     "example": "jira-agent issue remote-link list PROJ-123\njira-agent issue remote-link add PROJ-123 --url \"https://example.com\" --title \"Docs\"",
     "annotations": {
-      "jira-agent/default-subcommand": "list"
+      "jira-agent/category": "read",
+      "jira-agent/default-subcommand": "list",
+      "jira-agent/requires-auth": "true"
     },
     "subcommands": [
       "add",
@@ -3163,6 +3560,8 @@
     "short": "Add a remote link to an issue",
     "example": "jira-agent issue remote-link add PROJ-123 --url \"https://example.com\" --title \"Related doc\"",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -3204,6 +3603,8 @@
     "short": "Delete a remote link from an issue",
     "example": "jira-agent issue remote-link delete PROJ-123 10001\njira-agent issue remote-link delete PROJ-123 --global-id system=https://example.com\u0026id=123",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -3220,6 +3621,8 @@
     "short": "Edit a remote link on an issue",
     "example": "jira-agent issue remote-link edit PROJ-123 10001 --url \"https://example.com/updated\" --title \"Updated doc\"",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -3259,13 +3662,21 @@
     "path": "jira-agent issue remote-link get",
     "use": "get \u003cissue-key\u003e \u003cremote-link-id\u003e",
     "short": "Get a remote issue link",
-    "example": "jira-agent issue remote-link get PROJ-123 10001"
+    "example": "jira-agent issue remote-link get PROJ-123 10001",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent issue remote-link list",
     "use": "list \u003cissue-key\u003e",
     "short": "List remote links on an issue",
     "example": "jira-agent issue remote-link list PROJ-123",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "global-id",
@@ -3279,6 +3690,10 @@
     "use": "search",
     "short": "Search issues via JQL",
     "example": "jira-agent issue search --jql \"project = PROJ AND status = Open\"\njira-agent issue search --jql \"assignee = currentUser()\" --fields key,summary,status\njira-agent issue search --jql \"project = PROJ\" --fields key,description --description-output-format markdown\njira-agent issue search --jql \"project = PROJ\" --max-results 10 --order-by created --order desc\njira-agent issue search --jql \"project = PROJ\" --raw",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "description-output-format",
@@ -3359,6 +3774,8 @@
     "short": "Transition issue to a new status",
     "example": "jira-agent issue transition PROJ-123 --list\njira-agent issue transition PROJ-123 --to \"In Progress\"\njira-agent issue transition PROJ-123 --to Done --comment \"Completed\"",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -3429,6 +3846,10 @@
     "use": "vote",
     "short": "Vote operations (get, add, remove)",
     "example": "jira-agent issue vote get PROJ-123\njira-agent issue vote add PROJ-123\njira-agent issue vote remove PROJ-123",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    },
     "subcommands": [
       "add",
       "get",
@@ -3441,6 +3862,8 @@
     "short": "Add your vote to an issue",
     "example": "jira-agent issue vote add PROJ-123",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     }
   },
@@ -3448,7 +3871,11 @@
     "path": "jira-agent issue vote get",
     "use": "get \u003cissue-key\u003e",
     "short": "Get votes on an issue",
-    "example": "jira-agent issue vote get PROJ-123"
+    "example": "jira-agent issue vote get PROJ-123",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent issue vote remove",
@@ -3456,6 +3883,8 @@
     "short": "Remove your vote from an issue",
     "example": "jira-agent issue vote remove PROJ-123",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     }
   },
@@ -3465,7 +3894,9 @@
     "short": "Watcher operations (list, add, remove)",
     "example": "jira-agent issue watcher list PROJ-123\njira-agent issue watcher add PROJ-123 --account-id 5b10a284\njira-agent issue watcher remove PROJ-123 --account-id 5b10a284",
     "annotations": {
-      "jira-agent/default-subcommand": "list"
+      "jira-agent/category": "read",
+      "jira-agent/default-subcommand": "list",
+      "jira-agent/requires-auth": "true"
     },
     "subcommands": [
       "add",
@@ -3479,6 +3910,8 @@
     "short": "Add a watcher to an issue",
     "example": "jira-agent issue watcher add PROJ-123 --account-id 5b10a2844c20165700ede21g",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -3498,7 +3931,11 @@
     "path": "jira-agent issue watcher list",
     "use": "list \u003cissue-key\u003e",
     "short": "List watchers on an issue",
-    "example": "jira-agent issue watcher list PROJ-123"
+    "example": "jira-agent issue watcher list PROJ-123",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent issue watcher remove",
@@ -3506,6 +3943,8 @@
     "short": "Remove a watcher from an issue",
     "example": "jira-agent issue watcher remove PROJ-123 --account-id 5b10a2844c20165700ede21g",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -3527,7 +3966,9 @@
     "short": "Worklog operations (list, add, edit, delete)",
     "example": "jira-agent issue worklog list PROJ-123\njira-agent issue worklog add PROJ-123 --time-spent 2h",
     "annotations": {
-      "jira-agent/default-subcommand": "list"
+      "jira-agent/category": "read",
+      "jira-agent/default-subcommand": "list",
+      "jira-agent/requires-auth": "true"
     },
     "subcommands": [
       "add",
@@ -3546,6 +3987,8 @@
     "short": "Add a worklog to an issue",
     "example": "jira-agent issue worklog add PROJ-123 --time-spent 2h\njira-agent issue worklog add PROJ-123 --time-spent 30m --started \"2025-01-15T09:00:00.000+0000\"",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -3625,6 +4068,8 @@
     "short": "Delete a worklog",
     "example": "jira-agent issue worklog delete PROJ-123 12345",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -3662,6 +4107,10 @@
     "use": "deleted",
     "short": "List deleted worklogs",
     "example": "jira-agent issue worklog deleted --since 1700000000000",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "since",
@@ -3676,6 +4125,8 @@
     "short": "Edit an existing worklog",
     "example": "jira-agent issue worklog edit PROJ-123 12345 --time-spent 3h",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -3754,6 +4205,10 @@
     "use": "get \u003cissue-key\u003e \u003cworklog-id\u003e",
     "short": "Get a single worklog",
     "example": "jira-agent issue worklog get PROJ-123 12345",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "expand",
@@ -3767,6 +4222,10 @@
     "use": "list \u003cissue-key\u003e",
     "short": "List worklogs on an issue",
     "example": "jira-agent issue worklog list PROJ-123",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "expand",
@@ -3802,6 +4261,10 @@
     "use": "list-by-ids",
     "short": "Get worklogs by IDs",
     "example": "jira-agent issue worklog list-by-ids --ids 12345,67890",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "expand",
@@ -3820,6 +4283,10 @@
     "use": "updated",
     "short": "List updated worklogs",
     "example": "jira-agent issue worklog updated --since 1700000000000",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "expand",
@@ -3842,7 +4309,9 @@
     "short": "Work with Jira issue types",
     "example": "jira-agent issuetype list\njira-agent issuetype get 10001\njira-agent issuetype project 10001",
     "annotations": {
-      "jira-agent/default-subcommand": "list"
+      "jira-agent/category": "discovery",
+      "jira-agent/default-subcommand": "list",
+      "jira-agent/requires-auth": "true"
     },
     "subcommands": [
       "get",
@@ -3854,25 +4323,41 @@
     "path": "jira-agent issuetype get",
     "use": "get \u003cissue-type-id\u003e",
     "short": "Get issue type details by ID",
-    "example": "jira-agent issuetype get 10001"
+    "example": "jira-agent issuetype get 10001",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent issuetype list",
     "use": "list",
     "short": "List all issue types",
-    "example": "jira-agent issuetype list"
+    "example": "jira-agent issuetype list",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent issuetype project",
     "use": "project \u003cproject-id\u003e",
     "short": "List issue types for a project ID",
-    "example": "jira-agent issuetype project 10001"
+    "example": "jira-agent issuetype project 10001",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent jql",
     "use": "jql",
     "short": "JQL autocomplete and validation helpers",
     "example": "jira-agent jql fields\njira-agent jql suggest --field-name status\njira-agent jql validate --query \"project = PROJ AND status = Open\"",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    },
     "subcommands": [
       "fields",
       "suggest",
@@ -3883,13 +4368,21 @@
     "path": "jira-agent jql fields",
     "use": "fields",
     "short": "List JQL field reference data (field names, operators, functions, reserved words)",
-    "example": "jira-agent jql fields"
+    "example": "jira-agent jql fields",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent jql suggest",
     "use": "suggest",
     "short": "Get JQL autocomplete suggestions for a field value",
     "example": "jira-agent jql suggest --field-name status\njira-agent jql suggest --field-name priority --field-value Hi",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "field-name",
@@ -3923,6 +4416,10 @@
     "use": "validate",
     "short": "Parse and validate one or more JQL queries",
     "example": "jira-agent jql validate --query \"project = PROJ AND status = Open\"",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "query",
@@ -3950,7 +4447,9 @@
     "short": "Work with Jira labels",
     "example": "jira-agent label list",
     "annotations": {
-      "jira-agent/default-subcommand": "list"
+      "jira-agent/category": "discovery",
+      "jira-agent/default-subcommand": "list",
+      "jira-agent/requires-auth": "true"
     },
     "subcommands": [
       "list"
@@ -3961,6 +4460,10 @@
     "use": "list",
     "short": "List labels",
     "example": "jira-agent label list",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "max-results",
@@ -3981,6 +4484,10 @@
     "use": "permission",
     "short": "Work with Jira permissions",
     "example": "jira-agent permission check --permissions BROWSE_PROJECTS,CREATE_ISSUES\njira-agent permission list\njira-agent permission schemes list",
+    "annotations": {
+      "jira-agent/category": "admin",
+      "jira-agent/requires-auth": "true"
+    },
     "subcommands": [
       "check",
       "list",
@@ -3992,6 +4499,10 @@
     "use": "check",
     "short": "Check permissions for the current user",
     "example": "jira-agent permission check --permissions BROWSE_PROJECTS,CREATE_ISSUES\njira-agent permission check --permissions ADMINISTER_PROJECTS --project-key PROJ",
+    "annotations": {
+      "jira-agent/category": "admin",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "comment-id",
@@ -4034,7 +4545,11 @@
     "path": "jira-agent permission list",
     "use": "list",
     "short": "List Jira permissions",
-    "example": "jira-agent permission list"
+    "example": "jira-agent permission list",
+    "annotations": {
+      "jira-agent/category": "admin",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent permission schemes",
@@ -4042,7 +4557,9 @@
     "short": "Work with Jira permission schemes",
     "example": "jira-agent permission schemes list\njira-agent permission schemes get 10001",
     "annotations": {
-      "jira-agent/default-subcommand": "list"
+      "jira-agent/category": "admin",
+      "jira-agent/default-subcommand": "list",
+      "jira-agent/requires-auth": "true"
     },
     "subcommands": [
       "get",
@@ -4055,6 +4572,10 @@
     "use": "get",
     "short": "Get a permission scheme",
     "example": "jira-agent permission schemes get 10001",
+    "annotations": {
+      "jira-agent/category": "admin",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "expand",
@@ -4068,6 +4589,10 @@
     "use": "list",
     "short": "List permission schemes",
     "example": "jira-agent permission schemes list",
+    "annotations": {
+      "jira-agent/category": "admin",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "expand",
@@ -4081,6 +4606,10 @@
     "use": "project",
     "short": "Get the permission scheme assigned to a project",
     "example": "jira-agent permission schemes project PROJ",
+    "annotations": {
+      "jira-agent/category": "admin",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "expand",
@@ -4095,7 +4624,9 @@
     "short": "Work with Jira priorities",
     "example": "jira-agent priority list",
     "annotations": {
-      "jira-agent/default-subcommand": "list"
+      "jira-agent/category": "discovery",
+      "jira-agent/default-subcommand": "list",
+      "jira-agent/requires-auth": "true"
     },
     "subcommands": [
       "list"
@@ -4105,7 +4636,11 @@
     "path": "jira-agent priority list",
     "use": "list",
     "short": "List all priorities",
-    "example": "jira-agent priority list"
+    "example": "jira-agent priority list",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent project",
@@ -4113,7 +4648,9 @@
     "short": "Project operations (list, get, roles, property, categories)",
     "example": "jira-agent project list\njira-agent project get PROJ\njira-agent project roles PROJ\njira-agent project roles add-actor PROJ 10000 --user 5b10ac8d82e05b22cc7d4ef5\njira-agent project property get PROJ com.example.flag\njira-agent project categories",
     "annotations": {
-      "jira-agent/default-subcommand": "list"
+      "jira-agent/category": "discovery",
+      "jira-agent/default-subcommand": "list",
+      "jira-agent/requires-auth": "true"
     },
     "subcommands": [
       "categories",
@@ -4129,7 +4666,9 @@
     "short": "Project category operations",
     "example": "jira-agent project categories\njira-agent project categories get 10000",
     "annotations": {
-      "jira-agent/default-subcommand": "list"
+      "jira-agent/category": "discovery",
+      "jira-agent/default-subcommand": "list",
+      "jira-agent/requires-auth": "true"
     },
     "subcommands": [
       "get",
@@ -4140,19 +4679,31 @@
     "path": "jira-agent project categories get",
     "use": "get \u003ccategory-id\u003e",
     "short": "Get project category details",
-    "example": "jira-agent project categories get 10000"
+    "example": "jira-agent project categories get 10000",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent project categories list",
     "use": "list",
     "short": "List project categories",
-    "example": "jira-agent project categories list"
+    "example": "jira-agent project categories list",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent project get",
     "use": "get \u003cproject-key\u003e",
     "short": "Get project details by key or ID",
     "example": "jira-agent project get PROJ\njira-agent project get PROJ --expand lead,description",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "expand",
@@ -4166,6 +4717,10 @@
     "use": "list",
     "short": "List projects (paginated, filterable)",
     "example": "jira-agent project list\njira-agent project list --expand lead,description",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "expand",
@@ -4208,7 +4763,9 @@
     "short": "Manage project properties",
     "example": "jira-agent project property list PROJ\njira-agent project property get PROJ com.example.flag\njira-agent project property set PROJ com.example.flag --value-json '{\"enabled\":true}'",
     "annotations": {
-      "jira-agent/default-subcommand": "list"
+      "jira-agent/category": "discovery",
+      "jira-agent/default-subcommand": "list",
+      "jira-agent/requires-auth": "true"
     },
     "subcommands": [
       "delete",
@@ -4221,25 +4778,41 @@
     "path": "jira-agent project property delete",
     "use": "delete \u003cproject key\u003e \u003cproperty-key\u003e",
     "short": "Delete a project property",
-    "example": "jira-agent project property delete PROJ com.example.flag"
+    "example": "jira-agent project property delete PROJ com.example.flag",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent project property get",
     "use": "get \u003cproject key\u003e \u003cproperty-key\u003e",
     "short": "Get a project property",
-    "example": "jira-agent project property get PROJ com.example.flag"
+    "example": "jira-agent project property get PROJ com.example.flag",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent project property list",
     "use": "list \u003cproject key\u003e",
     "short": "List project property keys",
-    "example": "jira-agent project property list PROJ"
+    "example": "jira-agent project property list PROJ",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent project property set",
     "use": "set \u003cproject key\u003e \u003cproperty-key\u003e",
     "short": "Set a project property",
     "example": "jira-agent project property set PROJ com.example.flag --value-json '{\"enabled\":true}'",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "value-json",
@@ -4259,7 +4832,9 @@
     "short": "Work with project roles",
     "example": "jira-agent project roles PROJ\njira-agent project roles get PROJ 10000 --exclude-inactive-users\njira-agent project roles add-actor PROJ 10000 --user 5b10ac8d82e05b22cc7d4ef5\njira-agent project roles remove-actor PROJ 10000 --group-id 952d12c3-5b5b-4d04-bb32-44d383afc4b2",
     "annotations": {
-      "jira-agent/default-subcommand": "list"
+      "jira-agent/category": "discovery",
+      "jira-agent/default-subcommand": "list",
+      "jira-agent/requires-auth": "true"
     },
     "subcommands": [
       "add-actor",
@@ -4274,6 +4849,8 @@
     "short": "Add actors to a project role",
     "example": "jira-agent project roles add-actor PROJ 10000 --user 5b10ac8d82e05b22cc7d4ef5\njira-agent project roles add-actor PROJ 10000 --group-id 952d12c3-5b5b-4d04-bb32-44d383afc4b2\njira-agent project roles add-actor PROJ 10000 --group \"jira-developers\"",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -4302,6 +4879,10 @@
     "use": "get \u003cproject-key\u003e \u003crole-id\u003e",
     "short": "Get project role details",
     "example": "jira-agent project roles get PROJ 10000\njira-agent project roles get PROJ 10000 --exclude-inactive-users",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "exclude-inactive-users",
@@ -4315,7 +4896,11 @@
     "path": "jira-agent project roles list",
     "use": "list \u003cproject-key\u003e",
     "short": "List project role URLs",
-    "example": "jira-agent project roles list PROJ"
+    "example": "jira-agent project roles list PROJ",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent project roles remove-actor",
@@ -4323,6 +4908,8 @@
     "short": "Remove an actor from a project role",
     "example": "jira-agent project roles remove-actor PROJ 10000 --user 5b10ac8d82e05b22cc7d4ef5\njira-agent project roles remove-actor PROJ 10000 --group-id 952d12c3-5b5b-4d04-bb32-44d383afc4b2\njira-agent project roles remove-actor PROJ 10000 --group \"jira-developers\"",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -4349,7 +4936,9 @@
     "short": "Work with Jira resolutions",
     "example": "jira-agent resolution list",
     "annotations": {
-      "jira-agent/default-subcommand": "list"
+      "jira-agent/category": "discovery",
+      "jira-agent/default-subcommand": "list",
+      "jira-agent/requires-auth": "true"
     },
     "subcommands": [
       "list"
@@ -4359,7 +4948,11 @@
     "path": "jira-agent resolution list",
     "use": "list",
     "short": "List all resolutions",
-    "example": "jira-agent resolution list"
+    "example": "jira-agent resolution list",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent role",
@@ -4367,7 +4960,9 @@
     "short": "Project role definition operations",
     "example": "jira-agent role list\njira-agent role get 10000",
     "annotations": {
-      "jira-agent/default-subcommand": "list"
+      "jira-agent/category": "discovery",
+      "jira-agent/default-subcommand": "list",
+      "jira-agent/requires-auth": "true"
     },
     "subcommands": [
       "get",
@@ -4378,19 +4973,31 @@
     "path": "jira-agent role get",
     "use": "get",
     "short": "Get project role definition",
-    "example": "jira-agent role get 10000"
+    "example": "jira-agent role get 10000",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent role list",
     "use": "list",
     "short": "List project role definitions",
-    "example": "jira-agent role list"
+    "example": "jira-agent role list",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent server-info",
     "use": "server-info",
     "short": "Show Jira server information",
-    "example": "jira-agent server-info"
+    "example": "jira-agent server-info",
+    "annotations": {
+      "jira-agent/category": "admin",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent sprint",
@@ -4398,7 +5005,9 @@
     "short": "Agile sprint operations (list, get, create, update, delete, issues, move-issues, swap, property)",
     "example": "jira-agent sprint list --board-id 42\njira-agent sprint get 100\njira-agent sprint issues 100\njira-agent sprint swap 100 101",
     "annotations": {
-      "jira-agent/default-subcommand": "list"
+      "jira-agent/category": "read",
+      "jira-agent/default-subcommand": "list",
+      "jira-agent/requires-auth": "true"
     },
     "subcommands": [
       "create",
@@ -4418,6 +5027,8 @@
     "short": "Create a new sprint",
     "example": "jira-agent sprint create --board-id 42 --name \"Sprint 5\" --start-date 2025-01-01 --end-date 2025-01-14",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -4464,6 +5075,8 @@
     "short": "Delete a sprint",
     "example": "jira-agent sprint delete 100",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     }
   },
@@ -4471,13 +5084,21 @@
     "path": "jira-agent sprint get",
     "use": "get",
     "short": "Get sprint details by ID",
-    "example": "jira-agent sprint get 100"
+    "example": "jira-agent sprint get 100",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent sprint issues",
     "use": "issues",
     "short": "List issues in a sprint",
     "example": "jira-agent sprint issues 100\njira-agent sprint issues 100 --jql \"status = Done\"",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "expand",
@@ -4513,6 +5134,10 @@
     "use": "list",
     "short": "List sprints for a board",
     "example": "jira-agent sprint list --board-id 42\njira-agent sprint list --board-id 42 --state active",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "board-id",
@@ -4549,6 +5174,8 @@
     "short": "Move issues to a sprint",
     "example": "jira-agent sprint move-issues 100 --issues PROJ-1,PROJ-2",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -4580,7 +5207,9 @@
     "short": "Manage sprint properties",
     "example": "jira-agent sprint property list 100\njira-agent sprint property get 100 com.example.flag\njira-agent sprint property set 100 com.example.flag --value-json '{\"enabled\":true}'",
     "annotations": {
-      "jira-agent/default-subcommand": "list"
+      "jira-agent/category": "read",
+      "jira-agent/default-subcommand": "list",
+      "jira-agent/requires-auth": "true"
     },
     "subcommands": [
       "delete",
@@ -4595,6 +5224,8 @@
     "short": "Delete a sprint property",
     "example": "jira-agent sprint property delete 100 com.example.flag",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     }
   },
@@ -4602,13 +5233,21 @@
     "path": "jira-agent sprint property get",
     "use": "get \u003csprint ID\u003e \u003cproperty-key\u003e",
     "short": "Get a sprint property",
-    "example": "jira-agent sprint property get 100 com.example.flag"
+    "example": "jira-agent sprint property get 100 com.example.flag",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent sprint property list",
     "use": "list \u003csprint ID\u003e",
     "short": "List sprint property keys",
-    "example": "jira-agent sprint property list 100"
+    "example": "jira-agent sprint property list 100",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent sprint property set",
@@ -4616,6 +5255,8 @@
     "short": "Set a sprint property",
     "example": "jira-agent sprint property set 100 com.example.flag --value-json '{\"enabled\":true}'",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -4637,6 +5278,8 @@
     "short": "Swap two sprint positions",
     "example": "jira-agent sprint swap 100 101",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     }
   },
@@ -4646,6 +5289,8 @@
     "short": "Update a sprint",
     "example": "jira-agent sprint update 100 --name \"Sprint 5 (revised)\"\njira-agent sprint update 100 --state closed",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -4682,7 +5327,9 @@
     "short": "Work with Jira statuses",
     "example": "jira-agent status list\njira-agent status get \"In Progress\"\njira-agent status categories",
     "annotations": {
-      "jira-agent/default-subcommand": "list"
+      "jira-agent/category": "workflow",
+      "jira-agent/default-subcommand": "list",
+      "jira-agent/requires-auth": "true"
     },
     "subcommands": [
       "categories",
@@ -4694,19 +5341,31 @@
     "path": "jira-agent status categories",
     "use": "categories",
     "short": "List status categories",
-    "example": "jira-agent status categories"
+    "example": "jira-agent status categories",
+    "annotations": {
+      "jira-agent/category": "workflow",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent status get",
     "use": "get \u003cstatus-id-or-name\u003e",
     "short": "Get status details by ID or name",
-    "example": "jira-agent status get \"In Progress\""
+    "example": "jira-agent status get \"In Progress\"",
+    "annotations": {
+      "jira-agent/category": "workflow",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent status list",
     "use": "list",
     "short": "List all statuses",
-    "example": "jira-agent status list"
+    "example": "jira-agent status list",
+    "annotations": {
+      "jira-agent/category": "workflow",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent task",
@@ -4714,7 +5373,9 @@
     "short": "Work with Jira async tasks",
     "example": "jira-agent task get 10641\njira-agent task cancel 10641",
     "annotations": {
-      "jira-agent/default-subcommand": "get"
+      "jira-agent/category": "read",
+      "jira-agent/default-subcommand": "get",
+      "jira-agent/requires-auth": "true"
     },
     "subcommands": [
       "cancel",
@@ -4727,6 +5388,8 @@
     "short": "Cancel an async task",
     "example": "jira-agent task cancel 10641",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     }
   },
@@ -4734,7 +5397,11 @@
     "path": "jira-agent task get",
     "use": "get \u003ctask-id\u003e",
     "short": "Get async task status",
-    "example": "jira-agent task get 10641"
+    "example": "jira-agent task get 10641",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent time-tracking",
@@ -4742,7 +5409,9 @@
     "short": "Work with Jira time tracking configuration",
     "example": "jira-agent time-tracking get\njira-agent time-tracking providers\njira-agent time-tracking select --key JIRA\njira-agent time-tracking options get\njira-agent time-tracking options set --working-hours-per-day 8 --working-days-per-week 5 --time-format pretty --default-unit minute",
     "annotations": {
-      "jira-agent/default-subcommand": "get"
+      "jira-agent/category": "admin",
+      "jira-agent/default-subcommand": "get",
+      "jira-agent/requires-auth": "true"
     },
     "subcommands": [
       "get",
@@ -4755,7 +5424,11 @@
     "path": "jira-agent time-tracking get",
     "use": "get",
     "short": "Get selected time tracking provider",
-    "example": "jira-agent time-tracking get"
+    "example": "jira-agent time-tracking get",
+    "annotations": {
+      "jira-agent/category": "admin",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent time-tracking options",
@@ -4763,7 +5436,9 @@
     "short": "Work with time tracking settings",
     "example": "jira-agent time-tracking options get\njira-agent time-tracking options set --working-hours-per-day 8 --working-days-per-week 5 --time-format pretty --default-unit minute",
     "annotations": {
-      "jira-agent/default-subcommand": "get"
+      "jira-agent/category": "admin",
+      "jira-agent/default-subcommand": "get",
+      "jira-agent/requires-auth": "true"
     },
     "subcommands": [
       "get",
@@ -4774,7 +5449,11 @@
     "path": "jira-agent time-tracking options get",
     "use": "get",
     "short": "Get time tracking settings",
-    "example": "jira-agent time-tracking options get"
+    "example": "jira-agent time-tracking options get",
+    "annotations": {
+      "jira-agent/category": "admin",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent time-tracking options set",
@@ -4782,6 +5461,8 @@
     "short": "Set time tracking settings",
     "example": "jira-agent time-tracking options set --working-hours-per-day 8 --working-days-per-week 5 --time-format pretty --default-unit minute",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -4833,7 +5514,11 @@
     "path": "jira-agent time-tracking providers",
     "use": "providers",
     "short": "List time tracking providers",
-    "example": "jira-agent time-tracking providers"
+    "example": "jira-agent time-tracking providers",
+    "annotations": {
+      "jira-agent/category": "admin",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent time-tracking select",
@@ -4841,6 +5526,8 @@
     "short": "Select time tracking provider",
     "example": "jira-agent time-tracking select --key JIRA",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -4862,7 +5549,9 @@
     "short": "Work with Jira users",
     "example": "jira-agent user search --query \"john\"\njira-agent user get --account-id 5b10a2844c20165700ede21g\njira-agent user groups --account-id 5b10a2844c20165700ede21g",
     "annotations": {
-      "jira-agent/default-subcommand": "search"
+      "jira-agent/category": "read",
+      "jira-agent/default-subcommand": "search",
+      "jira-agent/requires-auth": "true"
     },
     "subcommands": [
       "get",
@@ -4875,6 +5564,10 @@
     "use": "get",
     "short": "Get a user by account ID",
     "example": "jira-agent user get --account-id 5b10a2844c20165700ede21g",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "account-id",
@@ -4898,6 +5591,10 @@
     "use": "groups",
     "short": "List groups for a user",
     "example": "jira-agent user groups --account-id 5b10a2844c20165700ede21g",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "account-id",
@@ -4916,6 +5613,10 @@
     "use": "search",
     "short": "Search users",
     "example": "jira-agent user search --query \"john\"\njira-agent user search --query \"john.doe@example.com\"",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "account-id",
@@ -4952,7 +5653,9 @@
     "short": "Project version operations (list, get, create, update, delete, merge, move, issue-counts, unresolved-count)",
     "example": "jira-agent version list --project PROJ\njira-agent version get 10001\njira-agent version create --project PROJ --name \"v1.0\"",
     "annotations": {
-      "jira-agent/default-subcommand": "list"
+      "jira-agent/category": "read",
+      "jira-agent/default-subcommand": "list",
+      "jira-agent/requires-auth": "true"
     },
     "subcommands": [
       "create",
@@ -4972,6 +5675,8 @@
     "short": "Create a project version",
     "example": "jira-agent version create --project PROJ --name \"v1.0\"\njira-agent version create --project PROJ --name \"v2.0\" --start-date 2025-01-01 --release-date 2025-06-01",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -5020,6 +5725,8 @@
     "short": "Delete a project version",
     "example": "jira-agent version delete 10001",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -5040,6 +5747,10 @@
     "use": "get \u003cversion-id\u003e",
     "short": "Get version details by ID",
     "example": "jira-agent version get 10001",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "expand",
@@ -5052,13 +5763,21 @@
     "path": "jira-agent version issue-counts",
     "use": "issue-counts \u003cversion-id\u003e",
     "short": "Get related issue counts for a version",
-    "example": "jira-agent version issue-counts 10001"
+    "example": "jira-agent version issue-counts 10001",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent version list",
     "use": "list",
     "short": "List project versions",
     "example": "jira-agent version list --project PROJ",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "expand",
@@ -5100,6 +5819,8 @@
     "short": "Merge a version into another (deletes the source version)",
     "example": "jira-agent version merge 10001 10002",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     }
   },
@@ -5109,6 +5830,8 @@
     "short": "Move a version's position within the project",
     "example": "jira-agent version move 10001 --after 10002\njira-agent version move 10001 --position Earlier",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -5128,7 +5851,11 @@
     "path": "jira-agent version unresolved-count",
     "use": "unresolved-count \u003cversion-id\u003e",
     "short": "Get unresolved issue count for a version",
-    "example": "jira-agent version unresolved-count 10001"
+    "example": "jira-agent version unresolved-count 10001",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent version update",
@@ -5136,6 +5863,8 @@
     "short": "Update a project version",
     "example": "jira-agent version update 10001 --name \"v1.1\"\njira-agent version update 10001 --released",
     "annotations": {
+      "jira-agent/category": "write",
+      "jira-agent/requires-auth": "true",
       "jira-agent/write-protected": "true"
     },
     "local_flags": [
@@ -5177,7 +5906,11 @@
     "path": "jira-agent whoami",
     "use": "whoami",
     "short": "Display the authenticated Jira user",
-    "example": "jira-agent whoami"
+    "example": "jira-agent whoami",
+    "annotations": {
+      "jira-agent/category": "read",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent workflow",
@@ -5185,7 +5918,9 @@
     "short": "Work with Jira workflows",
     "example": "jira-agent workflow list\njira-agent workflow get wf-10001\njira-agent workflow statuses",
     "annotations": {
-      "jira-agent/default-subcommand": "list"
+      "jira-agent/category": "workflow",
+      "jira-agent/default-subcommand": "list",
+      "jira-agent/requires-auth": "true"
     },
     "subcommands": [
       "get",
@@ -5200,6 +5935,10 @@
     "use": "get \u003cworkflow-id\u003e",
     "short": "Get a workflow by workflow ID or name",
     "example": "jira-agent workflow get wf-10001",
+    "annotations": {
+      "jira-agent/category": "workflow",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "name",
@@ -5213,6 +5952,10 @@
     "use": "list",
     "short": "Search workflows",
     "example": "jira-agent workflow list\njira-agent workflow list --expand transitions",
+    "annotations": {
+      "jira-agent/category": "workflow",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "expand",
@@ -5260,7 +6003,9 @@
     "short": "Work with workflow schemes",
     "example": "jira-agent workflow scheme list\njira-agent workflow scheme get 10001",
     "annotations": {
-      "jira-agent/default-subcommand": "list"
+      "jira-agent/category": "workflow",
+      "jira-agent/default-subcommand": "list",
+      "jira-agent/requires-auth": "true"
     },
     "subcommands": [
       "get",
@@ -5273,6 +6018,10 @@
     "use": "get \u003cscheme-id\u003e",
     "short": "Get a workflow scheme",
     "example": "jira-agent workflow scheme get 10001",
+    "annotations": {
+      "jira-agent/category": "workflow",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "return-draft",
@@ -5287,6 +6036,10 @@
     "use": "list",
     "short": "List workflow schemes",
     "example": "jira-agent workflow scheme list",
+    "annotations": {
+      "jira-agent/category": "workflow",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "max-results",
@@ -5306,19 +6059,31 @@
     "path": "jira-agent workflow scheme project",
     "use": "project \u003cproject-id\u003e",
     "short": "Get workflow scheme associations for a numeric project ID",
-    "example": "jira-agent workflow scheme project 10001"
+    "example": "jira-agent workflow scheme project 10001",
+    "annotations": {
+      "jira-agent/category": "workflow",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent workflow statuses",
     "use": "statuses",
     "short": "List Jira statuses used by workflows",
-    "example": "jira-agent workflow statuses"
+    "example": "jira-agent workflow statuses",
+    "annotations": {
+      "jira-agent/category": "workflow",
+      "jira-agent/requires-auth": "true"
+    }
   },
   {
     "path": "jira-agent workflow transition-rules",
     "use": "transition-rules",
     "short": "List available workflow transition rule capabilities",
     "example": "jira-agent workflow transition-rules --workflow-ids wf-10001,wf-10002",
+    "annotations": {
+      "jira-agent/category": "workflow",
+      "jira-agent/requires-auth": "true"
+    },
     "local_flags": [
       {
         "name": "issue-type-id",

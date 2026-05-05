@@ -5,11 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
+	"sort"
 	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
 
+	"github.com/major/jira-agent/internal/client"
 	apperr "github.com/major/jira-agent/internal/errors"
 	"github.com/major/jira-agent/internal/output"
 )
@@ -691,6 +694,20 @@ func TestWriteGuard(t *testing.T) {
 func TestCommandAnnotations(t *testing.T) {
 	t.Parallel()
 
+	t.Run("keeps llm routing annotation keys stable", func(t *testing.T) {
+		t.Parallel()
+
+		if commandAnnotationCategory != "jira-agent/category" {
+			t.Errorf("commandAnnotationCategory = %q, want jira-agent/category", commandAnnotationCategory)
+		}
+		if commandAnnotationRequiresAuth != "jira-agent/requires-auth" {
+			t.Errorf("commandAnnotationRequiresAuth = %q, want jira-agent/requires-auth", commandAnnotationRequiresAuth)
+		}
+		if commandRequiresAuthTrue != "true" || commandRequiresAuthFalse != "false" {
+			t.Errorf("requires-auth values = %q/%q, want true/false", commandRequiresAuthTrue, commandRequiresAuthFalse)
+		}
+	})
+
 	t.Run("records default subcommand", func(t *testing.T) {
 		t.Parallel()
 
@@ -738,6 +755,118 @@ func TestCommandAnnotations(t *testing.T) {
 			t.Error("read command was marked write-protected")
 		}
 	})
+}
+
+func TestSetCommandCategory(t *testing.T) {
+	t.Parallel()
+
+	t.Run("records valid category", func(t *testing.T) {
+		t.Parallel()
+
+		cmd := &cobra.Command{Use: "search"}
+		SetCommandCategory(cmd, "read")
+
+		got := cmd.Annotations[commandAnnotationCategory]
+		if got != "read" {
+			t.Errorf("category annotation = %q, want read", got)
+		}
+	})
+
+	t.Run("panics for invalid category", func(t *testing.T) {
+		t.Parallel()
+
+		defer func() {
+			panicValue := recover()
+			if panicValue == nil {
+				t.Fatal("SetCommandCategory accepted invalid category, want panic")
+			}
+			if !strings.Contains(fmt.Sprint(panicValue), "invalid command category") {
+				t.Fatalf("panic = %v, want invalid command category", panicValue)
+			}
+		}()
+
+		SetCommandCategory(&cobra.Command{Use: "bad"}, "unsafe")
+	})
+}
+
+func TestCommandCategories(t *testing.T) {
+	t.Parallel()
+
+	got := CommandCategories()
+	for _, category := range []string{"read", "write", "bulk", "discovery", "workflow", "admin"} {
+		paths, ok := got[category]
+		if !ok {
+			t.Fatalf("CommandCategories()[%q] missing", category)
+		}
+		if !sort.StringsAreSorted(paths) {
+			t.Errorf("CommandCategories()[%q] = %v, want sorted paths", category, paths)
+		}
+	}
+
+	wantSamples := map[string][]string{
+		"read":      {"issue get", "issue search"},
+		"write":     {"issue create", "issue transition"},
+		"bulk":      {"issue bulk create", "issue bulk transition"},
+		"discovery": {"field list", "project list"},
+		"workflow":  {"workflow list", "status list"},
+		"admin":     {"audit list", "server-info"},
+	}
+	for category, paths := range wantSamples {
+		for _, path := range paths {
+			if !slices.Contains(got[category], path) {
+				t.Errorf("CommandCategories()[%q] = %v, want %q", category, got[category], path)
+			}
+		}
+	}
+}
+
+func TestAllCommandsHaveCategory(t *testing.T) {
+	t.Parallel()
+
+	allowWrites := false
+	format := output.FormatJSON
+	apiClient := &client.Ref{}
+	var w strings.Builder
+	root := &cobra.Command{Use: "jira-agent"}
+	root.AddCommand(
+		AuditCommand(apiClient, &w, &format),
+		IssueCommand(apiClient, &w, &format, &allowWrites),
+		FieldCommand(apiClient, &w, &format, &allowWrites),
+		ProjectCommand(apiClient, &w, &format, &allowWrites),
+		RoleCommand(apiClient, &w, &format),
+		BoardCommand(apiClient, &w, &format, &allowWrites),
+		UserCommand(apiClient, &w, &format),
+		GroupCommand(apiClient, &w, &format, &allowWrites),
+		FilterCommand(apiClient, &w, &format, &allowWrites),
+		PermissionCommand(apiClient, &w, &format),
+		DashboardCommand(apiClient, &w, &format, &allowWrites),
+		WorkflowCommand(apiClient, &w, &format),
+		StatusCommand(apiClient, &w, &format),
+		PriorityCommand(apiClient, &w, &format),
+		ResolutionCommand(apiClient, &w, &format),
+		IssueTypeCommand(apiClient, &w, &format),
+		LabelCommand(apiClient, &w, &format),
+		ComponentCommand(apiClient, &w, &format, &allowWrites),
+		VersionCommand(apiClient, &w, &format, &allowWrites),
+		SprintCommand(apiClient, &w, &format, &allowWrites),
+		EpicCommand(apiClient, &w, &format, &allowWrites),
+		BacklogCommand(apiClient, &w, &format, &allowWrites),
+		TaskCommand(apiClient, &w, &format, &allowWrites),
+		TimeTrackingCommand(apiClient, &w, &format, &allowWrites),
+		ServerInfoCommand(apiClient, &w, &format),
+		JQLCommand(apiClient, &w, &format),
+	)
+
+	MarkWriteProtectedCommands(root)
+
+	for _, cmd := range allCommands(root) {
+		if cmd == root {
+			continue
+		}
+		if got := cmd.Annotations[commandAnnotationCategory]; got == "" {
+			t.Errorf("%q category annotation missing", cmd.CommandPath())
+		}
+	}
 }
 
 func TestAppendQueryParams(t *testing.T) {
