@@ -93,9 +93,15 @@ func TestErrorRemediation(t *testing.T) {
 		wantAvailableActions []string
 	}{
 		{
-			name:                 "validation error provides write-enable command",
+			name:                 "write-blocked validation error provides write-enable command",
 			err:                  NewValidationError("write access is disabled", nil, WithWriteBlocked()),
 			wantNextCommand:      "export JIRA_ALLOW_WRITES=true",
+			wantAvailableActions: nil,
+		},
+		{
+			name:                 "validation error without write block returns empty next command",
+			err:                  NewValidationError("issue key is required", nil),
+			wantNextCommand:      "",
 			wantAvailableActions: nil,
 		},
 		{
@@ -108,6 +114,12 @@ func TestErrorRemediation(t *testing.T) {
 			name:                 "not found error returns empty next command when no resource key",
 			err:                  NewNotFoundError("resource not found", nil),
 			wantNextCommand:      "",
+			wantAvailableActions: nil,
+		},
+		{
+			name:                 "not found error uses custom next command",
+			err:                  NewNotFoundError("no active sprint found", nil, WithNextCommand("jira-agent sprint list --board-id 42 --state active")),
+			wantNextCommand:      "jira-agent sprint list --board-id 42 --state active",
 			wantAvailableActions: nil,
 		},
 		{
@@ -135,13 +147,14 @@ func TestErrorRemediation(t *testing.T) {
 			t.Parallel()
 
 			// All JiraError types expose NextCommand and AvailableActions.
+			// Use errors.As to support wrapped errors.
 			type remediator interface {
 				NextCommand() string
 				AvailableActions() []string
 			}
 
-			r, ok := tt.err.(remediator)
-			if !ok {
+			var r remediator
+			if !stderrors.As(tt.err, &r) {
 				t.Fatalf("error does not implement remediator interface")
 			}
 

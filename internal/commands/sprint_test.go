@@ -122,8 +122,9 @@ func TestSprintCurrentCommand(t *testing.T) {
 		if !errors.As(err, &notFound) {
 			t.Fatalf("error type = %T, want *apperr.NotFoundError", err)
 		}
-		if notFound.NextCommand() == "" {
-			t.Error("expected non-empty next_command with remediation hint")
+		wantNextCommand := "jira-agent sprint list --board-id 42 --state active"
+		if got := notFound.NextCommand(); got != wantNextCommand {
+			t.Errorf("NextCommand() = %q, want %q", got, wantNextCommand)
 		}
 	})
 

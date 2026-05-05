@@ -589,9 +589,13 @@ func TestWriteErrorRemediation(t *testing.T) {
 		wantAvailableActions []string
 	}{
 		{
-			name:            "validation error includes next_command",
+			name:            "write-blocked validation error includes next_command",
 			err:             apperr.NewValidationError("write access is disabled", nil, apperr.WithWriteBlocked()),
 			wantNextCommand: "export JIRA_ALLOW_WRITES=true",
+		},
+		{
+			name: "validation error without write block omits next_command",
+			err:  apperr.NewValidationError("issue key is required", nil),
 		},
 		{
 			name:            "not found error includes next_command with resource key",
