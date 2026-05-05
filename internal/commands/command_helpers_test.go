@@ -1742,6 +1742,32 @@ func TestFlagGroupsHelper(t *testing.T) {
 			t.Errorf("JSON = %s, want %s", data, want)
 		}
 	})
+
+	t.Run("panics on corrupt annotation data", func(t *testing.T) {
+		t.Parallel()
+
+		cmd := &cobra.Command{Use: "test"}
+		setCommandAnnotation(cmd, commandAnnotationFlagGroups, "not valid json{{{")
+
+		defer func() {
+			r := recover()
+			if r == nil {
+				t.Fatal("recordFlagGroup() did not panic on corrupt annotation")
+			}
+			msg, ok := r.(string)
+			if !ok {
+				t.Fatalf("panic value type = %T, want string", r)
+			}
+			if !strings.Contains(msg, "corrupt") {
+				t.Errorf("panic message = %q, want containing %q", msg, "corrupt")
+			}
+		}()
+
+		recordFlagGroup(cmd, flagGroupInfo{
+			Type:  flagGroupTypeMutuallyExclusive,
+			Flags: []string{"a", "b"},
+		})
+	})
 }
 
 func TestMustGetHelpers(t *testing.T) {

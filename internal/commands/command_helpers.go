@@ -693,14 +693,21 @@ func markMutuallyExclusive(cmd *cobra.Command, flags ...string) {
 
 // recordFlagGroup appends a flag group entry to the command's annotation-based
 // registry. Groups are stored as a JSON array under the jira-agent/flag-groups
-// annotation key.
+// annotation key. It panics on marshal/unmarshal failure because these indicate
+// corrupt annotation data or unserializable types, both programmer errors that
+// should fail loudly during command-tree construction.
 func recordFlagGroup(cmd *cobra.Command, group flagGroupInfo) {
 	var groups []flagGroupInfo
 	if raw := cmd.Annotations[commandAnnotationFlagGroups]; raw != "" {
-		_ = json.Unmarshal([]byte(raw), &groups)
+		if err := json.Unmarshal([]byte(raw), &groups); err != nil {
+			panic(fmt.Sprintf("recordFlagGroup: corrupt %s annotation: %v", commandAnnotationFlagGroups, err))
+		}
 	}
 	groups = append(groups, group)
-	data, _ := json.Marshal(groups)
+	data, err := json.Marshal(groups)
+	if err != nil {
+		panic(fmt.Sprintf("recordFlagGroup: marshal flag groups: %v", err))
+	}
 	setCommandAnnotation(cmd, commandAnnotationFlagGroups, string(data))
 }
 
