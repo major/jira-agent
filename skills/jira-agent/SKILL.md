@@ -137,11 +137,11 @@ For reads/searches, request only needed fields: `--fields key,summary,status`. S
 {
   "data": { ... },
   "errors": [],
-  "metadata": { "timestamp": "...", "total": 42, "returned": 10, "start_at": 0, "max_results": 50, "has_more": true, "next_command": "jira-agent issue search --jql '...' --max-results 10 --start-at 10" }
+  "metadata": { "timestamp": "...", "pagination": { "type": "offset", "has_more": true, "next_command": "jira-agent issue mine --max-results 10 --start-at 10", "returned": 10, "total": 42, "start_at": 0, "max_results": 50 } }
 }
 ```
 
-Access results via `.data`. Check `metadata.has_more` for pagination. When `has_more` is true, `metadata.next_command` contains the ready-to-run command for the next page.
+Access results via `.data`. Check `metadata.pagination.has_more` for pagination. When `has_more` is true, `metadata.pagination.next_command` contains the ready-to-run command for the next page.
 
 ### Error response (always JSON, regardless of --output)
 
@@ -285,12 +285,21 @@ Presets: `minimal` (key, summary, status), `triage` (+ priority, assignee, label
 
 ## Pagination
 
-Paginated responses include `has_more` (bool, always present) and `next_command` (string, present when `has_more` is true) in `metadata`.
+Paginated responses include `metadata.pagination.has_more` (bool, always present) and `metadata.pagination.next_command` (string, present when `has_more` is true).
 
 ```bash
+# Offset pagination (issue mine, issue recent, most list commands)
+jira-agent issue mine --max-results 10
+# metadata.pagination.type: "offset"
+# metadata.pagination.has_more: true
+# metadata.pagination.next_command: "jira-agent issue mine --max-results 10 --start-at 10"
+
+# Cursor pagination (issue search, changelog bulk-fetch)
 jira-agent issue search --jql "project = PROJ" --max-results 10
-# metadata.has_more: true
-# metadata.next_command: "jira-agent issue search --jql 'project = PROJ' --max-results 10 --start-at 10"
+# metadata.pagination.type: "cursor"
+# metadata.pagination.has_more: true
+# metadata.pagination.next_token: "<cursor-token>"
+# metadata.pagination.next_command: "jira-agent issue search --jql 'project = PROJ' --max-results 10 --next-page-token <cursor-token>"
 ```
 
 ## Gotchas
@@ -300,7 +309,8 @@ jira-agent issue search --jql "project = PROJ" --max-results 10
 - **Project flag**: Command-level `--project` overrides root `-p`.
 - **Type resolution**: Issue type matching is case-insensitive.
 - **Transition resolution**: `issue transition --to` matches status/transition name case-insensitively. Use `--transition-id` when you already know Jira's numeric transition ID.
-- **Pagination**: `issue search` uses `--next-page-token` (cursor). Most other list commands use `--start-at` (offset).
+- **Pagination**: `issue search` uses `--next-page-token` (cursor).
+- **Offset pagination**: Offset-paginated list commands use `--start-at`.
 - **JSON shape**: Default JSON removes common Jira metadata noise, including `self`, `expand`, `avatarUrls`, `iconUrl`, and nested `statusCategory` objects. `issue search` additionally flattens common objects to useful scalar values, for example `status` to its name and `assignee` to display name. `issue get --raw` and `issue search --raw` restore Jira's nested response and bypass description conversion; use `--help` to check flag availability on any command.
 - **Assignment**: `issue assign` accepts account ID, not email. `--unassign` clears, `--default` uses project default.
 - **Visibility**: Both `--visibility-type` and `--visibility-value` must be set together.

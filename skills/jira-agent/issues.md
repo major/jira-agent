@@ -43,7 +43,7 @@ Default JSON output is flattened for LLM efficiency: `.data.issues[]` contains c
 | `--fields-preset` | | Named preset: `minimal`, `triage`, or `detail`; mutually exclusive with `--fields` |
 | `--description-output-format` | text | `text`, `markdown`, or `adf`; ignored by `--raw` |
 | `--max-results` | 50 | Page size |
-| `--next-page-token` | | Cursor from previous `.data.nextPageToken` |
+| `--next-page-token` | | Cursor from previous `metadata.pagination.next_token` |
 | `--expand` | | e.g., `changelog,renderedFields` |
 | `--order-by` | | Sort field |
 | `--order` | | `asc` or `desc` |
@@ -271,7 +271,7 @@ jira-agent issue create --project PROJ --type Story \
 
 ```bash
 RESULT=$(jira-agent issue search --jql "project = PROJ" --max-results 50)
-# Extract nextPageToken from .data.nextPageToken, pass to subsequent calls
+# Extract next_token from metadata.pagination.next_token, pass to subsequent calls via --next-page-token
 jira-agent issue search --jql "project = PROJ" --max-results 50 \
   --next-page-token "TOKEN_FROM_PREVIOUS_RESPONSE"
 ```

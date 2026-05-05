@@ -161,15 +161,20 @@ Successful JSON responses use a stable envelope:
   "data": {},
   "metadata": {
     "timestamp": "2026-04-28T00:00:00Z",
-    "total": 42,
-    "returned": 10,
-    "has_more": true,
-    "next_command": "jira-agent issue search --jql 'project = PROJ' --max-results 10 --start-at 10"
+    "pagination": {
+      "type": "offset",
+      "has_more": true,
+      "next_command": "jira-agent issue mine --max-results 10 --start-at 10",
+      "returned": 10,
+      "total": 42,
+      "start_at": 0,
+      "max_results": 50
+    }
   }
 }
 ```
 
-`has_more` is always present in paginated responses. When true, `next_command` contains the ready-to-run command for the next page.
+`metadata.pagination.has_more` is always present in paginated responses. When true, `metadata.pagination.next_command` contains the ready-to-run command for the next page.
 
 Errors are always JSON, regardless of `--output`:
 

@@ -67,7 +67,7 @@ Module: `github.com/major/jira-agent`. Go version: `1.26`. CLI framework: `githu
 - Successful JSON goes through `output.WriteSuccess` or `output.WriteResult`; partial success goes through `output.WritePartial`.
 - Errors always go through `output.WriteError` and are JSON regardless of requested output format.
 - The JSON success envelope has `data`, optional `errors`, and `metadata`. Do not document or add a stale `status` field unless the code changes.
-- `metadata` carries `timestamp`, `total`, `returned`, `start_at`, and `max_results` when available. Paginated responses also include `has_more` (bool, always present) and `next_command` (string, present when `has_more` is true) so agents can page without constructing the next command manually.
+- `metadata` carries `timestamp` and a `pagination` sub-object when paginated. `pagination.type` is `"offset"` or `"cursor"`. `pagination.has_more` (bool, always present) and `pagination.next_command` (string, present when `has_more` is true) let agents page without constructing the next command manually. Offset responses also include `pagination.total`, `pagination.returned`, `pagination.start_at`, `pagination.max_results`. Cursor responses include `pagination.next_token`. Non-paginated responses have only `timestamp`.
 - Error detail objects include `next_command` (string) and `available_actions` ([]string) when applicable, so agents can recover without guessing.
 - JSON encoders must call `SetEscapeHTML(false)` so Jira URLs and text stay LLM-readable.
 - CSV/TSV output is flat rows with deterministic sorted headers; nested values serialize as inline JSON strings.
