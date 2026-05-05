@@ -313,19 +313,19 @@ func summarizeSprintIssues(ctx context.Context, apiClient *client.Ref, sprintID 
 func sprintIssueSummaryValues(issue any, spFieldID string) (statusName string, spValue float64, hasSP bool) {
 	issueMap, ok := issue.(map[string]any)
 	if !ok {
-		return
+		return statusName, spValue, hasSP
 	}
 	fields, ok := issueMap["fields"].(map[string]any)
 	if !ok {
-		return
+		return statusName, spValue, hasSP
 	}
 	status, _ := fields["status"].(map[string]any)
 	statusName, _ = status["name"].(string)
 	if spFieldID == "" {
-		return
+		return statusName, spValue, hasSP
 	}
 	spValue, hasSP = numberFromAny(fields[spFieldID])
-	return
+	return statusName, spValue, hasSP
 }
 
 func resultList(result any, key string) []any {
