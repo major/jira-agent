@@ -22,6 +22,12 @@
         "usage": "Path to config file"
       },
       {
+        "name": "dry-run",
+        "type": "bool",
+        "default": "false",
+        "usage": "Preview write-capable composite commands without making changes"
+      },
+      {
         "name": "output",
         "shorthand": "o",
         "type": "string",
@@ -60,6 +66,12 @@
         "type": "string",
         "default": "${HOME}/.config/jira-agent/config.json",
         "usage": "Path to config file"
+      },
+      {
+        "name": "dry-run",
+        "type": "bool",
+        "default": "false",
+        "usage": "Preview write-capable composite commands without making changes"
       },
       {
         "name": "output",

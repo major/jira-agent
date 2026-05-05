@@ -824,13 +824,14 @@ func TestAllCommandsHaveCategory(t *testing.T) {
 	t.Parallel()
 
 	allowWrites := false
+	dryRun := false
 	format := output.FormatJSON
 	apiClient := &client.Ref{}
 	var w strings.Builder
 	root := &cobra.Command{Use: "jira-agent"}
 	root.AddCommand(
 		AuditCommand(apiClient, &w, &format),
-		IssueCommand(apiClient, &w, &format, &allowWrites),
+		IssueCommand(apiClient, &w, &format, &allowWrites, &dryRun),
 		FieldCommand(apiClient, &w, &format, &allowWrites),
 		ProjectCommand(apiClient, &w, &format, &allowWrites),
 		RoleCommand(apiClient, &w, &format),

@@ -35,6 +35,11 @@ func testAllowWrites() *bool {
 	return &v
 }
 
+func testDryRun() *bool {
+	v := false
+	return &v
+}
+
 func runCommandAction(t *testing.T, cmd *cobra.Command, args ...string) string {
 	t.Helper()
 	var buf bytes.Buffer
@@ -108,7 +113,7 @@ func TestCommandGroups_RegisterSubcommands(t *testing.T) {
 		{name: "backlog", cmd: BacklogCommand(apiClient, &buf, format, testAllowWrites()), want: 2},
 		{name: "task", cmd: TaskCommand(apiClient, &buf, format, testAllowWrites()), want: 2},
 		{name: "time-tracking", cmd: TimeTrackingCommand(apiClient, &buf, format, testAllowWrites()), want: 4},
-		{name: "issue", cmd: IssueCommand(apiClient, &buf, format, testAllowWrites()), want: 31},
+		{name: "issue", cmd: IssueCommand(apiClient, &buf, format, testAllowWrites(), testDryRun()), want: 31},
 		{name: "jql", cmd: JQLCommand(apiClient, &buf, format), want: 3},
 	}
 
