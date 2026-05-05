@@ -168,7 +168,7 @@ Successful JSON responses use a stable envelope:
       "returned": 10,
       "total": 42,
       "start_at": 0,
-      "max_results": 50
+      "max_results": 10
     }
   }
 }

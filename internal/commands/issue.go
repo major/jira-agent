@@ -816,12 +816,13 @@ jira-agent issue count --jql "assignee = currentUser() AND resolution = Unresolv
 			if err := apiClient.Post(ctx, "/search/jql", body, &result); err != nil {
 				return err
 			}
-			meta := extractPaginationMeta(cmd, result)
 			total := 0
-			if meta.Pagination != nil {
-				total = meta.Pagination.Total
+			if resultMap, ok := result.(map[string]any); ok {
+				if value, ok := resultMap["total"].(float64); ok {
+					total = int(value)
+				}
 			}
-			return output.WriteSuccess(w, map[string]any{"total": total}, meta, *format)
+			return output.WriteSuccess(w, map[string]any{"total": total}, output.NewMetadata(), *format)
 		},
 	}
 	cmd.Flags().String("jql", "", "JQL query to count results for (required)")

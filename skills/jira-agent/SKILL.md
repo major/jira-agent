@@ -137,7 +137,7 @@ For reads/searches, request only needed fields: `--fields key,summary,status`. S
 {
   "data": { ... },
   "errors": [],
-  "metadata": { "timestamp": "...", "pagination": { "type": "offset", "has_more": true, "next_command": "jira-agent issue mine --max-results 10 --start-at 10", "returned": 10, "total": 42, "start_at": 0, "max_results": 50 } }
+  "metadata": { "timestamp": "...", "pagination": { "type": "offset", "has_more": true, "next_command": "jira-agent issue mine --max-results 10 --start-at 10", "returned": 10, "total": 42, "start_at": 0, "max_results": 10 } }
 }
 ```
 

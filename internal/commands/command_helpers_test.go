@@ -394,6 +394,16 @@ func TestCursorPaginationMeta(t *testing.T) {
 			wantReturned:    1,
 		},
 		{
+			name: "isLast false but empty token means last page",
+			result: map[string]any{
+				"nextPageToken": "",
+				"isLast":        false,
+				"issues":        []any{map[string]any{"key": "TEST-1"}},
+			},
+			wantHasMore:  false,
+			wantReturned: 1,
+		},
+		{
 			name: "empty last page",
 			result: map[string]any{
 				"nextPageToken": "",

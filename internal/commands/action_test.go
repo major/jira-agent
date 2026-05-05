@@ -62,8 +62,9 @@ func assertNoPaginationMetadata(t *testing.T, outputBytes []byte) {
 	if err := json.Unmarshal(outputBytes, &env); err != nil {
 		t.Fatalf("json.Unmarshal() error = %v, output %s", err, string(outputBytes))
 	}
-	if env.Metadata["timestamp"] == "" {
-		t.Errorf("metadata timestamp = empty, want populated")
+	timestamp, ok := env.Metadata["timestamp"].(string)
+	if !ok || timestamp == "" {
+		t.Errorf("metadata timestamp = %v, want populated string", env.Metadata["timestamp"])
 	}
 	if _, ok := env.Metadata["pagination"]; ok {
 		t.Errorf("metadata = %v, want no pagination key for non-paginated output", env.Metadata)
@@ -4474,11 +4475,6 @@ func TestIssueCountCommand(t *testing.T) {
 			Data struct {
 				Total int `json:"total"`
 			} `json:"data"`
-			Metadata struct {
-				Pagination struct {
-					Total int `json:"total"`
-				} `json:"pagination"`
-			} `json:"metadata"`
 		}
 		if err := json.Unmarshal(buf.Bytes(), &got); err != nil {
 			t.Fatalf("json.Unmarshal() error = %v, output %s", err, buf.String())
@@ -4486,9 +4482,7 @@ func TestIssueCountCommand(t *testing.T) {
 		if got.Data.Total != 42 {
 			t.Errorf("data.total = %d, want 42", got.Data.Total)
 		}
-		if got.Metadata.Pagination.Total != 42 {
-			t.Errorf("metadata.pagination.total = %d, want 42", got.Metadata.Pagination.Total)
-		}
+		assertNoPaginationMetadata(t, buf.Bytes())
 	})
 
 	t.Run("requires jql", func(t *testing.T) {

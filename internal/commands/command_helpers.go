@@ -513,7 +513,7 @@ func extractPaginationMeta(cmd *cobra.Command, result any) output.Metadata {
 			pagination.NextToken = v
 		}
 		isLast, _ := m["isLast"].(bool)
-		pagination.HasMore = !isLast
+		pagination.HasMore = !isLast && pagination.NextToken != ""
 		if pagination.HasMore {
 			pagination.NextCommand = buildNextPageCommandCursor(cmd, pagination.NextToken)
 		}
@@ -551,28 +551,19 @@ func extractPaginationMeta(cmd *cobra.Command, result any) output.Metadata {
 }
 
 func buildNextPageCommand(cmd *cobra.Command, nextStartAt int) string {
-	if cmd == nil {
-		return ""
-	}
-
-	parts := []string{cmd.CommandPath()}
-	for _, arg := range cmd.Flags().Args() {
-		parts = append(parts, shellQuoteFlagValue(arg))
-	}
-	cmd.Flags().Visit(func(flag *pflag.Flag) {
-		if flag.Name == "start-at" {
-			return
-		}
-		parts = append(parts, "--"+flag.Name)
-		if flag.Value.Type() != "bool" || flag.Value.String() != "true" {
-			parts = append(parts, shellQuoteFlagValue(flag.Value.String()))
-		}
-	})
-	parts = append(parts, "--start-at", strconv.Itoa(nextStartAt))
-	return strings.Join(parts, " ")
+	return buildNextPageCommandBase(cmd, map[string]bool{"start-at": true},
+		"--start-at", strconv.Itoa(nextStartAt))
 }
 
 func buildNextPageCommandCursor(cmd *cobra.Command, token string) string {
+	return buildNextPageCommandBase(cmd, map[string]bool{"next-page-token": true, "start-at": true},
+		"--next-page-token", shellQuoteFlagValue(token))
+}
+
+// buildNextPageCommandBase reconstructs the current command with pagination
+// flags replaced. skipFlags names the flags to omit (they get replaced by
+// trailingParts). Both offset and cursor helpers delegate here.
+func buildNextPageCommandBase(cmd *cobra.Command, skipFlags map[string]bool, trailingParts ...string) string {
 	if cmd == nil {
 		return ""
 	}
@@ -582,7 +573,7 @@ func buildNextPageCommandCursor(cmd *cobra.Command, token string) string {
 		parts = append(parts, shellQuoteFlagValue(arg))
 	}
 	cmd.Flags().Visit(func(flag *pflag.Flag) {
-		if flag.Name == "next-page-token" || flag.Name == "start-at" {
+		if skipFlags[flag.Name] {
 			return
 		}
 		parts = append(parts, "--"+flag.Name)
@@ -590,7 +581,7 @@ func buildNextPageCommandCursor(cmd *cobra.Command, token string) string {
 			parts = append(parts, shellQuoteFlagValue(flag.Value.String()))
 		}
 	})
-	parts = append(parts, "--next-page-token", shellQuoteFlagValue(token))
+	parts = append(parts, trailingParts...)
 	return strings.Join(parts, " ")
 }
 
