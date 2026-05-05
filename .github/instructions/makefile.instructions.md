@@ -1,0 +1,9 @@
+---
+applyTo: "Makefile"
+---
+
+# Makefile review instructions
+
+- Non-file targets should have `.PHONY` declarations.
+- Avoid flags that are already tool defaults.
+- Keep release, lint, test, vuln, and snapshot targets aligned with `AGENTS.md`.
