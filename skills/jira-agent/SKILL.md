@@ -54,8 +54,21 @@ Blocked writes return exit 5 with remediation. Read-only commands always work. `
 |------|-------|---------|-------------|
 | `--project` | `-p` | | Default Jira project key (also `JIRA_PROJECT` env) |
 | `--output` | `-o` | `json` | `json`, `csv`, or `tsv` |
+| `--compact` | | off | Strip nulls/empties from JSON, flatten single-key objects, JSON Lines for arrays |
+| `--dry-run` | | off | Preview field changes without mutating (composite commands only) |
 | `--verbose` | `-v` | off | Verbose logging to stderr |
 | `--config` | | | Config file path override |
+
+## Schema Discovery
+
+`jira-agent schema` outputs the full CLI structure as JSON without requiring auth. Use it to discover all commands, flags, flag groups, categories, and constraints.
+
+```bash
+jira-agent schema
+jira-agent schema --output json
+```
+
+The output includes `commands[]` with `path`, `description`, `category`, `write_protected`, `requires_auth`, `flags[]`, `flag_groups[]`, and `examples[]` for each command.
 
 ## Command Discovery
 
@@ -77,19 +90,21 @@ For reads/searches, request only needed fields: `--fields key,summary,status`. S
 {
   "data": { ... },
   "errors": [],
-  "metadata": { "timestamp": "...", "total": 42, "returned": 10, "start_at": 0, "max_results": 50 }
+  "metadata": { "timestamp": "...", "total": 42, "returned": 10, "start_at": 0, "max_results": 50, "has_more": true, "next_command": "jira-agent issue search --jql '...' --max-results 10 --start-at 10" }
 }
 ```
 
-Access results via `.data`. Check `.metadata` for pagination.
+Access results via `.data`. Check `metadata.has_more` for pagination. When `has_more` is true, `metadata.next_command` contains the ready-to-run command for the next page.
 
 ### Error response (always JSON, regardless of --output)
 
 ```json
 {
-  "error": { "code": "NOT_FOUND", "message": "Issue KEY-999 not found", "details": "..." }
+  "error": { "code": "NOT_FOUND", "message": "transition 'Done' not found", "details": "...", "next_command": "jira-agent issue transition PROJ-123", "available_actions": ["To Do", "In Progress", "Done"] }
 }
 ```
+
+`next_command` and `available_actions` appear in errors when applicable. Use them to recover without guessing.
 
 | Code | Exit | Meaning |
 |------|------|---------|
@@ -102,6 +117,134 @@ Access results via `.data`. Check `.metadata` for pagination.
 ### CSV/TSV
 
 Flat rows with header, no envelope. Nested values become inline JSON in cells.
+
+## Composite Workflow Commands
+
+Composite commands collapse multiple Jira API calls into one CLI invocation. All require `JIRA_ALLOW_WRITES=true`. Use `--dry-run` to preview field changes without mutating.
+
+```bash
+jira-agent issue start-work PROJ-123 --dry-run
+```
+
+Dry-run output includes `diff[]` with `field`, `old_value`, and `new_value` for each planned change.
+
+### issue start-work
+
+Transitions to In Progress, assigns to current user, and optionally adds a comment.
+
+```bash
+jira-agent issue start-work PROJ-123
+jira-agent issue start-work PROJ-123 --status "In Review" --comment "Starting review"
+jira-agent issue start-work PROJ-123 --assignee abc123 --skip-transition
+jira-agent issue start-work PROJ-123 --skip-assign --comment "Picked up"
+```
+
+### issue close
+
+Transitions to Done, sets resolution, and optionally adds a comment.
+
+```bash
+jira-agent issue close PROJ-123
+jira-agent issue close PROJ-123 --resolution "Won't Do"
+jira-agent issue close PROJ-123 --status "Closed" --resolution "Duplicate" --comment "Duplicate of PROJ-100"
+```
+
+### issue create-and-link
+
+Creates an issue and links it to an existing issue in one call.
+
+```bash
+jira-agent issue create-and-link --project PROJ --type Story --summary "New feature" --link-type Blocks --link-target PROJ-100
+jira-agent issue create-and-link --project PROJ --type Bug --summary "Fix" --link-type "is blocked by" --link-target PROJ-200
+jira-agent issue create-and-link --payload-json '{"fields":{"project":{"key":"PROJ"},"issuetype":{"name":"Task"},"summary":"Task"}}' --link-type Blocks --link-target PROJ-100
+```
+
+### issue move-to-sprint
+
+Moves an issue to a sprint using the Agile API, with optional transition and comment.
+
+```bash
+jira-agent issue move-to-sprint PROJ-123 --sprint-id 42
+jira-agent issue move-to-sprint PROJ-123 --sprint-id 42 --status "In Progress"
+jira-agent issue move-to-sprint PROJ-123 --sprint-id 42 --comment "Moved to sprint" --rank-before PROJ-100
+```
+
+## Smart Shortcuts
+
+### issue mine
+
+Returns issues assigned to the current user, ordered by last updated.
+
+```bash
+jira-agent issue mine
+jira-agent issue mine --status "In Progress"
+jira-agent issue mine --fields key,summary,status,priority --max-results 20
+jira-agent issue mine --fields-preset triage
+```
+
+### issue recent
+
+Returns issues recently touched by the current user (assigned, reported, or watching). Default window is 7 days.
+
+```bash
+jira-agent issue recent
+jira-agent issue recent --since 14d
+jira-agent issue recent --fields key,summary,status,assignee --max-results 20
+jira-agent issue recent --fields-preset minimal
+```
+
+### sprint current
+
+Returns the active sprint for a board.
+
+```bash
+jira-agent sprint current --board-id 42
+```
+
+Returns a single sprint object when one active sprint exists, or an array when multiple are active. Returns a not-found error with remediation when no active sprint exists.
+
+## Semantic JQL Flags
+
+`issue search` accepts convenience flags that build JQL automatically. These are mutually exclusive with `--jql`.
+
+```bash
+jira-agent issue search --assignee me
+jira-agent issue search --status "In Progress" --priority High
+jira-agent issue search --sprint current
+jira-agent issue search --type Bug --label backend
+jira-agent issue search --updated-since 7d
+jira-agent issue search --assignee me --status "In Progress" --sprint current
+```
+
+Flags: `--assignee` (use `"me"` for `currentUser()`), `--status`, `--type`, `--priority`, `--label` (repeatable), `--sprint` (use `"current"` for `openSprints()`), `--updated-since` (e.g. `"7d"`). Conditions join with AND in alphabetical order.
+
+## Token-Efficient Output
+
+`--compact` strips null values, empty strings, and empty arrays from JSON output. Single-key nested objects flatten to dot notation. Arrays output as JSON Lines (one envelope per line).
+
+```bash
+jira-agent issue get PROJ-123 --compact
+jira-agent issue search --jql "project = PROJ" --compact
+```
+
+`--fields-preset` selects a predefined field set. Mutually exclusive with `--fields`.
+
+```bash
+jira-agent issue get PROJ-123 --fields-preset minimal
+jira-agent issue search --jql "project = PROJ" --fields-preset triage
+```
+
+Presets: `minimal` (key, summary, status), `triage` (+ priority, assignee, labels), `detail` (+ description, created, updated).
+
+## Pagination
+
+Paginated responses include `has_more` (bool, always present) and `next_command` (string, present when `has_more` is true) in `metadata`.
+
+```bash
+jira-agent issue search --jql "project = PROJ" --max-results 10
+# metadata.has_more: true
+# metadata.next_command: "jira-agent issue search --jql 'project = PROJ' --max-results 10 --start-at 10"
+```
 
 ## Gotchas
 

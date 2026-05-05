@@ -38,8 +38,9 @@ Default JSON output is flattened for LLM efficiency: `.data.issues[]` contains c
 
 | Flag | Default | Notes |
 |------|---------|-------|
-| `--jql` | (required) | JQL query string |
+| `--jql` | (required unless using semantic flags) | JQL query string |
 | `--fields` | key,summary,status,assignee,priority | Comma-separated; `key` is returned from the issue object and not sent as a Jira field |
+| `--fields-preset` | | Named preset: `minimal`, `triage`, or `detail`; mutually exclusive with `--fields` |
 | `--description-output-format` | text | `text`, `markdown`, or `adf`; ignored by `--raw` |
 | `--max-results` | 50 | Page size |
 | `--next-page-token` | | Cursor from previous `.data.nextPageToken` |
@@ -51,6 +52,31 @@ Default JSON output is flattened for LLM efficiency: `.data.issues[]` contains c
 | `--fail-fast` | true | Set false to tolerate unresolved fields |
 | `--reconcile-issues` | | Comma-separated issue IDs for Jira reconciliation |
 | `--raw` | false | Return the unmodified Jira search response instead of compact issue rows |
+
+### Semantic JQL flags
+
+These flags build JQL automatically and are mutually exclusive with `--jql`.
+
+```bash
+jira-agent issue search --assignee me
+jira-agent issue search --status "In Progress" --priority High
+jira-agent issue search --sprint current
+jira-agent issue search --type Bug --label backend --label urgent
+jira-agent issue search --updated-since 7d
+jira-agent issue search --assignee me --status "In Progress" --sprint current
+```
+
+| Flag | Notes |
+|------|-------|
+| `--assignee` | Use `"me"` for `currentUser()`, or any account ID/name |
+| `--status` | Status name (e.g. `"In Progress"`) |
+| `--type` | Issue type name (e.g. `Bug`, `Story`) |
+| `--priority` | Priority name (e.g. `High`, `Medium`) |
+| `--label` | Repeatable; each value becomes a separate `labels = "..."` condition |
+| `--sprint` | Use `"current"` for `openSprints()`, or a sprint name |
+| `--updated-since` | Duration string (e.g. `7d`, `30d`); maps to `updated >= "-Nd"` |
+
+Conditions join with AND in alphabetical order by JQL field name.
 
 ## issue create
 
@@ -257,3 +283,128 @@ jira-agent issue search \
   --jql "project = PROJ AND sprint in openSprints()" \
   --fields key,summary,status,assignee --output csv
 ```
+
+## Smart Shortcuts
+
+> **Tip**: Run `jira-agent schema` to discover all commands, flags, and constraints as machine-readable JSON (no auth required).
+
+### issue mine
+
+Returns issues assigned to the current user, ordered by last updated. No `--jql` needed.
+
+```bash
+jira-agent issue mine
+jira-agent issue mine --status "In Progress"
+jira-agent issue mine --fields key,summary,status,priority --max-results 20
+jira-agent issue mine --fields-preset triage
+```
+
+| Flag | Default | Notes |
+|------|---------|-------|
+| `--status` | | Filter by status name |
+| `--fields` | key,summary,status,assignee,priority | Comma-separated |
+| `--fields-preset` | | `minimal`, `triage`, or `detail`; mutually exclusive with `--fields` |
+| `--max-results` | 50 | Page size |
+| `--start-at` | 0 | Pagination offset |
+
+### issue recent
+
+Returns issues recently touched by the current user (assigned, reported, or watching). Default window is 7 days.
+
+```bash
+jira-agent issue recent
+jira-agent issue recent --since 14d
+jira-agent issue recent --since 30d --max-results 20
+jira-agent issue recent --fields-preset minimal
+```
+
+| Flag | Default | Notes |
+|------|---------|-------|
+| `--since` | `7d` | Time window (e.g. `1d`, `7d`, `30d`) |
+| `--fields` | key,summary,status,assignee,priority | Comma-separated |
+| `--fields-preset` | | `minimal`, `triage`, or `detail`; mutually exclusive with `--fields` |
+| `--max-results` | 10 | Page size |
+| `--start-at` | 0 | Pagination offset |
+
+## Composite Workflow Commands
+
+Composite commands collapse multiple Jira API calls into one invocation. All require `JIRA_ALLOW_WRITES=true`. Use `--dry-run` to preview without mutating.
+
+### issue start-work
+
+Transitions to In Progress, assigns to current user, and optionally adds a comment. Transition failure is fatal; assign and comment failures are partial (exit 0 with partial data and `next_command` remediation).
+
+```bash
+jira-agent issue start-work PROJ-123
+jira-agent issue start-work PROJ-123 --status "In Review" --comment "Starting review"
+jira-agent issue start-work PROJ-123 --assignee abc123 --skip-transition
+jira-agent issue start-work PROJ-123 --skip-assign --comment "Picked up"
+jira-agent issue start-work PROJ-123 --dry-run
+```
+
+| Flag | Default | Notes |
+|------|---------|-------|
+| `--status` | `In Progress` | Target transition status |
+| `--assignee` | | Account ID (default: current user) |
+| `--comment` | | Comment to add after transition |
+| `--skip-assign` | false | Skip assignment step |
+| `--skip-transition` | false | Skip transition step |
+| `--dry-run` | false | Preview diff without mutating |
+
+### issue close
+
+Transitions to Done, sets resolution, and optionally adds a comment. Transition failure is fatal; comment failure is partial.
+
+```bash
+jira-agent issue close PROJ-123
+jira-agent issue close PROJ-123 --resolution "Won't Do"
+jira-agent issue close PROJ-123 --status "Closed" --resolution "Duplicate" --comment "Duplicate of PROJ-100"
+jira-agent issue close PROJ-123 --dry-run
+```
+
+| Flag | Default | Notes |
+|------|---------|-------|
+| `--status` | `Done` | Target transition status |
+| `--resolution` | `Done` | Resolution value (e.g. `Done`, `Won't Do`, `Duplicate`) |
+| `--comment` | | Comment to add after transition |
+| `--dry-run` | false | Preview diff without mutating |
+
+### issue create-and-link
+
+Creates an issue and links it to an existing issue in one call. Create failure is fatal; link failure is partial with a `next_command` remediation.
+
+```bash
+jira-agent issue create-and-link --project PROJ --type Story --summary "New feature" --link-type Blocks --link-target PROJ-100
+jira-agent issue create-and-link --project PROJ --type Bug --summary "Fix" --link-type "is blocked by" --link-target PROJ-200
+jira-agent issue create-and-link --payload-json '{"fields":{"project":{"key":"PROJ"},"issuetype":{"name":"Task"},"summary":"Task"}}' --link-type Blocks --link-target PROJ-100
+jira-agent issue create-and-link --project PROJ --type Story --summary "New" --link-type Blocks --link-target PROJ-100 --dry-run
+```
+
+| Flag | Notes |
+|------|-------|
+| `--link-type` | Required. Link type name (e.g. `Blocks`, `"is blocked by"`) |
+| `--link-target` | Required. Issue key to link to |
+| `--link-direction` | `outward` (default) or `inward` |
+| `--payload-json` | Full create payload; mutually exclusive with individual field flags |
+| `--project`, `--type`, `--summary` | Required when not using `--payload-json` |
+| `--dry-run` | Preview without mutating |
+
+### issue move-to-sprint
+
+Moves an issue to a sprint using the Agile API, with optional transition and comment. Sprint move failure is fatal; transition and comment failures are partial.
+
+```bash
+jira-agent issue move-to-sprint PROJ-123 --sprint-id 42
+jira-agent issue move-to-sprint PROJ-123 --sprint-id 42 --status "In Progress"
+jira-agent issue move-to-sprint PROJ-123 --sprint-id 42 --comment "Moved to sprint" --rank-before PROJ-100
+jira-agent issue move-to-sprint PROJ-123 --sprint-id 42 --dry-run
+```
+
+| Flag | Notes |
+|------|-------|
+| `--sprint-id` | Required. Sprint ID (integer) |
+| `--status` | Transition issue to this status after moving |
+| `--comment` | Add a comment after the operation |
+| `--rank-before` | Rank issue before this issue key in the sprint |
+| `--rank-after` | Rank issue after this issue key in the sprint |
+| `--dry-run` | Preview without mutating |

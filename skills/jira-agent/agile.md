@@ -95,6 +95,20 @@ jira-agent sprint list --board-id 84 --state future,active --max-results 5
 | `--max-results` | Default 50 |
 | `--start-at` | Offset |
 
+### sprint current
+
+Returns the active sprint for a board without needing to know the sprint ID.
+
+```bash
+jira-agent sprint current --board-id 42
+```
+
+Returns a single sprint object when exactly one active sprint exists, or an array when multiple are active. Returns a not-found error with remediation (`jira-agent sprint list --board-id N --state active`) when no active sprint exists.
+
+| Flag | Notes |
+|------|-------|
+| `--board-id` | Required |
+
 ### sprint get
 
 ```bash
@@ -260,6 +274,28 @@ jira-agent backlog move --issues KEY-1,KEY-2
 
 `--issues` required. Moves issues to the backlog (removes from any sprint).
 
+## Composite Workflow Commands
+
+### issue move-to-sprint
+
+Moves an issue to a sprint using the Agile API, with optional status transition and comment. Requires `JIRA_ALLOW_WRITES=true` or the config write-enable flag. Sprint move failure is fatal; transition and comment failures are partial.
+
+```bash
+jira-agent issue move-to-sprint PROJ-123 --sprint-id 42
+jira-agent issue move-to-sprint PROJ-123 --sprint-id 42 --status "In Progress"
+jira-agent issue move-to-sprint PROJ-123 --sprint-id 42 --comment "Moved to sprint" --rank-before PROJ-100
+jira-agent issue move-to-sprint PROJ-123 --sprint-id 42 --dry-run
+```
+
+| Flag | Notes |
+|------|-------|
+| `--sprint-id` | Required. Sprint ID (integer) |
+| `--status` | Transition issue to this status after moving |
+| `--comment` | Add a comment after the operation |
+| `--rank-before` | Rank issue before this issue key in the sprint |
+| `--rank-after` | Rank issue after this issue key in the sprint |
+| `--dry-run` | Preview diff without mutating |
+
 ## Workflows
 
 ### Sprint planning
@@ -268,14 +304,17 @@ jira-agent backlog move --issues KEY-1,KEY-2
 # Find the board
 jira-agent board list --project PROJ --type scrum
 
-# List sprints, find active
-jira-agent sprint list --board-id 84 --state active
+# Get the active sprint directly
+jira-agent sprint current --board-id 84
 
 # Check sprint contents
 jira-agent sprint issues 42 --fields key,summary,status,assignee --output csv
 
-# Move items into sprint
+# Move items into sprint (low-level)
 jira-agent sprint move-issues 42 --issues PROJ-10,PROJ-11
+
+# Move a single issue to sprint with optional transition (composite)
+jira-agent issue move-to-sprint PROJ-10 --sprint-id 42 --status "In Progress"
 
 # Move items to backlog
 jira-agent backlog move --issues PROJ-15
