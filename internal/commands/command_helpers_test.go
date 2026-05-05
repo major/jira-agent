@@ -807,7 +807,7 @@ func TestCommandCategories(t *testing.T) {
 		"read":      {"issue get", "issue search"},
 		"write":     {"issue create", "issue transition"},
 		"bulk":      {"issue bulk create", "issue bulk transition"},
-		"discovery": {"field list", "project list"},
+		"discovery": {"field list", "project list", "resolve", "resolve board"},
 		"workflow":  {"workflow list", "status list"},
 		"admin":     {"audit list", "server-info"},
 	}

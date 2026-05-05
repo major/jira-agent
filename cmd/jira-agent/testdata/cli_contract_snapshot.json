@@ -118,6 +118,7 @@
       "priority",
       "project",
       "resolution",
+      "resolve",
       "role",
       "schema",
       "server-info",
@@ -5588,6 +5589,92 @@
     "use": "list",
     "short": "List all resolutions",
     "example": "jira-agent resolution list",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    }
+  },
+  {
+    "path": "jira-agent resolve",
+    "use": "resolve",
+    "short": "Resolve human-friendly names to Jira internal IDs",
+    "example": "jira-agent resolve user \"john@example.com\"\njira-agent resolve board \"My Scrum Board\"\njira-agent resolve sprint --board-id 42 \"Sprint 5\"\njira-agent resolve field \"story points\"\njira-agent resolve transition --issue PROJ-123 \"Done\"",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    },
+    "subcommands": [
+      "board",
+      "field",
+      "sprint",
+      "transition",
+      "user"
+    ]
+  },
+  {
+    "path": "jira-agent resolve board",
+    "use": "board \u003cquery\u003e",
+    "short": "Resolve board by name",
+    "example": "jira-agent resolve board \"My Scrum Board\"\njira-agent resolve board \"Kanban\"",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    }
+  },
+  {
+    "path": "jira-agent resolve field",
+    "use": "field \u003cquery\u003e",
+    "short": "Resolve field by name",
+    "example": "jira-agent resolve field \"summary\"\njira-agent resolve field \"story points\"",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    }
+  },
+  {
+    "path": "jira-agent resolve sprint",
+    "use": "sprint \u003cquery\u003e",
+    "short": "Resolve sprint by name on a board",
+    "example": "jira-agent resolve sprint --board-id 42 \"Sprint 5\"\njira-agent resolve sprint --board-id 42 --state active \"Sprint\"",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    },
+    "local_flags": [
+      {
+        "name": "board-id",
+        "type": "string",
+        "usage": "Board ID (required)"
+      },
+      {
+        "name": "state",
+        "type": "string",
+        "usage": "Filter by state: future, active, closed (comma-separated, default: active,future)"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent resolve transition",
+    "use": "transition \u003cquery\u003e",
+    "short": "Resolve transition by name or target status",
+    "example": "jira-agent resolve transition --issue PROJ-123 \"Done\"\njira-agent resolve transition --issue PROJ-123 \"In Progress\"",
+    "annotations": {
+      "jira-agent/category": "discovery",
+      "jira-agent/requires-auth": "true"
+    },
+    "local_flags": [
+      {
+        "name": "issue",
+        "type": "string",
+        "usage": "Issue key to get transitions for (required)"
+      }
+    ]
+  },
+  {
+    "path": "jira-agent resolve user",
+    "use": "user \u003cquery\u003e",
+    "short": "Resolve user by email or display name",
+    "example": "jira-agent resolve user \"john@example.com\"\njira-agent resolve user \"John Doe\"",
     "annotations": {
       "jira-agent/category": "discovery",
       "jira-agent/requires-auth": "true"
