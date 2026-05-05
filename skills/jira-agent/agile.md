@@ -192,7 +192,7 @@ Returns sprint metadata, issue status counts, and story point aggregates:
 
 ```json
 {
-  "sprint": {"id": 42, "name": "Sprint 5", "state": "active", "start_date": "2025-01-01", "end_date": "2025-01-14"},
+  "sprint": {"id": 42, "name": "Sprint 5", "state": "active", "start_date": "2025-01-01T00:00:00.000Z", "end_date": "2025-01-14T00:00:00.000Z"},
   "issues": {"total": 15, "by_status": {"To Do": 3, "In Progress": 7, "Done": 5}},
   "story_points": {"total": 34, "by_status": {"To Do": 8, "In Progress": 13, "Done": 13}, "field": "customfield_10016"}
 }

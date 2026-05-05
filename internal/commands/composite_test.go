@@ -1466,7 +1466,7 @@ func TestTransitionJQL(t *testing.T) {
 		defer server.Close()
 
 		envelope := runTransitionJQL(t, server.URL, true, false, "--jql", "project = PROJ", "--status", "Done")
-		data := envelopeData(t, envelope)
+		data := envelopeData(t, &envelope)
 		if data["task_id"] != "10644" {
 			t.Errorf("task_id = %v, want 10644", data["task_id"])
 		}
@@ -1496,7 +1496,7 @@ func TestTransitionJQL(t *testing.T) {
 		defer server.Close()
 
 		envelope := runTransitionJQL(t, server.URL, false, true, "--jql", "project = PROJ", "--status", "Done")
-		data := envelopeData(t, envelope)
+		data := envelopeData(t, &envelope)
 		if data["command"] != "issue transition-jql" {
 			t.Errorf("command = %v, want issue transition-jql", data["command"])
 		}
@@ -1559,7 +1559,7 @@ func TestTransitionJQL(t *testing.T) {
 		defer server.Close()
 
 		envelope := runTransitionJQL(t, server.URL, true, false, "--jql", "project = PROJ", "--status", "Done")
-		data := envelopeData(t, envelope)
+		data := envelopeData(t, &envelope)
 		if data["issues_submitted"] != float64(3) {
 			t.Errorf("issues_submitted = %v, want 3", data["issues_submitted"])
 		}
@@ -1647,7 +1647,7 @@ func runTransitionJQLError(t *testing.T, serverURL string, allowWrites, dryRun b
 	return cmd.Execute()
 }
 
-func envelopeData(t *testing.T, envelope output.Envelope) map[string]any {
+func envelopeData(t *testing.T, envelope *output.Envelope) map[string]any {
 	t.Helper()
 	data, ok := envelope.Data.(map[string]any)
 	if !ok {

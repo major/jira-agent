@@ -371,7 +371,7 @@ jira-agent issue close PROJ-123 --dry-run
 
 ### issue create-and-link
 
-Creates an issue and links it to an existing issue in one call. Create failure is fatal; link failure is partial with a `next_command` remediation.
+Creates an issue and links it to an existing issue in one command. Create failure is fatal; link failure is partial with a `next_command` remediation.
 
 ```bash
 jira-agent issue create-and-link --project PROJ --type Story --summary "New feature" --link-type Blocks --link-target PROJ-100
@@ -405,6 +405,31 @@ jira-agent issue transition-jql --jql 'project = PROJ AND status = Open' --statu
 | `--status` | | Required. Target status name, matched case-insensitively against transition `to.name` |
 | `--send-notification` | true | Send Jira bulk notification email |
 | `--dry-run` | false | Search and resolve transitions, then output matched, skipped, and target counts without submitting the bulk task |
+
+**Output (execute mode)**:
+
+```json
+{
+  "data": {
+    "task_id": "10644",
+    "issues_submitted": 3,
+    "issues_skipped": 0,
+    "next_command": "jira-agent issue bulk-status 10644"
+  }
+}
+```
+
+**Output (dry-run mode)**: Standard dry-run diff showing before/after status counts and zero mutations.
+
+**Polling workflow**: The bulk transition is fire-and-forget. Use the returned `task_id` to check progress:
+
+```bash
+RESULT=$(jira-agent issue transition-jql --jql 'project = PROJ AND status = Open' --status Done)
+TASK_ID=$(echo "$RESULT" | jq -r '.data.task_id')
+jira-agent issue bulk-status "$TASK_ID"
+```
+
+When some issues lack a valid transition to the target status, the response includes `errors` with skipped issue details and `issues_skipped` > 0.
 
 ### issue move-to-sprint
 

@@ -646,9 +646,8 @@ func transitionJQLPrepare(ctx context.Context, apiClient *client.Ref, p *transit
 		return state, apperr.NewValidationError("JQL matched 0 issues", nil)
 	}
 
-	var transitions map[string]any
-	params := map[string]string{"issueIdsOrKeys": strings.Join(state.issueKeys, ",")}
-	if err := apiClient.Get(ctx, "/bulk/issues/transition", params, &transitions); err != nil {
+	transitions, err := fetchTransitionMetadataChunked(ctx, apiClient, state.issueKeys)
+	if err != nil {
 		return state, err
 	}
 	state.transitionKeys, state.skipped = groupTransitionJQLIssues(state.issueKeys, transitions, p.targetStatus)
@@ -656,6 +655,25 @@ func transitionJQLPrepare(ctx context.Context, apiClient *client.Ref, p *transit
 		return state, apperr.NewValidationError(fmt.Sprintf("no issues can transition to status %q", p.targetStatus), nil)
 	}
 	return state, nil
+}
+
+// fetchTransitionMetadataChunked retrieves available transitions for the given
+// issue keys in batches of 100 to avoid exceeding URL length limits on the GET
+// endpoint. Results from all batches are merged into a single response map.
+func fetchTransitionMetadataChunked(ctx context.Context, apiClient *client.Ref, keys []string) (map[string]any, error) {
+	const chunkSize = 100
+	var allEntries []any
+	for i := 0; i < len(keys); i += chunkSize {
+		end := min(i+chunkSize, len(keys))
+		chunk := keys[i:end]
+		var transitions map[string]any
+		params := map[string]string{"issueIdsOrKeys": strings.Join(chunk, ",")}
+		if err := apiClient.Get(ctx, "/bulk/issues/transition", params, &transitions); err != nil {
+			return nil, err
+		}
+		allEntries = append(allEntries, transitionJQLIssueTransitionEntries(transitions)...)
+	}
+	return map[string]any{"issueTransitions": allEntries}, nil
 }
 
 func transitionJQLIssueState(searchResult map[string]any) (keys []string, statusCounts map[string]int) {
@@ -797,7 +815,9 @@ func transitionJQLExecute(ctx context.Context, apiClient *client.Ref, w io.Write
 		"task_id":          taskID,
 		"issues_submitted": transitionJQLSubmissionCount(state.transitionKeys),
 		"issues_skipped":   len(state.skipped),
-		"next_command":     "jira-agent issue bulk-status " + shellQuoteFlagValue(taskID),
+	}
+	if taskID != "" {
+		result["next_command"] = "jira-agent issue bulk-status " + shellQuoteFlagValue(taskID)
 	}
 	if len(state.skipped) > 0 {
 		return output.WritePartial(w, result, []string{fmt.Sprintf("skipped issues without a valid transition to %q: %s", p.targetStatus, strings.Join(state.skipped, ", "))}, output.NewMetadata(), format, opts...)
