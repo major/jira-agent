@@ -38,12 +38,8 @@ jira-agent sprint swap 100 101`,
 	return cmd
 }
 
-func parseSprintID(s string) (int64, error) {
-	id, err := strconv.ParseInt(s, 10, 64)
-	if err != nil || id <= 0 {
-		return 0, apperr.NewValidationError("sprint ID must be a positive integer", err)
-	}
-	return id, nil
+func parseSprintID(sprintID string) (int64, error) {
+	return parsePositiveIntID(sprintID, "sprint ID")
 }
 
 // sprintListCommand lists sprints for a given board.
