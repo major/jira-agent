@@ -79,7 +79,7 @@ func normalizeToMaps(data any) ([]map[string]any, error) {
 
 	// Typed struct or pointer to struct: round-trip through JSON.
 	v := reflect.ValueOf(data)
-	if v.Kind() == reflect.Ptr {
+	if v.Kind() == reflect.Pointer {
 		v = v.Elem()
 	}
 	if v.Kind() == reflect.Struct {
