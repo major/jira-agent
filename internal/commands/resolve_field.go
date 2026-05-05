@@ -8,6 +8,7 @@ import (
 
 	"github.com/major/jira-agent/internal/client"
 	apperr "github.com/major/jira-agent/internal/errors"
+	"github.com/major/jira-agent/internal/jira"
 	"github.com/major/jira-agent/internal/output"
 )
 
@@ -81,10 +82,11 @@ jira-agent resolve field "story points"`,
 				if !ok {
 					continue
 				}
+				ext := jira.NewExtract(fieldMap)
 				fields = append(fields, resolvedField{
-					ID:     getStringField(fieldMap, "id"),
-					Name:   getStringField(fieldMap, "name"),
-					Custom: getBoolField(fieldMap, "custom"),
+					ID:     ext.String("id"),
+					Name:   ext.String("name"),
+					Custom: ext.Bool("custom"),
 				})
 			}
 

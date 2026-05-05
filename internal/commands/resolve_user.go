@@ -8,6 +8,7 @@ import (
 
 	"github.com/major/jira-agent/internal/client"
 	apperr "github.com/major/jira-agent/internal/errors"
+	"github.com/major/jira-agent/internal/jira"
 	"github.com/major/jira-agent/internal/output"
 )
 
@@ -60,11 +61,12 @@ jira-agent resolve user "John Doe"`,
 			// Map Jira response to resolvedUser, stripping extra fields
 			users := make([]resolvedUser, len(jiraUsers))
 			for i, jiraUser := range jiraUsers {
+				ext := jira.NewExtract(jiraUser)
 				users[i] = resolvedUser{
-					AccountID:    getStringField(jiraUser, "accountId"),
-					DisplayName:  getStringField(jiraUser, "displayName"),
-					EmailAddress: getStringField(jiraUser, "emailAddress"),
-					Active:       getBoolField(jiraUser, "active"),
+					AccountID:    ext.String("accountId"),
+					DisplayName:  ext.String("displayName"),
+					EmailAddress: ext.String("emailAddress"),
+					Active:       ext.Bool("active"),
 				}
 			}
 
@@ -78,24 +80,4 @@ jira-agent resolve user "John Doe"`,
 	}
 
 	return cmd
-}
-
-// getStringField safely extracts a string field from a map.
-func getStringField(m map[string]any, key string) string {
-	if v, ok := m[key]; ok {
-		if s, ok := v.(string); ok {
-			return s
-		}
-	}
-	return ""
-}
-
-// getBoolField safely extracts a bool field from a map.
-func getBoolField(m map[string]any, key string) bool {
-	if v, ok := m[key]; ok {
-		if b, ok := v.(bool); ok {
-			return b
-		}
-	}
-	return false
 }

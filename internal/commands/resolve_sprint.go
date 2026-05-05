@@ -9,6 +9,7 @@ import (
 
 	"github.com/major/jira-agent/internal/client"
 	apperr "github.com/major/jira-agent/internal/errors"
+	"github.com/major/jira-agent/internal/jira"
 	"github.com/major/jira-agent/internal/output"
 )
 
@@ -75,14 +76,15 @@ jira-agent resolve sprint --board-id 42 --state active "Sprint"`,
 			var matches []resolvedSprint
 			totalMatches := 0
 			for _, jiraSprint := range jiraResponse.Values {
-				sprintName := getStringField(jiraSprint, "name")
+				ext := jira.NewExtract(jiraSprint)
+				sprintName := ext.String("name")
 				if strings.Contains(strings.ToLower(sprintName), strings.ToLower(query)) {
 					totalMatches++
 					if len(matches) < maxResults {
 						matches = append(matches, resolvedSprint{
-							ID:    getInt64Field(jiraSprint, "id"),
+							ID:    ext.Int64("id"),
 							Name:  sprintName,
-							State: getStringField(jiraSprint, "state"),
+							State: ext.String("state"),
 						})
 					}
 				}
