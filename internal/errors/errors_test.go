@@ -82,3 +82,82 @@ func TestAPIError_Fields(t *testing.T) {
 		t.Errorf("Details() = %q, want %q", got, "retry later")
 	}
 }
+
+func TestErrorRemediation(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name                 string
+		err                  error
+		wantNextCommand      string
+		wantAvailableActions []string
+	}{
+		{
+			name:                 "validation error provides write-enable command",
+			err:                  NewValidationError("write access is disabled", nil),
+			wantNextCommand:      "export JIRA_ALLOW_WRITES=true",
+			wantAvailableActions: nil,
+		},
+		{
+			name:                 "not found error provides search command when resource key set",
+			err:                  NewNotFoundError("issue PROJ-123 not found", nil, WithResourceKey("PROJ-123")),
+			wantNextCommand:      `jira-agent issue search --jql "key = PROJ-123"`,
+			wantAvailableActions: nil,
+		},
+		{
+			name:                 "not found error returns empty next command when no resource key",
+			err:                  NewNotFoundError("resource not found", nil),
+			wantNextCommand:      "",
+			wantAvailableActions: nil,
+		},
+		{
+			name:                 "api error provides available actions",
+			err:                  NewAPIError("transition failed", 400, "", nil, WithAvailableActions([]string{"In Progress", "Won't Do"})),
+			wantNextCommand:      "",
+			wantAvailableActions: []string{"In Progress", "Won't Do"},
+		},
+		{
+			name:                 "api error returns nil actions when not set",
+			err:                  NewAPIError("api failed", 500, "", nil),
+			wantNextCommand:      "",
+			wantAvailableActions: nil,
+		},
+		{
+			name:                 "base jira error returns empty remediation",
+			err:                  NewJiraError("general error", nil),
+			wantNextCommand:      "",
+			wantAvailableActions: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			// All JiraError types expose NextCommand and AvailableActions.
+			type remediator interface {
+				NextCommand() string
+				AvailableActions() []string
+			}
+
+			r, ok := tt.err.(remediator)
+			if !ok {
+				t.Fatalf("error does not implement remediator interface")
+			}
+
+			if got := r.NextCommand(); got != tt.wantNextCommand {
+				t.Errorf("NextCommand() = %q, want %q", got, tt.wantNextCommand)
+			}
+
+			gotActions := r.AvailableActions()
+			if len(gotActions) != len(tt.wantAvailableActions) {
+				t.Fatalf("AvailableActions() len = %d, want %d", len(gotActions), len(tt.wantAvailableActions))
+			}
+			for i, want := range tt.wantAvailableActions {
+				if gotActions[i] != want {
+					t.Errorf("AvailableActions()[%d] = %q, want %q", i, gotActions[i], want)
+				}
+			}
+		})
+	}
+}

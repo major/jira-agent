@@ -23,6 +23,14 @@ type errorDetailsProvider interface {
 	Details() string
 }
 
+// remediationProvider is satisfied by errors that can suggest a follow-up
+// command or list available actions for recovery.
+type remediationProvider interface {
+	error
+	NextCommand() string
+	AvailableActions() []string
+}
+
 // Metadata holds the standard metadata fields for response envelopes.
 // Fields are tailored to Jira's paginated API responses.
 type Metadata struct {
@@ -54,9 +62,11 @@ type ErrorEnvelope struct {
 
 // ErrorDetail contains error code, message, and optional details.
 type ErrorDetail struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
-	Details string `json:"details,omitempty"`
+	Code             string   `json:"code"`
+	Message          string   `json:"message"`
+	Details          string   `json:"details,omitempty"`
+	NextCommand      string   `json:"next_command,omitempty"`
+	AvailableActions []string `json:"available_actions,omitempty"`
 }
 
 var jiraJSONNoiseFields = map[string]struct{}{
@@ -142,11 +152,22 @@ func WriteError(w io.Writer, err error) error {
 		}
 	}
 
+	// Extract remediation hints (next command, available actions) from errors
+	// that implement the remediationProvider interface.
+	var nextCommand string
+	var availableActions []string
+	if rp, ok := errors.AsType[remediationProvider](err); ok {
+		nextCommand = rp.NextCommand()
+		availableActions = rp.AvailableActions()
+	}
+
 	errorEnvelope := ErrorEnvelope{
 		Error: ErrorDetail{
-			Code:    code,
-			Message: message,
-			Details: details,
+			Code:             code,
+			Message:          message,
+			Details:          details,
+			NextCommand:      nextCommand,
+			AvailableActions: availableActions,
 		},
 	}
 	return encodeJSON(w, errorEnvelope, false)
