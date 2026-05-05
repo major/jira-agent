@@ -57,7 +57,7 @@ func filterTransitions(transitionsAny []any, query string) (matches []resolvedTr
 		}
 	}
 
-	return
+	return matches, availableNames
 }
 
 // transitionResolveCommand returns the "resolve transition" subcommand for resolving
