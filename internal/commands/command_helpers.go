@@ -329,6 +329,20 @@ func requireFlagWithDetails(cmd *cobra.Command, flagName, details string) (strin
 
 type apiResultFunc func(result any) error
 
+// CompactOptsFromCmd returns compact WriteOptions by reading the --compact
+// persistent flag from the command's root. This avoids package-level mutable
+// state and is safe for parallel tests.
+func CompactOptsFromCmd(cmd *cobra.Command) []output.WriteOption {
+	if cmd == nil {
+		return nil
+	}
+	compact, _ := cmd.Root().PersistentFlags().GetBool("compact")
+	if compact {
+		return []output.WriteOption{output.WithCompact(true)}
+	}
+	return nil
+}
+
 // writeAPIResult runs an API call that writes into result, then emits the
 // standard success envelope for commands that return a single result object.
 func writeAPIResult(w io.Writer, format output.Format, call apiResultFunc) error {

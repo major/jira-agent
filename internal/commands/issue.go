@@ -158,6 +158,7 @@ func issueGetCommand(apiClient *client.Ref, w io.Writer, format *output.Format) 
 		Short: "Get issue by key or ID",
 		Example: `jira-agent issue get PROJ-123
 jira-agent issue get PROJ-123 --fields key,summary,status,assignee
+jira-agent issue get PROJ-123 --fields-preset minimal
 jira-agent issue get PROJ-123 --fields description --description-output-format markdown
 jira-agent issue get PROJ-123 --expand changelog
 jira-agent issue get PROJ-123 --raw`,
@@ -167,6 +168,11 @@ jira-agent issue get PROJ-123 --raw`,
 			if err != nil {
 				return err
 			}
+
+			if err := applyFieldsPreset(cmd); err != nil {
+				return err
+			}
+
 			params := map[string]string{}
 			addOptionalParams(cmd, params, map[string]string{
 				"fields":     "fields",
@@ -194,10 +200,11 @@ jira-agent issue get PROJ-123 --raw`,
 			if err := apiClient.Get(ctx, "/issue/"+key, params, &result); err != nil {
 				return err
 			}
-			return output.WriteResult(w, convertDescriptionOutputFields(result, descriptionFormat), *format)
+			return output.WriteResult(w, convertDescriptionOutputFields(result, descriptionFormat), *format, CompactOptsFromCmd(cmd)...)
 		},
 	}
 	cmd.Flags().String("fields", "", "Comma-separated field list (default: all navigable)")
+	cmd.Flags().String("fields-preset", "", "Named field preset: minimal, triage, or detail")
 	cmd.Flags().String("expand", "", "Comma-separated expansions (names, schema, changelog, operations)")
 	cmd.Flags().String("properties", "", "Comma-separated issue properties to include")
 	cmd.Flags().String("description-output-format", descriptionOutputFormatText, "Description output format: text, markdown, or adf")
@@ -205,6 +212,7 @@ jira-agent issue get PROJ-123 --raw`,
 	cmd.Flags().Bool("update-history", false, "Add the issue to the user's recently viewed history")
 	cmd.Flags().Bool("fail-fast", true, "Fail immediately if a requested field cannot be resolved")
 	cmd.Flags().Bool("raw", false, "Return the unmodified Jira API response for JSON output")
+	markMutuallyExclusive(cmd, "fields-preset", "fields")
 	return cmd
 }
 
@@ -250,50 +258,22 @@ func issueSearchCommand(apiClient *client.Ref, w io.Writer, format *output.Forma
 		Short: "Search issues via JQL",
 		Example: `jira-agent issue search --jql "project = PROJ AND status = Open"
 jira-agent issue search --jql "assignee = currentUser()" --fields key,summary,status
+jira-agent issue search --jql "assignee = currentUser()" --fields-preset triage
 jira-agent issue search --jql "project = PROJ" --fields key,description --description-output-format markdown
 jira-agent issue search --jql "project = PROJ" --max-results 10 --order-by created --order desc
 jira-agent issue search --jql "project = PROJ" --raw`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			jql, err := requireFlag(cmd, "jql")
+
+			if err := applyFieldsPreset(cmd); err != nil {
+				return err
+			}
+
+			jql, body, err := buildIssueSearchBody(cmd)
 			if err != nil {
 				return err
 			}
-			// Append ORDER BY clause from flags if provided.
-			if orderBy := mustGetString(cmd, "order-by"); orderBy != "" {
-				direction := strings.ToUpper(mustGetString(cmd, "order"))
-				if direction == "" {
-					direction = "ASC"
-				}
-				jql += " ORDER BY " + orderBy + " " + direction
-			}
-
-			body := map[string]any{
-				"jql":        jql,
-				"maxResults": mustGetInt(cmd, "max-results"),
-			}
-
-			if t := mustGetString(cmd, "next-page-token"); t != "" {
-				body["nextPageToken"] = t
-			}
-			if f := issueSearchFields(mustGetString(cmd, "fields")); cmd.Flags().Changed("fields") || len(f) > 0 {
-				body["fields"] = f
-			}
-			if e := mustGetString(cmd, "expand"); e != "" {
-				body["expand"] = e
-			}
-			if properties := splitTrimmed(mustGetString(cmd, "properties")); len(properties) > 0 {
-				body["properties"] = properties
-			}
-			if mustGetBool(cmd, "fields-by-keys") {
-				body["fieldsByKeys"] = true
-			}
-			if cmd.Flags().Changed("fail-fast") {
-				body["failFast"] = mustGetBool(cmd, "fail-fast")
-			}
-			if reconcile := splitTrimmed(mustGetString(cmd, "reconcile-issues")); len(reconcile) > 0 {
-				body["reconcileIssues"] = reconcile
-			}
+			_ = jql
 
 			if mustGetBool(cmd, "raw") {
 				return writeRawPaginatedAPIResult(cmd, w, *format, func(result any) error {
@@ -312,13 +292,14 @@ jira-agent issue search --jql "project = PROJ" --raw`,
 			}
 			meta := extractPaginationMeta(cmd, result)
 			if !isJSONOutputFormat(*format) {
-				return output.WriteSuccess(w, convertDescriptionOutputFields(result, descriptionFormat), meta, *format)
+				return output.WriteSuccess(w, convertDescriptionOutputFields(result, descriptionFormat), meta, *format, CompactOptsFromCmd(cmd)...)
 			}
-			return output.WriteSuccess(w, flattenIssueSearchResultWithDescriptionFormat(result, descriptionFormat), meta, *format)
+			return output.WriteSuccess(w, flattenIssueSearchResultWithDescriptionFormat(result, descriptionFormat), meta, *format, CompactOptsFromCmd(cmd)...)
 		},
 	}
 	cmd.Flags().String("jql", "", "JQL query string (required)")
 	cmd.Flags().String("fields", "key,summary,status,assignee,priority", "Comma-separated field list")
+	cmd.Flags().String("fields-preset", "", "Named field preset: minimal, triage, or detail")
 	cmd.Flags().Int("max-results", 50, "Page size")
 	cmd.Flags().String("next-page-token", "", "Token for fetching next page of results")
 	cmd.Flags().String("expand", "", "Comma-separated expansions (names, schema, changelog, operations)")
@@ -330,6 +311,7 @@ jira-agent issue search --jql "project = PROJ" --raw`,
 	cmd.Flags().String("order-by", "", "Sort field (appended to JQL as ORDER BY clause)")
 	cmd.Flags().String("order", "", "Sort direction: asc or desc (used with --order-by)")
 	cmd.Flags().Bool("raw", false, "Return the unmodified Jira API response for JSON output")
+	markMutuallyExclusive(cmd, "fields-preset", "fields")
 	return cmd
 }
 

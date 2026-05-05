@@ -69,6 +69,12 @@ func buildAppWithDeps(w io.Writer, deps appDeps) *cobra.Command {
 	// enabled via config file or JIRA_ALLOW_WRITES env var.
 	allowWrites := new(bool)
 
+	// Compact output: controlled by the --compact persistent flag. When true,
+	// strips null/empty fields from JSON, flattens single-key nested objects to
+	// dot-notation, and outputs JSON Lines for array data. Commands read the
+	// flag via CompactOptsFromCmd(cmd) at output time. No pointer needed since
+	// the value is read directly from the cobra flag set.
+
 	rootCmd := &cobra.Command{
 		Use:   "jira-agent",
 		Args:  cobra.ArbitraryArgs,
@@ -161,6 +167,7 @@ jira-agent project list --output csv`,
 	flags := rootCmd.PersistentFlags()
 	flags.StringP("project", "p", "", "Override default Jira project key")
 	flags.StringP("output", "o", "json", "Output format (json, csv, tsv)")
+	flags.Bool("compact", false, "Compact JSON output: strip nulls/empties, flatten single-key objects, JSON Lines for arrays")
 	flags.Bool("pretty", false, "Pretty-print JSON output")
 	flags.BoolP("verbose", "v", false, "Enable debug logging to stderr")
 	flags.String("config", configPath, "Path to config file")
@@ -212,7 +219,7 @@ func whoamiCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *c
 				return err
 			}
 
-			return output.WriteResult(w, result, *format)
+			return output.WriteResult(w, result, *format, commands.CompactOptsFromCmd(cmd)...)
 		},
 	}
 }

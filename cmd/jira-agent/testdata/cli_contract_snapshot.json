@@ -10,6 +10,12 @@
     },
     "local_flags": [
       {
+        "name": "compact",
+        "type": "bool",
+        "default": "false",
+        "usage": "Compact JSON output: strip nulls/empties, flatten single-key objects, JSON Lines for arrays"
+      },
+      {
         "name": "config",
         "type": "string",
         "default": "${HOME}/.config/jira-agent/config.json",
@@ -43,6 +49,12 @@
       }
     ],
     "persistent_flags": [
+      {
+        "name": "compact",
+        "type": "bool",
+        "default": "false",
+        "usage": "Compact JSON output: strip nulls/empties, flatten single-key objects, JSON Lines for arrays"
+      },
       {
         "name": "config",
         "type": "string",
@@ -3187,9 +3199,10 @@
     "path": "jira-agent issue get",
     "use": "get \u003cissue-key\u003e",
     "short": "Get issue by key or ID",
-    "example": "jira-agent issue get PROJ-123\njira-agent issue get PROJ-123 --fields key,summary,status,assignee\njira-agent issue get PROJ-123 --fields description --description-output-format markdown\njira-agent issue get PROJ-123 --expand changelog\njira-agent issue get PROJ-123 --raw",
+    "example": "jira-agent issue get PROJ-123\njira-agent issue get PROJ-123 --fields key,summary,status,assignee\njira-agent issue get PROJ-123 --fields-preset minimal\njira-agent issue get PROJ-123 --fields description --description-output-format markdown\njira-agent issue get PROJ-123 --expand changelog\njira-agent issue get PROJ-123 --raw",
     "annotations": {
       "jira-agent/category": "read",
+      "jira-agent/flag-groups": "[{\"type\":\"mutually_exclusive\",\"flags\":[\"fields-preset\",\"fields\"]}]",
       "jira-agent/requires-auth": "true"
     },
     "local_flags": [
@@ -3213,13 +3226,28 @@
       {
         "name": "fields",
         "type": "string",
-        "usage": "Comma-separated field list (default: all navigable)"
+        "usage": "Comma-separated field list (default: all navigable)",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "fields-preset fields"
+          ]
+        }
       },
       {
         "name": "fields-by-keys",
         "type": "bool",
         "default": "false",
         "usage": "Treat field identifiers as field keys instead of field IDs"
+      },
+      {
+        "name": "fields-preset",
+        "type": "string",
+        "usage": "Named field preset: minimal, triage, or detail",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "fields-preset fields"
+          ]
+        }
       },
       {
         "name": "properties",
@@ -3753,9 +3781,10 @@
     "path": "jira-agent issue search",
     "use": "search",
     "short": "Search issues via JQL",
-    "example": "jira-agent issue search --jql \"project = PROJ AND status = Open\"\njira-agent issue search --jql \"assignee = currentUser()\" --fields key,summary,status\njira-agent issue search --jql \"project = PROJ\" --fields key,description --description-output-format markdown\njira-agent issue search --jql \"project = PROJ\" --max-results 10 --order-by created --order desc\njira-agent issue search --jql \"project = PROJ\" --raw",
+    "example": "jira-agent issue search --jql \"project = PROJ AND status = Open\"\njira-agent issue search --jql \"assignee = currentUser()\" --fields key,summary,status\njira-agent issue search --jql \"assignee = currentUser()\" --fields-preset triage\njira-agent issue search --jql \"project = PROJ\" --fields key,description --description-output-format markdown\njira-agent issue search --jql \"project = PROJ\" --max-results 10 --order-by created --order desc\njira-agent issue search --jql \"project = PROJ\" --raw",
     "annotations": {
       "jira-agent/category": "read",
+      "jira-agent/flag-groups": "[{\"type\":\"mutually_exclusive\",\"flags\":[\"fields-preset\",\"fields\"]}]",
       "jira-agent/requires-auth": "true"
     },
     "local_flags": [
@@ -3780,13 +3809,28 @@
         "name": "fields",
         "type": "string",
         "default": "key,summary,status,assignee,priority",
-        "usage": "Comma-separated field list"
+        "usage": "Comma-separated field list",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "fields-preset fields"
+          ]
+        }
       },
       {
         "name": "fields-by-keys",
         "type": "bool",
         "default": "false",
         "usage": "Treat field identifiers as field keys instead of field IDs"
+      },
+      {
+        "name": "fields-preset",
+        "type": "string",
+        "usage": "Named field preset: minimal, triage, or detail",
+        "annotations": {
+          "cobra_annotation_mutually_exclusive": [
+            "fields-preset fields"
+          ]
+        }
       },
       {
         "name": "jql",

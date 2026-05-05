@@ -1,6 +1,12 @@
 package commands
 
-import "github.com/major/jira-agent/internal/output"
+import (
+	"strings"
+
+	"github.com/spf13/cobra"
+
+	"github.com/major/jira-agent/internal/output"
+)
 
 var flatIssueNoiseFields = map[string]struct{}{
 	"accountId":      {},
@@ -16,6 +22,53 @@ var flatIssueNoiseFields = map[string]struct{}{
 
 func isJSONOutputFormat(format output.Format) bool {
 	return format == output.FormatJSON || format == output.FormatJSONPretty
+}
+
+// buildIssueSearchBody constructs the JQL search request body from command
+// flags, including ORDER BY, fields, expand, and pagination options. Returns
+// the resolved JQL string and the request body map.
+func buildIssueSearchBody(cmd *cobra.Command) (jql string, body map[string]any, err error) {
+	jql, err = requireFlag(cmd, "jql")
+	if err != nil {
+		return "", nil, err
+	}
+
+	if orderBy := mustGetString(cmd, "order-by"); orderBy != "" {
+		direction := strings.ToUpper(mustGetString(cmd, "order"))
+		if direction == "" {
+			direction = "ASC"
+		}
+		jql += " ORDER BY " + orderBy + " " + direction
+	}
+
+	body = map[string]any{
+		"jql":        jql,
+		"maxResults": mustGetInt(cmd, "max-results"),
+	}
+
+	if t := mustGetString(cmd, "next-page-token"); t != "" {
+		body["nextPageToken"] = t
+	}
+	if f := issueSearchFields(mustGetString(cmd, "fields")); cmd.Flags().Changed("fields") || len(f) > 0 {
+		body["fields"] = f
+	}
+	if e := mustGetString(cmd, "expand"); e != "" {
+		body["expand"] = e
+	}
+	if properties := splitTrimmed(mustGetString(cmd, "properties")); len(properties) > 0 {
+		body["properties"] = properties
+	}
+	if mustGetBool(cmd, "fields-by-keys") {
+		body["fieldsByKeys"] = true
+	}
+	if cmd.Flags().Changed("fail-fast") {
+		body["failFast"] = mustGetBool(cmd, "fail-fast")
+	}
+	if reconcile := splitTrimmed(mustGetString(cmd, "reconcile-issues")); len(reconcile) > 0 {
+		body["reconcileIssues"] = reconcile
+	}
+
+	return jql, body, nil
 }
 
 func issueSearchFields(fields string) []string {
