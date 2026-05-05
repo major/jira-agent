@@ -61,8 +61,8 @@ func buildAppWithDeps(w io.Writer, deps appDeps) *cobra.Command {
 
 	// Output format pointer: set in PersistentPreRunE, read by commands. Defaults
 	// to JSON so commands work even if PersistentPreRunE is skipped for help.
-	outputFormat := new(output.Format)
-	*outputFormat = output.FormatJSON
+	defaultFormat := output.FormatJSON
+	outputFormat := &defaultFormat
 
 	// Write-protection pointer: set in PersistentPreRunE from config, checked by
 	// write commands. Defaults to false so writes are blocked unless explicitly
