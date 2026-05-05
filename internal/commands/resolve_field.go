@@ -82,9 +82,9 @@ jira-agent resolve field "story points"`,
 					continue
 				}
 				fields[i] = resolvedField{
-					ID:     GetStringField(fieldMap, "id"),
-					Name:   GetStringField(fieldMap, "name"),
-					Custom: GetBoolField(fieldMap, "custom"),
+					ID:     getStringField(fieldMap, "id"),
+					Name:   getStringField(fieldMap, "name"),
+					Custom: getBoolField(fieldMap, "custom"),
 				}
 			}
 

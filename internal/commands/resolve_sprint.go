@@ -78,14 +78,14 @@ jira-agent resolve sprint --board-id 42 --state active "Sprint"`,
 			var matches []resolvedSprint
 			totalMatches := 0
 			for _, jiraSprint := range jiraResponse.Values {
-				sprintName := GetStringField(jiraSprint, "name")
+				sprintName := getStringField(jiraSprint, "name")
 				if strings.Contains(strings.ToLower(sprintName), strings.ToLower(query)) {
 					totalMatches++
 					if len(matches) < maxResults {
 						matches = append(matches, resolvedSprint{
 							ID:    getInt64Field(jiraSprint, "id"),
 							Name:  sprintName,
-							State: GetStringField(jiraSprint, "state"),
+							State: getStringField(jiraSprint, "state"),
 						})
 					}
 				}

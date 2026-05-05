@@ -64,8 +64,8 @@ jira-agent resolve board "Kanban"`,
 			for i, jiraBoard := range jiraResponse.Values {
 				boards[i] = resolvedBoard{
 					ID:   getInt64Field(jiraBoard, "id"),
-					Name: GetStringField(jiraBoard, "name"),
-					Type: GetStringField(jiraBoard, "type"),
+					Name: getStringField(jiraBoard, "name"),
+					Type: getStringField(jiraBoard, "type"),
 				}
 			}
 
