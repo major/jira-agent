@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 
 	apperr "github.com/major/jira-agent/internal/errors"
@@ -125,10 +126,10 @@ func TestResolveFieldMatch(t *testing.T) {
 	if envelope.Metadata.UsageHint == "" {
 		t.Error("metadata.usage_hint: expected non-empty, got empty")
 	}
-	if !contains(envelope.Metadata.UsageHint, "issue get") {
+	if !strings.Contains(envelope.Metadata.UsageHint, "issue get") {
 		t.Errorf("metadata.usage_hint: got %q, want to contain 'issue get'", envelope.Metadata.UsageHint)
 	}
-	if !contains(envelope.Metadata.UsageHint, "--fields") {
+	if !strings.Contains(envelope.Metadata.UsageHint, "--fields") {
 		t.Errorf("metadata.usage_hint: got %q, want to contain '--fields'", envelope.Metadata.UsageHint)
 	}
 
@@ -238,7 +239,7 @@ func TestResolveFieldNotFound(t *testing.T) {
 	}
 	hasFieldList := false
 	for _, action := range notFoundErr.AvailableActions() {
-		if contains(action, "field list") {
+		if strings.Contains(action, "field list") {
 			hasFieldList = true
 			break
 		}

@@ -2,6 +2,7 @@ package commands
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	apperr "github.com/major/jira-agent/internal/errors"
@@ -38,6 +39,7 @@ func TestResolverMetadata(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			meta := resolverMetadata(tt.total, tt.returned, tt.usageHint)
 
 			if meta.Total != tt.total {
@@ -98,6 +100,7 @@ func TestRequireQuery(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got, err := requireQuery(tt.args, tt.entityName)
 
 			if (err != nil) != tt.wantErr {
@@ -111,7 +114,7 @@ func TestRequireQuery(t *testing.T) {
 					t.Errorf("error type: got %T, want ValidationError", err)
 				}
 				// Verify error message contains entity name
-				if !contains(err.Error(), tt.entityName) {
+				if !strings.Contains(err.Error(), tt.entityName) {
 					t.Errorf("error message: got %q, want to contain %q", err.Error(), tt.entityName)
 				}
 			}
@@ -123,12 +126,4 @@ func TestRequireQuery(t *testing.T) {
 	}
 }
 
-// contains is a helper to check if a string contains a substring.
-func contains(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
-}
+

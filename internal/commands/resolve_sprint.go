@@ -51,11 +51,8 @@ jira-agent resolve sprint --board-id 42 --state active "Sprint"`,
 				return err
 			}
 
-			// Get state filter (default: active,future)
-			state, _ := cmd.Flags().GetString("state")
-			if state == "" {
-				state = "active,future"
-			}
+		// Get state filter
+		state, _ := cmd.Flags().GetString("state")
 
 			// Call Jira Agile API to search for sprints
 			params := map[string]string{
@@ -114,7 +111,7 @@ jira-agent resolve sprint --board-id 42 --state active "Sprint"`,
 	}
 
 	cmd.Flags().String("board-id", "", "Board ID (required)")
-	cmd.Flags().String("state", "", "Filter by state: future, active, closed (comma-separated, default: active,future)")
+	cmd.Flags().String("state", "active,future", "Filter by state: future, active, closed (comma-separated)")
 
 	return cmd
 }

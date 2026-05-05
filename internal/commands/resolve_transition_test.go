@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 
 	apperr "github.com/major/jira-agent/internal/errors"
@@ -283,7 +284,7 @@ func TestResolveTransitionMissingIssue(t *testing.T) {
 	if nextCmd == "" {
 		t.Error("next_command: expected non-empty, got empty")
 	}
-	if !contains(nextCmd, "issue get") {
+	if !strings.Contains(nextCmd, "issue get") {
 		t.Errorf("next_command: got %q, want to contain 'issue get'", nextCmd)
 	}
 }

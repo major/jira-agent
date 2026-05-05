@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 
 	apperr "github.com/major/jira-agent/internal/errors"
@@ -96,7 +97,7 @@ func TestResolveSprintMatch(t *testing.T) {
 	if envelope.Metadata.UsageHint == "" {
 		t.Error("metadata.usage_hint: expected non-empty, got empty")
 	}
-	if !contains(envelope.Metadata.UsageHint, "sprint get") {
+	if !strings.Contains(envelope.Metadata.UsageHint, "sprint get") {
 		t.Errorf("metadata.usage_hint: got %q, want to contain 'sprint get'", envelope.Metadata.UsageHint)
 	}
 
@@ -254,7 +255,7 @@ func TestResolveSprintMissingBoardID(t *testing.T) {
 
 	// Verify next command
 	nextCmd := validationErr.NextCommand()
-	if !contains(nextCmd, "resolve board") {
+	if !strings.Contains(nextCmd, "resolve board") {
 		t.Errorf("next_command: got %q, want to contain 'resolve board'", nextCmd)
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 
 	apperr "github.com/major/jira-agent/internal/errors"
@@ -91,10 +92,10 @@ func TestResolveBoardSingleMatch(t *testing.T) {
 	if envelope.Metadata.UsageHint == "" {
 		t.Error("metadata.usage_hint: expected non-empty, got empty")
 	}
-	if !contains(envelope.Metadata.UsageHint, "resolve sprint") {
+	if !strings.Contains(envelope.Metadata.UsageHint, "resolve sprint") {
 		t.Errorf("metadata.usage_hint: got %q, want to contain 'resolve sprint'", envelope.Metadata.UsageHint)
 	}
-	if !contains(envelope.Metadata.UsageHint, "--board-id") {
+	if !strings.Contains(envelope.Metadata.UsageHint, "--board-id") {
 		t.Errorf("metadata.usage_hint: got %q, want to contain '--board-id'", envelope.Metadata.UsageHint)
 	}
 
@@ -214,7 +215,7 @@ func TestResolveBoardNotFound(t *testing.T) {
 	if len(notFoundErr.AvailableActions()) == 0 {
 		t.Error("available_actions: expected non-empty, got empty")
 	}
-	if !contains(notFoundErr.AvailableActions()[0], "board list") {
+	if !strings.Contains(notFoundErr.AvailableActions()[0], "board list") {
 		t.Errorf("available_actions: got %q, want to contain 'board list'", notFoundErr.AvailableActions()[0])
 	}
 }
