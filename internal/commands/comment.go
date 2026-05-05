@@ -79,7 +79,7 @@ func commentListByIDsCommand(apiClient *client.Ref, w io.Writer, format *output.
 			addOptionalParams(cmd, params, map[string]string{"expand": "expand"})
 			path := appendQueryParams("/comment/list", params)
 
-			return writePaginatedAPIResult(w, *format, func(result any) error {
+			return writePaginatedAPIResult(cmd, w, *format, func(result any) error {
 				return apiClient.Post(ctx, path, body, result)
 			})
 		},
@@ -109,11 +109,14 @@ jira-agent issue comment list PROJ-123 --order-by -created`,
 				"expand":   "expand",
 			})
 
-			return writePaginatedAPIResult(w, *format, func(result any) error {
+			return writePaginatedAPIResult(cmd, w, *format, func(result any) error {
 				return apiClient.Get(ctx, "/issue/"+key+"/comment", params, result)
 			})
 		},
 	}
+	appendPaginationFlags(cmd)
+	cmd.Flags().String("order-by", "", "Sort field (prefix with - for descending, e.g. -created)")
+	cmd.Flags().String("expand", "", "Comma-separated expansions (renderedBody, properties)")
 	return cmd
 }
 

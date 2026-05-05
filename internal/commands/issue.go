@@ -22,7 +22,7 @@ import (
 )
 
 // IssueCommand returns the "issue" parent command with all subcommands.
-func IssueCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command {
+func IssueCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites, dryRun *bool) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "issue",
 		Short: "Issue operations (get, search, create, edit, delete, transition, assign, comment, changelog, rank, count, notify, meta, bulk, property)",
@@ -63,6 +63,12 @@ jira-agent issue transition PROJ-123 --to "In Progress"`,
 		issueNotifyCommand(apiClient, w, format, allowWrites),
 		issueMetaCommand(apiClient, w, format),
 		issuePropertyCommand(apiClient, w, format, allowWrites),
+		issueStartWorkCommand(apiClient, w, format, allowWrites, dryRun),
+		issueCloseCommand(apiClient, w, format, allowWrites, dryRun),
+		issueCreateAndLinkCommand(apiClient, w, format, allowWrites, dryRun),
+		issueMoveToSprintCommand(apiClient, w, format, allowWrites, dryRun),
+		issueMineCommand(apiClient, w, format),
+		issueRecentCommand(apiClient, w, format),
 	)
 	return cmd
 }
@@ -158,6 +164,7 @@ func issueGetCommand(apiClient *client.Ref, w io.Writer, format *output.Format) 
 		Short: "Get issue by key or ID",
 		Example: `jira-agent issue get PROJ-123
 jira-agent issue get PROJ-123 --fields key,summary,status,assignee
+jira-agent issue get PROJ-123 --fields-preset minimal
 jira-agent issue get PROJ-123 --fields description --description-output-format markdown
 jira-agent issue get PROJ-123 --expand changelog
 jira-agent issue get PROJ-123 --raw`,
@@ -167,6 +174,11 @@ jira-agent issue get PROJ-123 --raw`,
 			if err != nil {
 				return err
 			}
+
+			if err := applyFieldsPreset(cmd); err != nil {
+				return err
+			}
+
 			params := map[string]string{}
 			addOptionalParams(cmd, params, map[string]string{
 				"fields":     "fields",
@@ -194,10 +206,11 @@ jira-agent issue get PROJ-123 --raw`,
 			if err := apiClient.Get(ctx, "/issue/"+key, params, &result); err != nil {
 				return err
 			}
-			return output.WriteResult(w, convertDescriptionOutputFields(result, descriptionFormat), *format)
+			return output.WriteResult(w, convertDescriptionOutputFields(result, descriptionFormat), *format, CompactOptsFromCmd(cmd)...)
 		},
 	}
 	cmd.Flags().String("fields", "", "Comma-separated field list (default: all navigable)")
+	cmd.Flags().String("fields-preset", "", "Named field preset: minimal, triage, or detail")
 	cmd.Flags().String("expand", "", "Comma-separated expansions (names, schema, changelog, operations)")
 	cmd.Flags().String("properties", "", "Comma-separated issue properties to include")
 	cmd.Flags().String("description-output-format", descriptionOutputFormatText, "Description output format: text, markdown, or adf")
@@ -205,6 +218,7 @@ jira-agent issue get PROJ-123 --raw`,
 	cmd.Flags().Bool("update-history", false, "Add the issue to the user's recently viewed history")
 	cmd.Flags().Bool("fail-fast", true, "Fail immediately if a requested field cannot be resolved")
 	cmd.Flags().Bool("raw", false, "Return the unmodified Jira API response for JSON output")
+	markMutuallyExclusive(cmd, "fields-preset", "fields")
 	return cmd
 }
 
@@ -249,54 +263,44 @@ func issueSearchCommand(apiClient *client.Ref, w io.Writer, format *output.Forma
 		Use:   "search",
 		Short: "Search issues via JQL",
 		Example: `jira-agent issue search --jql "project = PROJ AND status = Open"
+jira-agent issue search --assignee me --status "In Progress"
+jira-agent issue search --assignee me --sprint current --fields-preset triage
 jira-agent issue search --jql "assignee = currentUser()" --fields key,summary,status
 jira-agent issue search --jql "project = PROJ" --fields key,description --description-output-format markdown
 jira-agent issue search --jql "project = PROJ" --max-results 10 --order-by created --order desc
 jira-agent issue search --jql "project = PROJ" --raw`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			jql, err := requireFlag(cmd, "jql")
+
+			if err := applyFieldsPreset(cmd); err != nil {
+				return err
+			}
+
+			// Build JQL from semantic flags when --jql is not set.
+			if !cmd.Flags().Changed("jql") {
+				labels, _ := cmd.Flags().GetStringArray("label")
+				jql := buildJQLFromFlags(
+					mustGetString(cmd, "assignee"),
+					mustGetString(cmd, "status"),
+					mustGetString(cmd, "type"),
+					mustGetString(cmd, "priority"),
+					mustGetString(cmd, "sprint"),
+					mustGetString(cmd, "updated-since"),
+					labels,
+				)
+				if jql != "" {
+					_ = cmd.Flags().Set("jql", jql)
+				}
+			}
+
+			jql, body, err := buildIssueSearchBody(cmd)
 			if err != nil {
 				return err
 			}
-			// Append ORDER BY clause from flags if provided.
-			if orderBy := mustGetString(cmd, "order-by"); orderBy != "" {
-				direction := strings.ToUpper(mustGetString(cmd, "order"))
-				if direction == "" {
-					direction = "ASC"
-				}
-				jql += " ORDER BY " + orderBy + " " + direction
-			}
-
-			body := map[string]any{
-				"jql":        jql,
-				"maxResults": mustGetInt(cmd, "max-results"),
-			}
-
-			if t := mustGetString(cmd, "next-page-token"); t != "" {
-				body["nextPageToken"] = t
-			}
-			if f := issueSearchFields(mustGetString(cmd, "fields")); cmd.Flags().Changed("fields") || len(f) > 0 {
-				body["fields"] = f
-			}
-			if e := mustGetString(cmd, "expand"); e != "" {
-				body["expand"] = e
-			}
-			if properties := splitTrimmed(mustGetString(cmd, "properties")); len(properties) > 0 {
-				body["properties"] = properties
-			}
-			if mustGetBool(cmd, "fields-by-keys") {
-				body["fieldsByKeys"] = true
-			}
-			if cmd.Flags().Changed("fail-fast") {
-				body["failFast"] = mustGetBool(cmd, "fail-fast")
-			}
-			if reconcile := splitTrimmed(mustGetString(cmd, "reconcile-issues")); len(reconcile) > 0 {
-				body["reconcileIssues"] = reconcile
-			}
+			_ = jql
 
 			if mustGetBool(cmd, "raw") {
-				return writeRawPaginatedAPIResult(w, *format, func(result any) error {
+				return writeRawPaginatedAPIResult(cmd, w, *format, func(result any) error {
 					return apiClient.Post(ctx, "/search/jql", body, result)
 				})
 			}
@@ -310,15 +314,16 @@ jira-agent issue search --jql "project = PROJ" --raw`,
 			if err := apiClient.Post(ctx, "/search/jql", body, &result); err != nil {
 				return err
 			}
-			meta := extractPaginationMeta(result)
+			meta := extractPaginationMeta(cmd, result)
 			if !isJSONOutputFormat(*format) {
-				return output.WriteSuccess(w, convertDescriptionOutputFields(result, descriptionFormat), meta, *format)
+				return output.WriteSuccess(w, convertDescriptionOutputFields(result, descriptionFormat), meta, *format, CompactOptsFromCmd(cmd)...)
 			}
-			return output.WriteSuccess(w, flattenIssueSearchResultWithDescriptionFormat(result, descriptionFormat), meta, *format)
+			return output.WriteSuccess(w, flattenIssueSearchResultWithDescriptionFormat(result, descriptionFormat), meta, *format, CompactOptsFromCmd(cmd)...)
 		},
 	}
 	cmd.Flags().String("jql", "", "JQL query string (required)")
 	cmd.Flags().String("fields", "key,summary,status,assignee,priority", "Comma-separated field list")
+	cmd.Flags().String("fields-preset", "", "Named field preset: minimal, triage, or detail")
 	cmd.Flags().Int("max-results", 50, "Page size")
 	cmd.Flags().String("next-page-token", "", "Token for fetching next page of results")
 	cmd.Flags().String("expand", "", "Comma-separated expansions (names, schema, changelog, operations)")
@@ -330,6 +335,20 @@ jira-agent issue search --jql "project = PROJ" --raw`,
 	cmd.Flags().String("order-by", "", "Sort field (appended to JQL as ORDER BY clause)")
 	cmd.Flags().String("order", "", "Sort direction: asc or desc (used with --order-by)")
 	cmd.Flags().Bool("raw", false, "Return the unmodified Jira API response for JSON output")
+
+	// Semantic JQL flags: convenience alternatives to writing raw JQL.
+	cmd.Flags().String("assignee", "", `Assignee filter ("me" for currentUser())`)
+	cmd.Flags().String("status", "", "Status filter")
+	cmd.Flags().String("type", "", "Issue type filter (maps to issuetype in JQL)")
+	cmd.Flags().String("priority", "", "Priority filter")
+	cmd.Flags().StringArray("label", nil, "Label filter (repeatable, multiple labels become AND conditions)")
+	cmd.Flags().String("sprint", "", `Sprint filter ("current" for openSprints())`)
+	cmd.Flags().String("updated-since", "", `Updated-since filter (e.g. "7d" for updated >= "-7d")`)
+
+	markMutuallyExclusive(cmd, "fields-preset", "fields")
+	for _, flag := range []string{"assignee", "status", "type", "priority", "label", "sprint", "updated-since"} {
+		markMutuallyExclusive(cmd, "jql", flag)
+	}
 	return cmd
 }
 
@@ -342,6 +361,31 @@ jira-agent issue create --project PROJ --type Bug --summary "Fix login" --priori
 jira-agent issue create --project PROJ --type Task --summary "Subtask" --parent PROJ-100`,
 		RunE: writeGuard(allowWrites, func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+
+			// Full payload mode: --payload-json provides the complete issue
+			// body and is mutually exclusive with individual field flags.
+			if payloadJSON := mustGetString(cmd, "payload-json"); payloadJSON != "" {
+				body := map[string]any{}
+				if err := mergePayloadJSON(body, payloadJSON); err != nil {
+					return err
+				}
+				// Inject project from --project when the payload omits it.
+				if project := resolveProject(cmd); project != "" {
+					fields, ok := body["fields"].(map[string]any)
+					if !ok {
+						fields = map[string]any{}
+						body["fields"] = fields
+					}
+					if _, hasProject := fields["project"]; !hasProject {
+						fields["project"] = map[string]any{"key": project}
+					}
+				}
+				return writeAPIResult(w, *format, func(result any) error {
+					return apiClient.Post(ctx, "/issue", body, result)
+				})
+			}
+
+			// Individual flags mode.
 			project, err := requireProject(cmd)
 			if err != nil {
 				return err
@@ -372,9 +416,6 @@ jira-agent issue create --project PROJ --type Task --summary "Subtask" --parent 
 			}
 
 			body := map[string]any{"fields": fields}
-			if err := mergePayloadJSON(body, mustGetString(cmd, "payload-json")); err != nil {
-				return err
-			}
 
 			return writeAPIResult(w, *format, func(result any) error {
 				return apiClient.Post(ctx, "/issue", body, result)
@@ -393,6 +434,9 @@ jira-agent issue create --project PROJ --type Task --summary "Subtask" --parent 
 	cmd.Flags().StringToString("field", map[string]string{}, "Custom field value (key=value, repeatable)")
 	cmd.Flags().String("fields-json", "", "JSON object of fields (alternative to individual flags)")
 	cmd.Flags().String("payload-json", "", "Full JSON issue create payload, merged after field flags")
+	for _, flag := range []string{"summary", "type", "description", "assignee", "priority", "labels", "components", "parent", "field", "fields-json"} {
+		markMutuallyExclusive(cmd, "payload-json", flag)
+	}
 	return cmd
 }
 
@@ -562,6 +606,7 @@ jira-agent issue transition PROJ-123 --to Done --comment "Completed"`,
 	cmd.Flags().Bool("skip-remote-only-condition", false, "Skip remote-only workflow conditions")
 	cmd.Flags().Bool("sort-by-ops-bar-and-status", false, "Sort listed transitions by ops bar sequence and status")
 	cmd.Flags().Bool("list", false, "List available transitions instead of performing one")
+	markMutuallyExclusive(cmd, "to", "transition-id")
 	return cmd
 }
 
@@ -615,7 +660,7 @@ jira-agent issue changelog bulk-fetch --issues PROJ-1,PROJ-2`,
 
 			params := buildPaginationParams(cmd, nil)
 
-			return writePaginatedAPIResult(w, *format, func(result any) error {
+			return writePaginatedAPIResult(cmd, w, *format, func(result any) error {
 				return apiClient.Get(ctx, "/issue/"+key+"/changelog", params, result)
 			})
 		},
@@ -649,7 +694,7 @@ func issueChangelogListByIDsCommand(apiClient *client.Ref, w io.Writer, format *
 				return err
 			}
 			body := map[string]any{"changelogIds": ids}
-			return writePaginatedAPIResult(w, *format, func(result any) error {
+			return writePaginatedAPIResult(cmd, w, *format, func(result any) error {
 				return apiClient.Post(ctx, "/issue/"+key+"/changelog/list", body, result)
 			})
 		},
@@ -771,7 +816,7 @@ jira-agent issue count --jql "assignee = currentUser() AND resolution = Unresolv
 			if err := apiClient.Post(ctx, "/search/jql", body, &result); err != nil {
 				return err
 			}
-			meta := extractPaginationMeta(result)
+			meta := extractPaginationMeta(cmd, result)
 			return output.WriteSuccess(w, map[string]any{"total": meta.Total}, meta, *format)
 		},
 	}
@@ -815,7 +860,7 @@ jira-agent issue meta --operation edit --issue PROJ-123`,
 				if typeName == "" {
 					// List available issue types for the project.
 					path := "/issue/createmeta/" + project + "/issuetypes"
-					return writePaginatedAPIResult(w, *format, func(result any) error {
+					return writePaginatedAPIResult(cmd, w, *format, func(result any) error {
 						return apiClient.Get(ctx, path, nil, result)
 					})
 				}
@@ -831,7 +876,7 @@ jira-agent issue meta --operation edit --issue PROJ-123`,
 				}
 
 				path := "/issue/createmeta/" + project + "/issuetypes/" + typeID
-				return writePaginatedAPIResult(w, *format, func(result any) error {
+				return writePaginatedAPIResult(cmd, w, *format, func(result any) error {
 					return apiClient.Get(ctx, path, nil, result)
 				})
 

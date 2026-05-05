@@ -51,7 +51,7 @@ func componentListCommand(apiClient *client.Ref, w io.Writer, format *output.For
 			})
 			params["projectIdsOrKeys"] = project
 
-			return writePaginatedAPIResult(w, *format, func(result any) error {
+			return writePaginatedAPIResult(cmd, w, *format, func(result any) error {
 				return apiClient.Get(ctx, "/component", params, result)
 			})
 		},

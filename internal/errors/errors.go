@@ -14,6 +14,7 @@ package errors
 
 import (
 	"errors"
+	"fmt"
 )
 
 // ErrorOption configures optional fields on JiraError during construction.
@@ -24,17 +25,64 @@ func WithDetails(d string) ErrorOption {
 	return func(e *JiraError) { e.details = d }
 }
 
+// WithNextCommand sets a concrete follow-up command for agent remediation.
+func WithNextCommand(cmd string) ErrorOption {
+	return func(e *JiraError) { e.nextCommand = cmd }
+}
+
+// WithWriteBlocked marks a validation error as a write-access failure so
+// NextCommand can suggest the correct remediation.
+func WithWriteBlocked() ErrorOption {
+	return func(e *JiraError) { e.writeBlocked = true }
+}
+
+// WithResourceKey sets the resource identifier (e.g. issue key) on the error
+// so remediation can suggest a follow-up command referencing it.
+func WithResourceKey(key string) ErrorOption {
+	return func(e *JiraError) { e.resourceKey = key }
+}
+
+// WithAvailableActions sets the list of available actions on the error
+// so agents can discover valid alternatives after a failed operation.
+func WithAvailableActions(actions []string) ErrorOption {
+	return func(e *JiraError) { e.availableActions = actions }
+}
+
 // JiraError is the base error type for all jira-agent errors.
 // It wraps an underlying error to preserve the error chain.
 type JiraError struct {
-	Message string
-	Cause   error
-	details string
+	Message          string
+	Cause            error
+	details          string
+	nextCommand      string
+	resourceKey      string
+	availableActions []string
+	writeBlocked     bool
 }
 
 // Details returns the human-readable hint or remediation message, if any.
 func (e *JiraError) Details() string {
 	return e.details
+}
+
+// ResourceKey returns the resource identifier associated with this error, if any.
+func (e *JiraError) ResourceKey() string {
+	return e.resourceKey
+}
+
+// AvailableActions returns the list of valid actions an agent can take, if any.
+func (e *JiraError) AvailableActions() []string {
+	return e.availableActions
+}
+
+// NextCommand returns a suggested follow-up CLI command. The base implementation
+// returns a configured command when present; subtypes override this with
+// context-specific fallbacks.
+func (e *JiraError) NextCommand() string {
+	if e.nextCommand != "" {
+		return e.nextCommand
+	}
+	return ""
 }
 
 // Error implements the error interface.
@@ -98,6 +146,18 @@ func (e *NotFoundError) ExitCode() int {
 	return 2
 }
 
+// NextCommand returns a search command to help locate the missing resource.
+// Returns an empty string when no resource key was provided.
+func (e *NotFoundError) NextCommand() string {
+	if e.nextCommand != "" {
+		return e.nextCommand
+	}
+	if e.resourceKey == "" {
+		return ""
+	}
+	return fmt.Sprintf("jira-agent issue search --jql \"key = %s\"", e.resourceKey)
+}
+
 // APIError indicates that the Jira API returned a non-2xx response.
 type APIError struct {
 	JiraError
@@ -132,6 +192,15 @@ func NewValidationError(message string, cause error, opts ...ErrorOption) *Valid
 // ExitCode returns the process exit code for validation errors.
 func (e *ValidationError) ExitCode() int {
 	return 5
+}
+
+// NextCommand returns the command to enable write access when writes are
+// blocked. Otherwise it falls back to any custom hint set via WithNextCommand.
+func (e *ValidationError) NextCommand() string {
+	if e.writeBlocked {
+		return "export JIRA_ALLOW_WRITES=true"
+	}
+	return e.JiraError.NextCommand()
 }
 
 // exitCoder is an interface for types that can provide an exit code.

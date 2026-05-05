@@ -540,6 +540,24 @@ func TestNewMetadata(t *testing.T) {
 	}
 }
 
+func TestMetadataHasMoreExplicitFalse(t *testing.T) {
+	t.Parallel()
+
+	meta := Metadata{Timestamp: "2025-01-01T00:00:00Z"}
+
+	encoded, err := json.Marshal(meta)
+	if err != nil {
+		t.Fatalf("marshal Metadata error = %v, want nil", err)
+	}
+
+	if !strings.Contains(string(encoded), `"has_more":false`) {
+		t.Errorf("metadata JSON = %s, want explicit has_more false", encoded)
+	}
+	if strings.Contains(string(encoded), "next_command") {
+		t.Errorf("metadata JSON = %s, want next_command omitted when empty", encoded)
+	}
+}
+
 func TestWriteResult_JSON(t *testing.T) {
 	t.Parallel()
 
@@ -558,6 +576,83 @@ func TestWriteResult_JSON(t *testing.T) {
 	data := env.Data.(map[string]any)
 	if data["key"] != "TEST-1" {
 		t.Errorf("data[key] = %v, want %v", data["key"], "TEST-1")
+	}
+}
+
+func TestWriteErrorRemediation(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name                 string
+		err                  error
+		wantNextCommand      string
+		wantAvailableActions []string
+	}{
+		{
+			name:            "write-blocked validation error includes next_command",
+			err:             apperr.NewValidationError("write access is disabled", nil, apperr.WithWriteBlocked()),
+			wantNextCommand: "export JIRA_ALLOW_WRITES=true",
+		},
+		{
+			name: "validation error without write block omits next_command",
+			err:  apperr.NewValidationError("issue key is required", nil),
+		},
+		{
+			name:            "not found error includes next_command with resource key",
+			err:             apperr.NewNotFoundError("issue PROJ-456 not found", nil, apperr.WithResourceKey("PROJ-456")),
+			wantNextCommand: `jira-agent issue search --jql "key = PROJ-456"`,
+		},
+		{
+			name:                 "api error includes available_actions",
+			err:                  apperr.NewAPIError("transition failed", 400, "", nil, apperr.WithAvailableActions([]string{"In Progress", "Won't Do"})),
+			wantAvailableActions: []string{"In Progress", "Won't Do"},
+		},
+		{
+			name: "plain error omits remediation fields",
+			err:  &testError{msg: "plain error"},
+		},
+		{
+			name: "not found without resource key omits next_command",
+			err:  apperr.NewNotFoundError("resource not found", nil),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var buf bytes.Buffer
+			if err := WriteError(&buf, tt.err); err != nil {
+				t.Fatalf("WriteError() error = %v, want nil", err)
+			}
+
+			var env ErrorEnvelope
+			if err := json.Unmarshal(buf.Bytes(), &env); err != nil {
+				t.Fatalf("unmarshal error envelope: %v", err)
+			}
+
+			if env.Error.NextCommand != tt.wantNextCommand {
+				t.Errorf("next_command = %q, want %q", env.Error.NextCommand, tt.wantNextCommand)
+			}
+
+			if len(env.Error.AvailableActions) != len(tt.wantAvailableActions) {
+				t.Fatalf("available_actions len = %d, want %d", len(env.Error.AvailableActions), len(tt.wantAvailableActions))
+			}
+			for i, want := range tt.wantAvailableActions {
+				if env.Error.AvailableActions[i] != want {
+					t.Errorf("available_actions[%d] = %q, want %q", i, env.Error.AvailableActions[i], want)
+				}
+			}
+
+			// Verify omitempty: fields should not appear in JSON when empty.
+			raw := buf.String()
+			if tt.wantNextCommand == "" && strings.Contains(raw, "next_command") {
+				t.Errorf("JSON contains next_command when it should be omitted: %s", raw)
+			}
+			if len(tt.wantAvailableActions) == 0 && strings.Contains(raw, "available_actions") {
+				t.Errorf("JSON contains available_actions when it should be omitted: %s", raw)
+			}
+		})
 	}
 }
 

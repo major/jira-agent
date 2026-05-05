@@ -8,12 +8,15 @@ This package defines the LLM-facing Jira command surface. Treat command metadata
 
 Keep this file and the root `AGENTS.md` current anytime command code changes. Also update `skills/jira-agent` files in the same change whenever command code changes affect command paths, aliases, flags, args, examples, write behavior, pagination, output, errors, or recommended LLM workflows.
 
-Common constructor shape:
+Common constructor shapes:
 
 ```go
 func XCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *cobra.Command
 func XCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites *bool) *cobra.Command
+func XCommand(apiClient *client.Ref, w io.Writer, format *output.Format, allowWrites, dryRun *bool) *cobra.Command
 ```
+
+Composite commands that support `--dry-run` use the third form. Inside the handler, check `IsDryRun(dryRun)` first; call `requireWriteAccess(allowWrites)` only when not in dry-run mode. Do not use `writeGuard` for composites because dry-run must bypass the write check.
 
 Do not allocate standalone clients inside commands. Capture the shared `*client.Ref`, output writer, output format pointer, and write-enable pointer provided by root wiring.
 
@@ -27,6 +30,14 @@ Every `&cobra.Command{}` needs:
 - `setDefaultSubcommand(cmd, "name")` on parents when the default is obvious
 - positional argument placeholders in `Use` on leaves with positional args
 - declarative Cobra annotations for behavior that is otherwise hidden in handlers. `setDefaultSubcommand` records `jira-agent/default-subcommand`; use shared annotation helpers rather than ad hoc keys.
+
+### Annotation categories
+
+Commands are annotated with a category via `SetCommandCategory(cmd, category)`. Known categories: `read`, `write`, `bulk`, `discovery` (schema), `workflow` (composites), `admin`. The `jira-agent/requires-auth` annotation controls whether `PersistentPreRunE` loads auth; set `commandRequiresAuthFalse` on commands like `schema` that work without credentials.
+
+### Flag groups
+
+Use `markMutuallyExclusive(cmd, flagA, flagB)` to enforce at-most-one at the Cobra parse layer and record the constraint in the `jira-agent/flag-groups` annotation for schema introspection. `FlagGroups(cmd)` reads back the annotation. For pairwise exclusion of one flag against many (e.g., `--payload-json` vs individual field flags), call `markMutuallyExclusive` once per pair.
 
 Naming and text:
 
@@ -85,6 +96,8 @@ Return typed validation errors rather than generic `fmt.Errorf` for user-correct
 ## Command complexity hotspots
 
 - `issue.go`: largest surface, nested issue interactions, field merging, bulk operations, comments, worklogs, links, attachments, watchers, votes, transitions, ranking, notify, metadata.
+- `composite.go`: composite workflow commands (`start-work`, `close`, `create-and-link`, `move-to-sprint`). Each uses a params struct, a prepare function (read-only API calls), a dry-run function (diff computation), and an execute function (mutations with partial failure). Keep each function under the gocognit limit of 30.
+- `shortcuts.go`: `issue mine` and `issue recent` shortcut commands. Read-only; no `allowWrites`/`dryRun` params.
 - `user_group_filter.go`: user/group/filter searches and pagination.
 - `permission_dashboard.go`, `board.go`, `sprint.go`, `version.go`, `link.go`, and `property.go`: moderate complexity with write paths and Jira-specific API shapes.
 

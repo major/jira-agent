@@ -51,7 +51,7 @@ jira-agent project list --expand lead,description`,
 				"expand":   "expand",
 			})
 
-			return writePaginatedAPIResult(w, *format, func(result any) error {
+			return writePaginatedAPIResult(cmd, w, *format, func(result any) error {
 				return apiClient.Get(ctx, "/project/search", params, result)
 			})
 		},

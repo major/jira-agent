@@ -258,7 +258,7 @@ func groupMembersCommand(apiClient *client.Ref, w io.Writer, format *output.Form
 			maps.Copy(params, buildPaginationParams(cmd, nil))
 			addBoolParam(cmd, params, "include-inactive", "includeInactiveUsers")
 
-			return writePaginatedAPIResult(w, *format, func(result any) error {
+			return writePaginatedAPIResult(cmd, w, *format, func(result any) error {
 				return apiClient.Get(ctx, "/group/member", params, result)
 			})
 		},
@@ -361,7 +361,7 @@ jira-agent filter list --expand owner,jql`,
 			addBoolParam(cmd, params, "override-share-permissions", "overrideSharePermissions")
 			addBoolParam(cmd, params, "substring", "isSubstringMatch")
 
-			return writePaginatedAPIResult(w, *format, func(result any) error {
+			return writePaginatedAPIResult(cmd, w, *format, func(result any) error {
 				return apiClient.Get(ctx, "/filter/search", params, result)
 			})
 		},

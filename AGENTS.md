@@ -1,6 +1,6 @@
 # jira-agent agent guide
 
-Generated: Mon May 04 2026. Source state: branch `refactor/cobra-migration`, commit `3387a7b`.
+Generated: Mon May 04 2026. Source state: branch `feat/llm-ux-features`, commit `5a0eeab`.
 
 ## Purpose and audience
 
@@ -14,6 +14,11 @@ Keep this file and any nested `AGENTS.md` files current anytime code changes. Ev
 | --- | --- |
 | `cmd/jira-agent/main.go` | Real executable entrypoint, root CLI wiring, global flags, `PersistentPreRunE` auth hook, command registration. |
 | `internal/commands` | Domain command tree. See `internal/commands/AGENTS.md` before changing commands. |
+| `internal/commands/composite.go` | Composite workflow commands: `issue start-work`, `issue close`, `issue create-and-link`, `issue move-to-sprint`. |
+| `internal/commands/shortcuts.go` | Smart shortcut commands: `issue mine`, `issue recent`. |
+| `internal/commands/dryrun.go` | Dry-run infrastructure: `DryRunResult`, `ComputeFieldDiff`, `WriteDryRunResult`, `IsDryRun`. |
+| `internal/commands/schema.go` | Schema command: emits live Cobra command tree as machine-readable JSON, no auth required. |
+| `internal/commands/jql_helpers.go` | `buildJQLFromFlags`: pure function that builds JQL from semantic flag values. |
 | `internal/client` | Jira REST API v3 and Agile API HTTP client, Basic auth headers, content-type checks, typed error mapping. |
 | `internal/output` | All user-visible envelopes and CSV/TSV serialization. Output is an LLM-facing contract. |
 | `internal/errors` | Typed errors and exit codes. Preserve wrapping and typed inspection. |
@@ -36,13 +41,14 @@ Module: `github.com/major/jira-agent`. Go version: `1.26`. CLI framework: `githu
 - Default JSON removes noisy Jira API metadata such as `self`, `expand`, `avatarUrls`, `iconUrl`, and nested `statusCategory` objects. `issue get` and `issue search` convert ADF descriptions to text by default unless `--description-output-format markdown|adf` or `--raw` is used. `issue search` is additionally compact by default: `.data.issues[]` contains flattened issue rows and common Jira wrapper objects collapse to useful scalar values. Use `--raw` on commands that expose it only when an agent needs Jira's unmodified nested response.
 - Use CSV/TSV only for simple flat tables. Use JSON for nested Jira data, updates, errors, and partial success.
 - `--pretty` is for humans only. It must never appear in `skills/jira-agent` files or LLM-facing examples.
+- `jira-agent schema` emits the full CLI command tree as JSON without requiring auth. Use it for command discovery before falling back to `--help` scraping.
 
 ## Root CLI invariants
 
 - `buildAppWithDeps` pre-allocates `apiClient := &client.Ref{}` and fills it in the root `PersistentPreRunE` hook. Do not replace this with per-command clients; command closures share that reference intentionally.
 - `outputFormat` and `allowWrites` are shared pointers set during root initialization and consumed by commands.
 - `help`, `--version`, and empty root invocation must not load auth. Jira project-version commands require auth.
-- Root flags include `--project/-p` from `JIRA_PROJECT`, `--output/-o` as `json|csv|tsv`, `--pretty`, `--verbose/-v`, and `--config`.
+- Root flags include `--project/-p` from `JIRA_PROJECT`, `--output/-o` as `json|csv|tsv`, `--pretty`, `--verbose/-v`, `--config`, `--compact` (strips nulls/empties from JSON output, flattens single-key nested objects, JSON Lines for arrays), and `--dry-run` (composite commands only: preview field diff without mutating).
 - cobra uses `SilenceErrors = true` and `SilenceUsage = true` on the root command; error output goes through `output.WriteError` in `main`.
 - Verbose logging uses JSON slog to stderr. Data output stays on the configured writer.
 
@@ -59,7 +65,8 @@ Module: `github.com/major/jira-agent`. Go version: `1.26`. CLI framework: `githu
 - Successful JSON goes through `output.WriteSuccess` or `output.WriteResult`; partial success goes through `output.WritePartial`.
 - Errors always go through `output.WriteError` and are JSON regardless of requested output format.
 - The JSON success envelope has `data`, optional `errors`, and `metadata`. Do not document or add a stale `status` field unless the code changes.
-- `metadata` carries `timestamp`, `total`, `returned`, `start_at`, and `max_results` when available.
+- `metadata` carries `timestamp`, `total`, `returned`, `start_at`, and `max_results` when available. Paginated responses also include `has_more` (bool, always present) and `next_command` (string, present when `has_more` is true) so agents can page without constructing the next command manually.
+- Error detail objects include `next_command` (string) and `available_actions` ([]string) when applicable, so agents can recover without guessing.
 - JSON encoders must call `SetEscapeHTML(false)` so Jira URLs and text stay LLM-readable.
 - CSV/TSV output is flat rows with deterministic sorted headers; nested values serialize as inline JSON strings.
 - Exit codes: not found 2, auth 3, API 4, validation 5, unknown 1.

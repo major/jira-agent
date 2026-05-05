@@ -68,6 +68,13 @@ func buildAppWithDeps(w io.Writer, deps appDeps) *cobra.Command {
 	// write commands. Defaults to false so writes are blocked unless explicitly
 	// enabled via config file or JIRA_ALLOW_WRITES env var.
 	allowWrites := new(bool)
+	dryRun := new(bool)
+
+	// Compact output: controlled by the --compact persistent flag. When true,
+	// strips null/empty fields from JSON, flattens single-key nested objects to
+	// dot-notation, and outputs JSON Lines for array data. Commands read the
+	// flag via CompactOptsFromCmd(cmd) at output time. No pointer needed since
+	// the value is read directly from the cobra flag set.
 
 	rootCmd := &cobra.Command{
 		Use:   "jira-agent",
@@ -107,6 +114,9 @@ jira-agent project list --output csv`,
 
 			// Commands that don't require authentication.
 			if cmd.Name() == cmd.Root().Name() {
+				return nil
+			}
+			if cmd.Annotations["jira-agent/requires-auth"] == "false" {
 				return nil
 			}
 
@@ -161,6 +171,8 @@ jira-agent project list --output csv`,
 	flags := rootCmd.PersistentFlags()
 	flags.StringP("project", "p", "", "Override default Jira project key")
 	flags.StringP("output", "o", "json", "Output format (json, csv, tsv)")
+	flags.Bool("compact", false, "Compact JSON output: strip nulls/empties, flatten single-key objects, JSON Lines for arrays")
+	flags.BoolVar(dryRun, "dry-run", false, "Preview write-capable composite commands without making changes")
 	flags.Bool("pretty", false, "Pretty-print JSON output")
 	flags.BoolP("verbose", "v", false, "Enable debug logging to stderr")
 	flags.String("config", configPath, "Path to config file")
@@ -168,7 +180,7 @@ jira-agent project list --output csv`,
 	rootCmd.AddCommand(
 		whoamiCommand(apiClient, w, outputFormat),
 		commands.AuditCommand(apiClient, w, outputFormat),
-		commands.IssueCommand(apiClient, w, outputFormat, allowWrites),
+		commands.IssueCommand(apiClient, w, outputFormat, allowWrites, dryRun),
 		commands.FieldCommand(apiClient, w, outputFormat, allowWrites),
 		commands.ProjectCommand(apiClient, w, outputFormat, allowWrites),
 		commands.RoleCommand(apiClient, w, outputFormat),
@@ -195,6 +207,7 @@ jira-agent project list --output csv`,
 		commands.JQLCommand(apiClient, w, outputFormat),
 	)
 	commands.MarkWriteProtectedCommands(rootCmd)
+	rootCmd.AddCommand(commands.SchemaCommand(rootCmd, w, outputFormat))
 
 	return rootCmd
 }
@@ -212,7 +225,7 @@ func whoamiCommand(apiClient *client.Ref, w io.Writer, format *output.Format) *c
 				return err
 			}
 
-			return output.WriteResult(w, result, *format)
+			return output.WriteResult(w, result, *format, commands.CompactOptsFromCmd(cmd)...)
 		},
 	}
 }

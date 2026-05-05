@@ -56,7 +56,7 @@ func versionListCommand(apiClient *client.Ref, w io.Writer, format *output.Forma
 				"expand":   "expand",
 			})
 
-			return writePaginatedAPIResult(w, *format, func(result any) error {
+			return writePaginatedAPIResult(cmd, w, *format, func(result any) error {
 				return apiClient.Get(ctx, "/project/"+project+"/version", params, result)
 			})
 		},

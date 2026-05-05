@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/url"
@@ -9,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	apperr "github.com/major/jira-agent/internal/errors"
 	"github.com/major/jira-agent/internal/output"
@@ -17,13 +19,47 @@ import (
 const (
 	commandAnnotationDefaultSubcommand = "jira-agent/default-subcommand"
 	commandAnnotationWriteProtected    = "jira-agent/write-protected"
+	commandAnnotationCategory          = "jira-agent/category"
+	commandAnnotationRequiresAuth      = "jira-agent/requires-auth"
+	commandAnnotationFlagGroups        = "jira-agent/flag-groups"
+
+	commandCategoryRead      = "read"
+	commandCategoryWrite     = "write"
+	commandCategoryBulk      = "bulk"
+	commandCategoryDiscovery = "discovery"
+	commandCategoryWorkflow  = "workflow"
+	commandCategoryAdmin     = "admin"
+
+	commandRequiresAuthTrue  = "true"
+	commandRequiresAuthFalse = "false"
+
+	flagGroupTypeMutuallyExclusive = "mutually_exclusive"
 )
+
+var validCommandCategories = map[string]struct{}{
+	commandCategoryRead:      {},
+	commandCategoryWrite:     {},
+	commandCategoryBulk:      {},
+	commandCategoryDiscovery: {},
+	commandCategoryWorkflow:  {},
+	commandCategoryAdmin:     {},
+}
 
 func setCommandAnnotation(cmd *cobra.Command, key, value string) {
 	if cmd.Annotations == nil {
 		cmd.Annotations = map[string]string{}
 	}
 	cmd.Annotations[key] = value
+}
+
+// SetCommandCategory annotates a command with an LLM routing category. It
+// panics on invalid categories so command-tree construction fails loudly during
+// tests instead of emitting ambiguous schema metadata later.
+func SetCommandCategory(cmd *cobra.Command, category string) {
+	if _, ok := validCommandCategories[category]; !ok {
+		panic(fmt.Sprintf("invalid command category %q", category))
+	}
+	setCommandAnnotation(cmd, commandAnnotationCategory, category)
 }
 
 // MarkWriteProtected annotates a command as write-protected without changing
@@ -41,10 +77,59 @@ func MarkWriteProtectedCommands(root *cobra.Command) {
 	rootPath := root.CommandPath()
 	for _, cmd := range allCommands(root) {
 		path := strings.TrimPrefix(cmd.CommandPath(), rootPath+" ")
+		if cmd == root {
+			setCommandAnnotation(cmd, commandAnnotationRequiresAuth, commandRequiresAuthFalse)
+			continue
+		}
+		setCommandAnnotation(cmd, commandAnnotationRequiresAuth, commandRequiresAuthTrue)
+		SetCommandCategory(cmd, commandCategoryForPath(path))
 		if _, ok := writeProtectedCommandPaths[path]; ok {
 			MarkWriteProtected(cmd)
 		}
 	}
+}
+
+// CommandCategories returns command paths grouped by LLM routing category in a
+// deterministic order for contract tests and future schema generation.
+func CommandCategories() map[string][]string {
+	categories := map[string][]string{
+		commandCategoryRead:      {},
+		commandCategoryWrite:     {},
+		commandCategoryBulk:      {},
+		commandCategoryDiscovery: {},
+		commandCategoryWorkflow:  {},
+		commandCategoryAdmin:     {},
+	}
+	for _, path := range commandKnownPaths {
+		category := commandCategoryForPath(path)
+		categories[category] = append(categories[category], path)
+	}
+	for category := range categories {
+		sort.Strings(categories[category])
+	}
+	return categories
+}
+
+func commandCategoryForPath(path string) string {
+	if category, ok := commandCategoryPathOverrides[path]; ok {
+		return category
+	}
+	if strings.HasPrefix(path, "issue bulk") {
+		return commandCategoryBulk
+	}
+	if _, ok := writeProtectedCommandPaths[path]; ok {
+		return commandCategoryWrite
+	}
+	if strings.HasPrefix(path, "workflow") || strings.HasPrefix(path, "status") {
+		return commandCategoryWorkflow
+	}
+	if strings.HasPrefix(path, "audit") || strings.HasPrefix(path, "permission") || strings.HasPrefix(path, "time-tracking") || path == "server-info" {
+		return commandCategoryAdmin
+	}
+	if strings.HasPrefix(path, "field") || strings.HasPrefix(path, "project") || strings.HasPrefix(path, "board") || strings.HasPrefix(path, "role") || strings.HasPrefix(path, "priority") || strings.HasPrefix(path, "resolution") || strings.HasPrefix(path, "issuetype") || strings.HasPrefix(path, "label") || strings.HasPrefix(path, "jql") {
+		return commandCategoryDiscovery
+	}
+	return commandCategoryRead
 }
 
 // WriteProtectedCommandPaths returns the configured write-protected command
@@ -64,6 +149,20 @@ func allCommands(root *cobra.Command) []*cobra.Command {
 		commands = append(commands, allCommands(child)...)
 	}
 	return commands
+}
+
+var commandCategoryPathOverrides = map[string]string{
+	"audit list":           commandCategoryAdmin,
+	"audit records":        commandCategoryAdmin,
+	"field option reorder": commandCategoryWrite,
+	"issue bulk":           commandCategoryBulk,
+	"issue transition":     commandCategoryWrite,
+	"project list":         commandCategoryDiscovery,
+	"server-info":          commandCategoryAdmin,
+}
+
+var commandKnownPaths = []string{
+	"audit", "audit list", "backlog", "backlog list", "backlog move", "board", "board config", "board create", "board delete", "board epics", "board filter", "board get", "board issues", "board list", "board projects", "board property", "board property delete", "board property get", "board property list", "board property set", "board versions", "component", "component create", "component delete", "component get", "component issue-counts", "component list", "component update", "dashboard", "dashboard copy", "dashboard create", "dashboard delete", "dashboard gadgets", "dashboard get", "dashboard list", "dashboard update", "epic", "epic get", "epic issues", "epic move-issues", "epic orphans", "epic rank", "epic remove-issues", "field", "field context", "field context create", "field context delete", "field context list", "field context update", "field list", "field option", "field option create", "field option delete", "field option get", "field option list", "field option reorder", "field option update", "field search", "filter", "filter create", "filter default-share-scope", "filter default-share-scope get", "filter default-share-scope set", "filter delete", "filter favorites", "filter get", "filter list", "filter permissions", "filter share", "filter unshare", "filter update", "group", "group add-member", "group create", "group delete", "group get", "group list", "group member-picker", "group members", "group remove-member", "issue", "issue assign", "issue attachment", "issue attachment add", "issue attachment delete", "issue attachment get", "issue attachment list", "issue bulk", "issue bulk create", "issue bulk delete", "issue bulk edit", "issue bulk edit-fields", "issue bulk fetch", "issue bulk move", "issue bulk status", "issue bulk transition", "issue bulk transitions", "issue bulk-create", "issue bulk-delete", "issue bulk-edit", "issue bulk-edit-fields", "issue bulk-fetch", "issue bulk-move", "issue bulk-status", "issue bulk-transition", "issue bulk-transitions", "issue changelog", "issue changelog bulk-fetch", "issue changelog list-by-ids", "issue close", "issue comment", "issue comment add", "issue comment delete", "issue comment edit", "issue comment get", "issue comment list", "issue comment list-by-ids", "issue count", "issue create", "issue create-and-link", "issue delete", "issue edit", "issue get", "issue link", "issue link add", "issue link delete", "issue link get", "issue link list", "issue link types", "issue meta", "issue mine", "issue move-to-sprint", "issue notify", "issue picker", "issue property", "issue property delete", "issue property get", "issue property list", "issue property set", "issue rank", "issue recent", "issue remote-link", "issue remote-link add", "issue remote-link delete", "issue remote-link edit", "issue remote-link get", "issue remote-link list", "issue search", "issue start-work", "issue transition", "issue vote", "issue vote add", "issue vote get", "issue vote remove", "issue watcher", "issue watcher add", "issue watcher list", "issue watcher remove", "issue worklog", "issue worklog add", "issue worklog delete", "issue worklog deleted", "issue worklog edit", "issue worklog get", "issue worklog list", "issue worklog list-by-ids", "issue worklog updated", "issuetype", "issuetype get", "issuetype list", "issuetype project", "jql", "jql fields", "jql suggest", "jql validate", "label", "label list", "permission", "permission check", "permission list", "permission schemes", "permission schemes get", "permission schemes list", "permission schemes project", "priority", "priority list", "project", "project categories", "project categories get", "project categories list", "project get", "project list", "project property", "project property delete", "project property get", "project property list", "project property set", "project roles", "project roles add-actor", "project roles get", "project roles list", "project roles remove-actor", "resolution", "resolution list", "role", "role get", "role list", "server-info", "sprint", "sprint create", "sprint current", "sprint delete", "sprint get", "sprint issues", "sprint list", "sprint move-issues", "sprint property", "sprint property delete", "sprint property get", "sprint property list", "sprint property set", "sprint swap", "sprint update", "status", "status categories", "status get", "status list", "task", "task cancel", "task get", "time-tracking", "time-tracking get", "time-tracking options", "time-tracking options get", "time-tracking options set", "time-tracking providers", "time-tracking select", "user", "user get", "user groups", "user search", "version", "version create", "version delete", "version get", "version issue-counts", "version list", "version merge", "version move", "version unresolved-count", "version update", "workflow", "workflow get", "workflow list", "workflow scheme", "workflow scheme get", "workflow scheme list", "workflow scheme project", "workflow statuses", "workflow transition-rules",
 }
 
 var writeProtectedCommandPaths = map[string]struct{}{
@@ -112,19 +211,23 @@ var writeProtectedCommandPaths = map[string]struct{}{
 	"issue bulk-edit":                {},
 	"issue bulk-move":                {},
 	"issue bulk-transition":          {},
+	"issue close":                    {},
 	"issue comment add":              {},
 	"issue comment delete":           {},
 	"issue comment edit":             {},
 	"issue create":                   {},
+	"issue create-and-link":          {},
 	"issue delete":                   {},
 	"issue edit":                     {},
 	"issue link add":                 {},
 	"issue link delete":              {},
+	"issue move-to-sprint":           {},
 	"issue notify":                   {},
 	"issue property delete":          {},
 	"issue property set":             {},
 	"issue rank":                     {},
 	"issue remote-link add":          {},
+	"issue start-work":               {},
 	"issue remote-link delete":       {},
 	"issue remote-link edit":         {},
 	"issue transition":               {},
@@ -164,6 +267,7 @@ func requireWriteAccess(allowWrites *bool) error {
 			apperr.WithDetails(
 				`set "i-too-like-to-live-dangerously": true in config file or JIRA_ALLOW_WRITES=true env var to enable write operations`,
 			),
+			apperr.WithWriteBlocked(),
 		)
 	}
 	return nil
@@ -230,6 +334,20 @@ func requireFlagWithDetails(cmd *cobra.Command, flagName, details string) (strin
 
 type apiResultFunc func(result any) error
 
+// CompactOptsFromCmd returns compact WriteOptions by reading the --compact
+// persistent flag from the command's root. This avoids package-level mutable
+// state and is safe for parallel tests.
+func CompactOptsFromCmd(cmd *cobra.Command) []output.WriteOption {
+	if cmd == nil {
+		return nil
+	}
+	compact, _ := cmd.Root().PersistentFlags().GetBool("compact")
+	if compact {
+		return []output.WriteOption{output.WithCompact(true)}
+	}
+	return nil
+}
+
 // writeAPIResult runs an API call that writes into result, then emits the
 // standard success envelope for commands that return a single result object.
 func writeAPIResult(w io.Writer, format output.Format, call apiResultFunc) error {
@@ -252,23 +370,23 @@ func writeRawAPIResult(w io.Writer, format output.Format, call apiResultFunc) er
 
 // writePaginatedAPIResult runs an API call that writes into result, extracts
 // Jira pagination metadata, then emits the standard success envelope.
-func writePaginatedAPIResult(w io.Writer, format output.Format, call apiResultFunc) error {
+func writePaginatedAPIResult(cmd *cobra.Command, w io.Writer, format output.Format, call apiResultFunc) error {
 	var result any
 	if err := call(&result); err != nil {
 		return err
 	}
-	meta := extractPaginationMeta(result)
+	meta := extractPaginationMeta(cmd, result)
 	return output.WriteSuccess(w, result, meta, format)
 }
 
 // writeRawPaginatedAPIResult preserves Jira's original JSON shape for commands
 // with an explicit raw-output flag while still extracting envelope metadata.
-func writeRawPaginatedAPIResult(w io.Writer, format output.Format, call apiResultFunc) error {
+func writeRawPaginatedAPIResult(cmd *cobra.Command, w io.Writer, format output.Format, call apiResultFunc) error {
 	var result any
 	if err := call(&result); err != nil {
 		return err
 	}
-	meta := extractPaginationMeta(result)
+	meta := extractPaginationMeta(cmd, result)
 	return output.WriteRawSuccess(w, result, meta, format)
 }
 
@@ -366,7 +484,7 @@ func addOptionalParams(cmd *cobra.Command, params, optionalFlags map[string]stri
 
 // extractPaginationMeta pulls total, startAt, maxResults, and item count
 // from a standard Jira paginated response.
-func extractPaginationMeta(result any) output.Metadata {
+func extractPaginationMeta(cmd *cobra.Command, result any) output.Metadata {
 	meta := output.NewMetadata()
 	m, ok := result.(map[string]any)
 	if !ok {
@@ -393,7 +511,40 @@ func extractPaginationMeta(result any) output.Metadata {
 			break
 		}
 	}
+	meta.HasMore = meta.Total > meta.StartAt+meta.Returned
+	if meta.HasMore {
+		meta.NextCommand = buildNextPageCommand(cmd, meta.StartAt+meta.Returned)
+	}
 	return meta
+}
+
+func buildNextPageCommand(cmd *cobra.Command, nextStartAt int) string {
+	if cmd == nil {
+		return ""
+	}
+
+	parts := []string{cmd.CommandPath()}
+	for _, arg := range cmd.Flags().Args() {
+		parts = append(parts, shellQuoteFlagValue(arg))
+	}
+	cmd.Flags().Visit(func(flag *pflag.Flag) {
+		if flag.Name == "start-at" {
+			return
+		}
+		parts = append(parts, "--"+flag.Name)
+		if flag.Value.Type() != "bool" || flag.Value.String() != "true" {
+			parts = append(parts, shellQuoteFlagValue(flag.Value.String()))
+		}
+	})
+	parts = append(parts, "--start-at", strconv.Itoa(nextStartAt))
+	return strings.Join(parts, " ")
+}
+
+func shellQuoteFlagValue(value string) string {
+	if value == "" || strings.ContainsAny(value, " \t\n\"'\\") {
+		return strconv.Quote(value)
+	}
+	return value
 }
 
 func extractFieldArray(result map[string]any, fieldName string) ([]any, error) {
@@ -465,6 +616,51 @@ func appendQueryParams(path string, params map[string]string) string {
 // appendQueryParams.
 func escapePathSegment(value string) string {
 	return url.PathEscape(value)
+}
+
+// flagGroupInfo describes a Cobra flag group constraint recorded during command
+// construction. Schema generators use this to expose flag relationships without
+// parsing help text.
+type flagGroupInfo struct {
+	Type  string   `json:"type"`
+	Flags []string `json:"flags"`
+}
+
+// markMutuallyExclusive registers a Cobra mutual exclusion constraint and
+// records it in the command's annotations so FlagGroups can return it later.
+func markMutuallyExclusive(cmd *cobra.Command, flags ...string) {
+	cmd.MarkFlagsMutuallyExclusive(flags...)
+	recordFlagGroup(cmd, flagGroupInfo{
+		Type:  flagGroupTypeMutuallyExclusive,
+		Flags: append([]string{}, flags...),
+	})
+}
+
+// recordFlagGroup appends a flag group entry to the command's annotation-based
+// registry. Groups are stored as a JSON array under the jira-agent/flag-groups
+// annotation key.
+func recordFlagGroup(cmd *cobra.Command, group flagGroupInfo) {
+	var groups []flagGroupInfo
+	if raw := cmd.Annotations[commandAnnotationFlagGroups]; raw != "" {
+		_ = json.Unmarshal([]byte(raw), &groups)
+	}
+	groups = append(groups, group)
+	data, _ := json.Marshal(groups)
+	setCommandAnnotation(cmd, commandAnnotationFlagGroups, string(data))
+}
+
+// FlagGroups returns the flag group constraints recorded on cmd during
+// construction. Returns nil when no groups are registered.
+func FlagGroups(cmd *cobra.Command) []flagGroupInfo {
+	raw := cmd.Annotations[commandAnnotationFlagGroups]
+	if raw == "" {
+		return nil
+	}
+	var groups []flagGroupInfo
+	if err := json.Unmarshal([]byte(raw), &groups); err != nil {
+		return nil
+	}
+	return groups
 }
 
 // setDefaultSubcommand configures parent to run childName's RunE when invoked

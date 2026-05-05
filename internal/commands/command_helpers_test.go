@@ -1,14 +1,18 @@
 package commands
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
+	"sort"
 	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
 
+	"github.com/major/jira-agent/internal/client"
 	apperr "github.com/major/jira-agent/internal/errors"
 	"github.com/major/jira-agent/internal/output"
 )
@@ -196,7 +200,8 @@ func TestWritePaginatedAPIResult(t *testing.T) {
 
 	var buf strings.Builder
 	format := output.FormatJSON
-	err := writePaginatedAPIResult(&buf, format, func(result any) error {
+	cmd := &cobra.Command{Use: "list"}
+	err := writePaginatedAPIResult(cmd, &buf, format, func(result any) error {
 		ptr, ok := result.(*any)
 		if !ok {
 			t.Fatalf("result type = %T, want *any", result)
@@ -220,6 +225,150 @@ func TestWritePaginatedAPIResult(t *testing.T) {
 			t.Errorf("output = %q, want %s", buf.String(), want)
 		}
 	}
+}
+
+func TestPaginationHasMore(t *testing.T) {
+	t.Parallel()
+
+	result := map[string]any{
+		"total":      float64(3),
+		"startAt":    float64(0),
+		"maxResults": float64(2),
+		"values": []any{
+			map[string]any{"id": "1"},
+			map[string]any{"id": "2"},
+		},
+	}
+
+	meta := extractPaginationMeta(testPaginationCommand(t, nil), result)
+
+	if !meta.HasMore {
+		t.Error("HasMore = false, want true")
+	}
+}
+
+func TestPaginationLastPage(t *testing.T) {
+	t.Parallel()
+
+	result := map[string]any{
+		"total":      float64(4),
+		"startAt":    float64(2),
+		"maxResults": float64(2),
+		"values": []any{
+			map[string]any{"id": "3"},
+			map[string]any{"id": "4"},
+		},
+	}
+
+	meta := extractPaginationMeta(testPaginationCommand(t, nil), result)
+
+	if meta.HasMore {
+		t.Error("HasMore = true, want false")
+	}
+	if meta.NextCommand != "" {
+		t.Errorf("NextCommand = %q, want empty", meta.NextCommand)
+	}
+
+	encoded, err := json.Marshal(meta)
+	if err != nil {
+		t.Fatalf("marshal Metadata error = %v, want nil", err)
+	}
+	if !strings.Contains(string(encoded), `"has_more":false`) {
+		t.Errorf("metadata JSON = %s, want explicit has_more false", encoded)
+	}
+}
+
+func TestPaginationNextCommand(t *testing.T) {
+	t.Parallel()
+
+	cmd := testPaginationCommand(t, []string{
+		"--jql", "project = TEST",
+		"--fields", "key,summary",
+		"--max-results", "25",
+		"--start-at", "25",
+	})
+	result := map[string]any{
+		"total":      float64(100),
+		"startAt":    float64(25),
+		"maxResults": float64(25),
+		"issues":     []any{map[string]any{"key": "TEST-1"}},
+	}
+
+	meta := extractPaginationMeta(cmd, result)
+
+	want := `jira-agent issue search --fields key,summary --jql "project = TEST" --max-results 25 --start-at 26`
+	if meta.NextCommand != want {
+		t.Errorf("NextCommand = %q, want %q", meta.NextCommand, want)
+	}
+}
+
+func TestPaginationNextCommandWithPositionalArgs(t *testing.T) {
+	t.Parallel()
+
+	// Simulate "jira-agent issue comment list PROJ-123 --max-results 5"
+	root := &cobra.Command{Use: "jira-agent"}
+	issue := &cobra.Command{Use: "issue"}
+	comment := &cobra.Command{Use: "comment"}
+	list := &cobra.Command{
+		Use: "list <issue-key>",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return nil
+		},
+	}
+	appendPaginationFlags(list)
+	comment.AddCommand(list)
+	issue.AddCommand(comment)
+	root.AddCommand(issue)
+
+	root.SetArgs([]string{"issue", "comment", "list", "PROJ-123", "--max-results", "5"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("command failed: %v", err)
+	}
+
+	result := map[string]any{
+		"total":      float64(10),
+		"startAt":    float64(0),
+		"maxResults": float64(5),
+		"comments":   []any{map[string]any{"id": "1"}},
+	}
+
+	meta := extractPaginationMeta(list, result)
+
+	if !meta.HasMore {
+		t.Error("HasMore = false, want true")
+	}
+
+	want := "jira-agent issue comment list PROJ-123 --max-results 5 --start-at 1"
+	if meta.NextCommand != want {
+		t.Errorf("NextCommand = %q, want %q", meta.NextCommand, want)
+	}
+}
+
+func testPaginationCommand(t *testing.T, args []string) *cobra.Command {
+	t.Helper()
+
+	root := &cobra.Command{Use: "jira-agent"}
+	issue := &cobra.Command{Use: "issue"}
+	search := &cobra.Command{
+		Use: "search",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return nil
+		},
+	}
+	search.Flags().String("jql", "", "")
+	search.Flags().String("fields", "", "")
+	appendPaginationFlags(search)
+	issue.AddCommand(search)
+	root.AddCommand(issue)
+
+	if args != nil {
+		root.SetArgs(append([]string{"issue", "search"}, args...))
+		if err := root.Execute(); err != nil {
+			t.Fatalf("command failed: %v", err)
+		}
+	}
+
+	return search
 }
 
 func TestBuildPaginationParams(t *testing.T) {
@@ -545,6 +694,20 @@ func TestWriteGuard(t *testing.T) {
 func TestCommandAnnotations(t *testing.T) {
 	t.Parallel()
 
+	t.Run("keeps llm routing annotation keys stable", func(t *testing.T) {
+		t.Parallel()
+
+		if commandAnnotationCategory != "jira-agent/category" {
+			t.Errorf("commandAnnotationCategory = %q, want jira-agent/category", commandAnnotationCategory)
+		}
+		if commandAnnotationRequiresAuth != "jira-agent/requires-auth" {
+			t.Errorf("commandAnnotationRequiresAuth = %q, want jira-agent/requires-auth", commandAnnotationRequiresAuth)
+		}
+		if commandRequiresAuthTrue != "true" || commandRequiresAuthFalse != "false" {
+			t.Errorf("requires-auth values = %q/%q, want true/false", commandRequiresAuthTrue, commandRequiresAuthFalse)
+		}
+	})
+
 	t.Run("records default subcommand", func(t *testing.T) {
 		t.Parallel()
 
@@ -592,6 +755,119 @@ func TestCommandAnnotations(t *testing.T) {
 			t.Error("read command was marked write-protected")
 		}
 	})
+}
+
+func TestSetCommandCategory(t *testing.T) {
+	t.Parallel()
+
+	t.Run("records valid category", func(t *testing.T) {
+		t.Parallel()
+
+		cmd := &cobra.Command{Use: "search"}
+		SetCommandCategory(cmd, "read")
+
+		got := cmd.Annotations[commandAnnotationCategory]
+		if got != "read" {
+			t.Errorf("category annotation = %q, want read", got)
+		}
+	})
+
+	t.Run("panics for invalid category", func(t *testing.T) {
+		t.Parallel()
+
+		defer func() {
+			panicValue := recover()
+			if panicValue == nil {
+				t.Fatal("SetCommandCategory accepted invalid category, want panic")
+			}
+			if !strings.Contains(fmt.Sprint(panicValue), "invalid command category") {
+				t.Fatalf("panic = %v, want invalid command category", panicValue)
+			}
+		}()
+
+		SetCommandCategory(&cobra.Command{Use: "bad"}, "unsafe")
+	})
+}
+
+func TestCommandCategories(t *testing.T) {
+	t.Parallel()
+
+	got := CommandCategories()
+	for _, category := range []string{"read", "write", "bulk", "discovery", "workflow", "admin"} {
+		paths, ok := got[category]
+		if !ok {
+			t.Fatalf("CommandCategories()[%q] missing", category)
+		}
+		if !sort.StringsAreSorted(paths) {
+			t.Errorf("CommandCategories()[%q] = %v, want sorted paths", category, paths)
+		}
+	}
+
+	wantSamples := map[string][]string{
+		"read":      {"issue get", "issue search"},
+		"write":     {"issue create", "issue transition"},
+		"bulk":      {"issue bulk create", "issue bulk transition"},
+		"discovery": {"field list", "project list"},
+		"workflow":  {"workflow list", "status list"},
+		"admin":     {"audit list", "server-info"},
+	}
+	for category, paths := range wantSamples {
+		for _, path := range paths {
+			if !slices.Contains(got[category], path) {
+				t.Errorf("CommandCategories()[%q] = %v, want %q", category, got[category], path)
+			}
+		}
+	}
+}
+
+func TestAllCommandsHaveCategory(t *testing.T) {
+	t.Parallel()
+
+	allowWrites := false
+	dryRun := false
+	format := output.FormatJSON
+	apiClient := &client.Ref{}
+	var w strings.Builder
+	root := &cobra.Command{Use: "jira-agent"}
+	root.AddCommand(
+		AuditCommand(apiClient, &w, &format),
+		IssueCommand(apiClient, &w, &format, &allowWrites, &dryRun),
+		FieldCommand(apiClient, &w, &format, &allowWrites),
+		ProjectCommand(apiClient, &w, &format, &allowWrites),
+		RoleCommand(apiClient, &w, &format),
+		BoardCommand(apiClient, &w, &format, &allowWrites),
+		UserCommand(apiClient, &w, &format),
+		GroupCommand(apiClient, &w, &format, &allowWrites),
+		FilterCommand(apiClient, &w, &format, &allowWrites),
+		PermissionCommand(apiClient, &w, &format),
+		DashboardCommand(apiClient, &w, &format, &allowWrites),
+		WorkflowCommand(apiClient, &w, &format),
+		StatusCommand(apiClient, &w, &format),
+		PriorityCommand(apiClient, &w, &format),
+		ResolutionCommand(apiClient, &w, &format),
+		IssueTypeCommand(apiClient, &w, &format),
+		LabelCommand(apiClient, &w, &format),
+		ComponentCommand(apiClient, &w, &format, &allowWrites),
+		VersionCommand(apiClient, &w, &format, &allowWrites),
+		SprintCommand(apiClient, &w, &format, &allowWrites),
+		EpicCommand(apiClient, &w, &format, &allowWrites),
+		BacklogCommand(apiClient, &w, &format, &allowWrites),
+		TaskCommand(apiClient, &w, &format, &allowWrites),
+		TimeTrackingCommand(apiClient, &w, &format, &allowWrites),
+		ServerInfoCommand(apiClient, &w, &format),
+		JQLCommand(apiClient, &w, &format),
+	)
+
+	MarkWriteProtectedCommands(root)
+
+	for _, cmd := range allCommands(root) {
+		if cmd == root {
+			continue
+		}
+		if got := cmd.Annotations[commandAnnotationCategory]; got == "" {
+			t.Errorf("%q category annotation missing", cmd.CommandPath())
+		}
+	}
 }
 
 func TestAppendQueryParams(t *testing.T) {
@@ -923,6 +1199,330 @@ func TestExtractFieldArray(t *testing.T) {
 		}
 		if !strings.Contains(err.Error(), "missing 'issuelinks' array") {
 			t.Errorf("extractFieldArray() error = %q, want missing issuelinks array", err.Error())
+		}
+	})
+}
+
+func TestTransitionFlagsMutuallyExclusive(t *testing.T) {
+	t.Parallel()
+
+	apiClient := &client.Ref{}
+	var buf strings.Builder
+	format := output.FormatJSON
+	allowWrites := true
+
+	t.Run("rejects both --to and --transition-id", func(t *testing.T) {
+		t.Parallel()
+
+		cmd := issueTransitionCommand(apiClient, &buf, &format, &allowWrites)
+		cmd.SilenceUsage = true
+		cmd.SetArgs([]string{"PROJ-123", "--to", "Done", "--transition-id", "42"})
+
+		err := cmd.Execute()
+		if err == nil {
+			t.Fatal("expected error when both --to and --transition-id are set, got nil")
+		}
+		if !strings.Contains(err.Error(), "if any flags in the group") {
+			t.Errorf("error = %q, want Cobra mutual exclusion error", err.Error())
+		}
+	})
+
+	t.Run("rejects --payload-json with --summary on create", func(t *testing.T) {
+		t.Parallel()
+
+		cmd := issueCreateCommand(apiClient, &buf, &format, &allowWrites)
+		cmd.SilenceUsage = true
+		cmd.SetArgs([]string{"--payload-json", `{"fields":{}}`, "--summary", "test"})
+
+		err := cmd.Execute()
+		if err == nil {
+			t.Fatal("expected error when both --payload-json and --summary are set, got nil")
+		}
+		if !strings.Contains(err.Error(), "if any flags in the group") {
+			t.Errorf("error = %q, want Cobra mutual exclusion error", err.Error())
+		}
+	})
+
+	t.Run("rejects --payload-json with --type on create", func(t *testing.T) {
+		t.Parallel()
+
+		cmd := issueCreateCommand(apiClient, &buf, &format, &allowWrites)
+		cmd.SilenceUsage = true
+		cmd.SetArgs([]string{"--payload-json", `{"fields":{}}`, "--type", "Bug"})
+
+		err := cmd.Execute()
+		if err == nil {
+			t.Fatal("expected error when both --payload-json and --type are set, got nil")
+		}
+		if !strings.Contains(err.Error(), "if any flags in the group") {
+			t.Errorf("error = %q, want Cobra mutual exclusion error", err.Error())
+		}
+	})
+
+	t.Run("rejects --type and --type-id on link add", func(t *testing.T) {
+		t.Parallel()
+
+		cmd := issueLinkAddCommand(apiClient, &buf, &format, &allowWrites)
+		cmd.SilenceUsage = true
+		cmd.SetArgs([]string{
+			"--type", "Blocks", "--type-id", "10001",
+			"--inward", "PROJ-1", "--outward", "PROJ-2",
+		})
+
+		err := cmd.Execute()
+		if err == nil {
+			t.Fatal("expected error when both --type and --type-id are set, got nil")
+		}
+		if !strings.Contains(err.Error(), "if any flags in the group") {
+			t.Errorf("error = %q, want Cobra mutual exclusion error", err.Error())
+		}
+	})
+}
+
+func TestAssignValidation(t *testing.T) {
+	t.Parallel()
+
+	apiClient := &client.Ref{}
+	var buf strings.Builder
+	format := output.FormatJSON
+	allowWrites := true
+
+	cmd := issueAssignCommand(apiClient, &buf, &format, &allowWrites)
+
+	// Assign uses custom positional arg + switch validation, not Cobra flag groups.
+	groups := FlagGroups(cmd)
+	if len(groups) != 0 {
+		t.Errorf("FlagGroups() = %v, want empty (assign uses custom validation)", groups)
+	}
+}
+
+func TestValidFlagCombinations(t *testing.T) {
+	t.Parallel()
+
+	// Verify valid flag combinations pass Cobra's flag group validation.
+	// Each subtest builds a minimal command with the same flags and groups
+	// as the real command, but with a no-op RunE to avoid API calls.
+	tests := []struct {
+		name  string
+		setup func() *cobra.Command
+		args  []string
+	}{
+		{
+			name: "transition with only --to",
+			setup: func() *cobra.Command {
+				cmd := &cobra.Command{Use: "transition", RunE: func(_ *cobra.Command, _ []string) error { return nil }}
+				cmd.Flags().String("to", "", "")
+				cmd.Flags().String("transition-id", "", "")
+				markMutuallyExclusive(cmd, "to", "transition-id")
+				return cmd
+			},
+			args: []string{"--to", "Done"},
+		},
+		{
+			name: "transition with only --transition-id",
+			setup: func() *cobra.Command {
+				cmd := &cobra.Command{Use: "transition", RunE: func(_ *cobra.Command, _ []string) error { return nil }}
+				cmd.Flags().String("to", "", "")
+				cmd.Flags().String("transition-id", "", "")
+				markMutuallyExclusive(cmd, "to", "transition-id")
+				return cmd
+			},
+			args: []string{"--transition-id", "42"},
+		},
+		{
+			name: "transition with neither exclusive flag",
+			setup: func() *cobra.Command {
+				cmd := &cobra.Command{Use: "transition", RunE: func(_ *cobra.Command, _ []string) error { return nil }}
+				cmd.Flags().String("to", "", "")
+				cmd.Flags().String("transition-id", "", "")
+				cmd.Flags().Bool("list", false, "")
+				markMutuallyExclusive(cmd, "to", "transition-id")
+				return cmd
+			},
+			args: []string{"--list"},
+		},
+		{
+			name: "link add with only --type",
+			setup: func() *cobra.Command {
+				cmd := &cobra.Command{Use: "add", RunE: func(_ *cobra.Command, _ []string) error { return nil }}
+				cmd.Flags().String("type", "", "")
+				cmd.Flags().String("type-id", "", "")
+				markMutuallyExclusive(cmd, "type", "type-id")
+				return cmd
+			},
+			args: []string{"--type", "Blocks"},
+		},
+		{
+			name: "link add with only --type-id",
+			setup: func() *cobra.Command {
+				cmd := &cobra.Command{Use: "add", RunE: func(_ *cobra.Command, _ []string) error { return nil }}
+				cmd.Flags().String("type", "", "")
+				cmd.Flags().String("type-id", "", "")
+				markMutuallyExclusive(cmd, "type", "type-id")
+				return cmd
+			},
+			args: []string{"--type-id", "10001"},
+		},
+		{
+			name: "create with individual flags",
+			setup: func() *cobra.Command {
+				cmd := &cobra.Command{Use: "create", RunE: func(_ *cobra.Command, _ []string) error { return nil }}
+				cmd.Flags().String("type", "", "")
+				cmd.Flags().String("summary", "", "")
+				cmd.Flags().String("payload-json", "", "")
+				markMutuallyExclusive(cmd, "payload-json", "type")
+				markMutuallyExclusive(cmd, "payload-json", "summary")
+				return cmd
+			},
+			args: []string{"--type", "Story", "--summary", "Test"},
+		},
+		{
+			name: "create with only --payload-json",
+			setup: func() *cobra.Command {
+				cmd := &cobra.Command{Use: "create", RunE: func(_ *cobra.Command, _ []string) error { return nil }}
+				cmd.Flags().String("type", "", "")
+				cmd.Flags().String("summary", "", "")
+				cmd.Flags().String("payload-json", "", "")
+				markMutuallyExclusive(cmd, "payload-json", "type")
+				markMutuallyExclusive(cmd, "payload-json", "summary")
+				return cmd
+			},
+			args: []string{"--payload-json", `{"fields":{"summary":"test"}}`},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			cmd := tt.setup()
+			cmd.SilenceUsage = true
+			cmd.SetArgs(tt.args)
+			err := cmd.Execute()
+			if err != nil {
+				t.Errorf("valid flag combination rejected: %v", err)
+			}
+		})
+	}
+}
+
+func TestFlagGroupsHelper(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns groups from annotated command", func(t *testing.T) {
+		t.Parallel()
+
+		cmd := &cobra.Command{Use: "test"}
+		cmd.Flags().String("flag-a", "", "")
+		cmd.Flags().String("flag-b", "", "")
+		cmd.Flags().String("flag-c", "", "")
+
+		markMutuallyExclusive(cmd, "flag-a", "flag-b")
+		markMutuallyExclusive(cmd, "flag-a", "flag-c")
+
+		groups := FlagGroups(cmd)
+		if len(groups) != 2 {
+			t.Fatalf("FlagGroups() returned %d groups, want 2", len(groups))
+		}
+		if groups[0].Type != flagGroupTypeMutuallyExclusive {
+			t.Errorf("groups[0].Type = %q, want %q", groups[0].Type, flagGroupTypeMutuallyExclusive)
+		}
+		wantFlags := []string{"flag-a", "flag-b"}
+		if !reflect.DeepEqual(groups[0].Flags, wantFlags) {
+			t.Errorf("groups[0].Flags = %v, want %v", groups[0].Flags, wantFlags)
+		}
+	})
+
+	t.Run("returns nil for command without groups", func(t *testing.T) {
+		t.Parallel()
+
+		cmd := &cobra.Command{Use: "test"}
+		cmd.Flags().String("flag-a", "", "")
+
+		groups := FlagGroups(cmd)
+		if groups != nil {
+			t.Errorf("FlagGroups() = %v, want nil", groups)
+		}
+	})
+
+	t.Run("returns groups from real transition command", func(t *testing.T) {
+		t.Parallel()
+
+		apiClient := &client.Ref{}
+		var buf strings.Builder
+		format := output.FormatJSON
+		allowWrites := true
+
+		cmd := issueTransitionCommand(apiClient, &buf, &format, &allowWrites)
+		groups := FlagGroups(cmd)
+
+		if len(groups) == 0 {
+			t.Fatal("FlagGroups() returned no groups for transition command")
+		}
+		found := false
+		for _, g := range groups {
+			if g.Type == flagGroupTypeMutuallyExclusive &&
+				slices.Contains(g.Flags, "to") &&
+				slices.Contains(g.Flags, "transition-id") {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("FlagGroups() = %v, want group containing [to, transition-id]", groups)
+		}
+	})
+
+	t.Run("returns groups from real create command", func(t *testing.T) {
+		t.Parallel()
+
+		apiClient := &client.Ref{}
+		var buf strings.Builder
+		format := output.FormatJSON
+		allowWrites := true
+
+		cmd := issueCreateCommand(apiClient, &buf, &format, &allowWrites)
+		groups := FlagGroups(cmd)
+
+		// Should have mutually_exclusive groups for payload-json vs each
+		// individual field flag.
+		excludedFlags := []string{
+			"summary", "type", "description", "assignee",
+			"priority", "labels", "components", "parent",
+		}
+		for _, flag := range excludedFlags {
+			found := false
+			for _, g := range groups {
+				if g.Type == flagGroupTypeMutuallyExclusive &&
+					slices.Contains(g.Flags, "payload-json") &&
+					slices.Contains(g.Flags, flag) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Errorf("FlagGroups() missing mutually_exclusive group for [payload-json, %s]", flag)
+			}
+		}
+	})
+
+	t.Run("serializes to stable JSON", func(t *testing.T) {
+		t.Parallel()
+
+		cmd := &cobra.Command{Use: "test"}
+		cmd.Flags().String("flag-x", "", "")
+		cmd.Flags().String("flag-y", "", "")
+
+		markMutuallyExclusive(cmd, "flag-x", "flag-y")
+
+		groups := FlagGroups(cmd)
+		data, err := json.Marshal(groups)
+		if err != nil {
+			t.Fatalf("json.Marshal(FlagGroups) error = %v", err)
+		}
+		want := `[{"type":"mutually_exclusive","flags":["flag-x","flag-y"]}]`
+		if string(data) != want {
+			t.Errorf("JSON = %s, want %s", data, want)
 		}
 	})
 }

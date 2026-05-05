@@ -67,7 +67,7 @@ func worklogUpdatedCommand(apiClient *client.Ref, w io.Writer, format *output.Fo
 			ctx := cmd.Context()
 			params := map[string]string{}
 			addOptionalParams(cmd, params, map[string]string{"since": "since", "expand": "expand"})
-			return writePaginatedAPIResult(w, *format, func(result any) error {
+			return writePaginatedAPIResult(cmd, w, *format, func(result any) error {
 				return apiClient.Get(ctx, "/worklog/updated", params, result)
 			})
 		},
@@ -86,7 +86,7 @@ func worklogDeletedCommand(apiClient *client.Ref, w io.Writer, format *output.Fo
 			ctx := cmd.Context()
 			params := map[string]string{}
 			addOptionalParams(cmd, params, map[string]string{"since": "since"})
-			return writePaginatedAPIResult(w, *format, func(result any) error {
+			return writePaginatedAPIResult(cmd, w, *format, func(result any) error {
 				return apiClient.Get(ctx, "/worklog/deleted", params, result)
 			})
 		},
@@ -143,7 +143,7 @@ func worklogListCommand(apiClient *client.Ref, w io.Writer, format *output.Forma
 				"expand":         "expand",
 			})
 
-			return writePaginatedAPIResult(w, *format, func(result any) error {
+			return writePaginatedAPIResult(cmd, w, *format, func(result any) error {
 				return apiClient.Get(ctx, "/issue/"+key+"/worklog", params, result)
 			})
 		},
